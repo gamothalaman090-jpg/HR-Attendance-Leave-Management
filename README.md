@@ -50,18 +50,6 @@ A modern, comprehensive HR management platform designed to streamline employee a
 - **Build Tool**: Vite
 - **Routing**: React Router
 
-### Backend
-- **Framework**: Express.js
-- **Language**: JavaScript (ES6+)
-- **Database**: MongoDB
-- **Authentication**: JWT (JSON Web Tokens)
-- **Security**: bcrypt.js for password hashing
-- **Validation**: express-validator
-
-### Deployment
-- **Platform**: Render (Frontend & Backend)
-- **Database**: Render MongoDB Atlas
-
 ---
 
 ## 📂 Project Structure
