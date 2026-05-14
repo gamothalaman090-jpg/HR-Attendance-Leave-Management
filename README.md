@@ -91,30 +91,9 @@ HR-Attendance-Leave-Management/
 - npm or yarn
 - MongoDB Atlas account
 
-### 1. Backend Setup
-```bash
-# Navigate to the server directory
-cd server
 
-# Install dependencies
-npm install
 
-# Create .env file from .env.example
-cp .env.example .env
-
-# Update .env with your MongoDB connection string and JWT secret
-# Example .env:
-# MONGODB_URI=your_mongodb_connection_string
-# JWT_SECRET=your_secret_key
-# PORT=5000
-
-# Start the server
-npm start
-```
-
-The backend will start at `http://localhost:5000` (or your configured port).
-
-### 2. Frontend Setup
+### 1. Frontend Setup
 ```bash
 # Navigate to the client-side directory
 cd client-side
@@ -133,61 +112,6 @@ cp .env.example .env
 npm run dev
 ```
 
-The frontend will be available at `http://localhost:5173` (or your configured port).
-
-### 3. Usage
-1. Open [http://localhost:5173](http://localhost:5173) in your browser
-2. Use the following credentials to login:
-   - **Email**: [EMAIL_ADDRESS]`
-   - **Password**: `password`
-3. Explore the dashboard and features
-
----
-
-## 📂 Environment Variables
-
-### Backend (.env)
-```env
-MONGODB_URI=your_mongodb_connection_string
-JWT_SECRET=your_secret_key
-PORT=5000
-```
-
-### Frontend (.env)
-```env
-VITE_API_URL=http://localhost:5000/api
-VITE_APP_NAME=HR Manager
-VITE_VERSION=1.0.0
-```
-
----
-
-## 🌐 Deployment
-
-### Backend Deployment (Render)
-1. Create a new **Web Service** on Render
-2. Connect your backend GitHub repository
-3. Configure build settings:
-   - Build command: `npm install`
-   - Start command: `npm start`
-4. Add environment variables:
-   - `MONGODB_URI`
-   - `JWT_SECRET`
-   - `PORT` (set to `8080` for Render)
-5. Deploy the service
-
-### Frontend Deployment (Render)
-1. Create a new **Web Service** on Render
-2. Connect your frontend GitHub repository
-3. Configure build settings:
-   - Build command: `npm run build`
-   - Start command: `npm run preview`
-4. Add environment variables:
-   - `VITE_API_URL` (point to your backend URL)
-5. Deploy the service
-
----
-
 ## 🤝 Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
@@ -203,15 +127,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## 📞 Support
 
 For issues or questions, please open an issue in the repository.
-
----
-
-## 🙏 Acknowledgments
-
-- Thanks to the React and Node.js communities for the amazing tools
-- Built with Tailwind CSS for rapid UI development
-- GSAP for beautiful animations
-- Render for easy deployment
 
 ---
 
