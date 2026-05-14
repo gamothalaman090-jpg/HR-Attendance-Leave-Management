@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en" class="">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <!-- SEO Meta -->
+    <title>Nini — Smart HR Leave & Attendance Management</title>
+    <meta name="description" content="Nini simplifies leave requests, attendance tracking, and team management for modern businesses. Beautiful, fast, and intuitive HR management." />
+    <meta name="keywords" content="HR management, leave management, attendance tracking, employee management, Nini HR" />
+    <meta name="author" content="Nini" />
+
+    <!-- Open Graph -->
+    <meta property="og:title" content="Nini — Smart HR Leave & Attendance Management" />
+    <meta property="og:description" content="Simplify leave requests, attendance tracking, and team management for modern businesses." />
+    <meta property="og:image" content="/og-image.png" />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://nini-hr.com" />
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Nini — Smart HR Leave & Attendance Management" />
+    <meta name="twitter:description" content="Simplify leave requests, attendance tracking, and team management for modern businesses." />
+    <meta name="twitter:image" content="/og-image.png" />
+
+    <!-- Theme Color -->
+    <meta name="theme-color" content="#4F46E5" />
+
+    <!-- Google Fonts Preconnect -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,200..800;1,200..800&family=Inter:wght@100..900&display=swap" rel="stylesheet" />
+
+    <!-- Prevent FOUC on dark mode -->
+    <script>
+      (function() {
+        const saved = localStorage.getItem('nini-theme');
+        const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        if (saved === 'dark' || (!saved && prefersDark)) {
+          document.documentElement.classList.add('dark');
+        }
+      })();
+    </script>
+  </head>
+  <body class="bg-bg text-text antialiased">
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>
