@@ -118,26 +118,9 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 
 ---
 
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
----
-
 ## 📞 Support
 
 For issues or questions, please open an issue in the repository.
-
----
-
-## 📝 Notes
-
-- Default Admin credentials: [EMAIL_ADDRESS]` / `password`
-- The application uses RESTful API architecture
-- All endpoints are prefixed with `/api`
-- JWT tokens are valid for 24 hours
-- Password reset functionality is implemented
-- Error handling is centralized for consistent responses
 
 ---
 
@@ -146,7 +129,3 @@ For issues or questions, please open an issue in the repository.
 **[Demo Link Coming Soon]**
 
 ---
-
-**Made with ❤️ using React and Node.js**
-
-**Happy Coding!** 🚀
