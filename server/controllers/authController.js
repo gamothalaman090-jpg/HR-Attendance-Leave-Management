@@ -38,6 +38,7 @@ exports.register = async (req, res, next) => {
 
         res.status(201).json({
             success: true,
+            message: 'Registration successful',
             token,
             data: { 
                 id: user._id, 
@@ -70,7 +71,8 @@ const { email, password } = req.body;
     res.status(200).json({
         success: true,
         token,
-        data: { id: user._id, fullname: user.fullname, role: user.role }
+        data: { id: user._id, fullname: user.fullname, role: user.role },
+        message: 'Login successful'
     });
 } catch (error) {
     next(error);
@@ -112,4 +114,15 @@ const user = await User.findOne({ email: req.body.email });
     res.status(500).json({ success: false, message: 'Email could not be sent' });
 }
 
+};
+
+exports.logout = async (req, res, next) => {
+    try {
+        res.status(200).json({ 
+            success: true, 
+            message: 'Logout successful' 
+        });
+    } catch (error) {
+        next(error);
+    }
 };

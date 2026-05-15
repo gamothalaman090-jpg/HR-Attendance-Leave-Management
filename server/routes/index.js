@@ -13,11 +13,12 @@ const router = express.Router();
 
 const authRoutes = require('./authRoutes');
 const superadminRoutes = require('./superadminRoutes');
-// const attendanceRoutes = require('./attendanceRoutes'); // Future use
+const attendanceRoutes = require('./attendanceRoutes');
+
 
 
 router.use('/auth', authRoutes);
 router.use('/superadmin', superadminRoutes);
-// router.use('/attendance', attendanceRoutes);
+router.use('/attendance', attendanceRoutes);
 
 module.exports = router;

@@ -9,6 +9,7 @@
  */
 
 const express = require('express');
+const { protect, authorize } = require('../middlewares/authMiddleware');
 const router = express.Router();
 const {
     createUser,
@@ -18,6 +19,8 @@ const {
     deleteUser
 } = require('../controllers/superadminController');
 
+router.use(protect);
+router.use(authorize('superadmin'));
 
 router.route('/')
     .post(createUser)
