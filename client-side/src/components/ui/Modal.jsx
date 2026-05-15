@@ -81,7 +81,7 @@ export default function Modal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-modal flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-[1200] flex items-center justify-center p-4">
       {/* Backdrop */}
       <div
         ref={overlayRef}
@@ -97,7 +97,7 @@ export default function Modal({
         aria-modal="true"
         aria-labelledby={title ? 'modal-title' : undefined}
         className={cn(
-          'relative w-full bg-surface-elevated border border-border rounded-[20px] shadow-elevated',
+          'relative w-full bg-surface border border-border rounded-[20px] shadow-elevated',
           'max-h-[90vh] flex flex-col',
           SIZE_CLASSES[size],
           className

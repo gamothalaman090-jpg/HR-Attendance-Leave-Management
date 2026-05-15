@@ -122,8 +122,12 @@ export default function LeavePage() {
           <h1 className="font-heading text-h2 font-bold mb-1">Leave Management</h1>
           <p className="text-text-muted text-body">Request, track, and manage team leave.</p>
         </div>
-        <Button onClick={() => setShowRequestModal(true)} className="shrink-0">
-          <Plus size={16} className="mr-1.5" /> Request Leave
+        <Button 
+          onClick={() => setShowRequestModal(true)} 
+          className="shrink-0"
+          leftIcon={<Plus size={16} />}
+        >
+          Request Leave
         </Button>
       </div>
 

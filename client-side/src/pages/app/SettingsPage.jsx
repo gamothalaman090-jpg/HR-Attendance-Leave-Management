@@ -126,8 +126,8 @@ export default function SettingsPage() {
               </div>
 
               <div className="mt-6 flex items-center gap-3">
-                <Button onClick={handleSave}>
-                  <Save size={16} className="mr-1.5" /> {saved ? 'Saved!' : 'Save Changes'}
+                <Button onClick={handleSave} leftIcon={<Save size={16} />}>
+                  {saved ? 'Saved!' : 'Save Changes'}
                 </Button>
               </div>
             </div>
@@ -227,8 +227,8 @@ export default function SettingsPage() {
                   />
                 </div>
                 <div className="pt-2">
-                  <Button onClick={handleSave}>
-                    <Shield size={16} className="mr-1.5" /> Update Password
+                  <Button onClick={handleSave} leftIcon={<Shield size={16} />}>
+                    Update Password
                   </Button>
                 </div>
               </div>

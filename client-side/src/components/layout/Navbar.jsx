@@ -132,7 +132,7 @@ export default function Navbar() {
 
       {/* Mobile Drawer */}
       {mobileOpen && (
-        <div className="fixed inset-0 z-overlay md:hidden">
+        <div className="fixed inset-0 z-[1100] md:hidden">
           {/* Backdrop */}
           <div
             ref={backdropRef}
@@ -143,7 +143,7 @@ export default function Navbar() {
           {/* Drawer Panel */}
           <div
             ref={drawerRef}
-            className="absolute right-0 top-0 h-full w-80 max-w-[85vw] bg-surface-elevated border-l border-border flex flex-col shadow-elevated z-modal"
+            className="absolute right-0 top-0 h-full w-80 max-w-[85vw] bg-surface border-l border-border flex flex-col shadow-elevated z-[1200]"
           >
             {/* Drawer Header */}
             <div className="flex items-center justify-between h-18 px-5 border-b border-border bg-surface">
