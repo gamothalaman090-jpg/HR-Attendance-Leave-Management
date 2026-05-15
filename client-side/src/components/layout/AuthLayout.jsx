@@ -26,10 +26,10 @@ export default function AuthLayout() {
           <Link to="/" className="flex flex-col items-center group transition-all duration-base">
             <div className="relative mb-10">
               {/* Glow effect behind the logo box */}
-              <div className="absolute inset-0 bg-primary/40 rounded-[28px] blur-2xl group-hover:bg-primary/60 transition-colors duration-base" />
+              <div className="absolute inset-0 bg-primary/40 rounded-[24px] blur-2xl group-hover:bg-primary/60 transition-colors duration-base" />
 
               {/* Premium Glass Box for Logo */}
-              <div className="relative bg-white/5 backdrop-blur-2xl border border-white/10 p-8 rounded-[28px] shadow-[0_8px_32px_0_rgba(0,0,0,0.3)] group-hover:-translate-y-2 transition-transform duration-500 ease-out">
+              <div className="relative bg-white/5 backdrop-blur-2xl border border-white/10 p-5 rounded-[24px] shadow-[0_8px_32px_0_rgba(0,0,0,0.3)] group-hover:-translate-y-2 transition-transform duration-500 ease-out">
                 {/* Subtle top glare */}
                 <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent" />
 
