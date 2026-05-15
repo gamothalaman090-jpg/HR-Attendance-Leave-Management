@@ -1,5 +1,6 @@
 import { useRef } from 'react';
 import { Link } from 'react-router-dom';
+import Meta from '@/components/common/Meta';
 import {
   ArrowRight,
   CalendarCheck,
@@ -464,7 +465,7 @@ function CTASection() {
           </div>
 
           <div className="relative z-10">
-            <h2 className="font-heading text-h2 sm:text-h1 font-extrabold mb-4 text-balance">
+            <h2 className="font-heading text-h2 sm:text-h1 font-extrabold mb-4 text-balance text-white">
               Ready to simplify your HR?
             </h2>
             <p className="text-body-lg text-white/80 max-w-xl mx-auto mb-8 text-balance">
@@ -498,6 +499,10 @@ function CTASection() {
 export default function LandingPage() {
   return (
     <>
+      <Meta 
+        title="Smart HR Management" 
+        description="Streamline your HR operations with Nini. Manage leaves, track attendance, and build happier teams effortlessly."
+      />
       <HeroSection />
       <TrustBar />
       <FeaturesSection />

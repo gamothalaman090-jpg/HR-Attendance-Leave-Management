@@ -73,9 +73,9 @@ export default function Navbar() {
           {/* Logo */}
           <Link
             to="/"
-            className="font-heading text-h4 font-extrabold gradient-text shrink-0 hover:opacity-80 transition-opacity"
+            className="flex items-center shrink-0 hover:opacity-90 transition-opacity"
           >
-            {BRAND.name}
+            <img src={BRAND.logo} alt={BRAND.name} className="h-12 w-auto object-contain" />
           </Link>
 
           {/* Desktop Nav Links */}
@@ -143,13 +143,13 @@ export default function Navbar() {
           {/* Drawer Panel */}
           <div
             ref={drawerRef}
-            className="absolute right-0 top-0 h-full w-80 max-w-[85vw] bg-surface border-l border-border flex flex-col"
+            className="absolute right-0 top-0 h-full w-80 max-w-[85vw] bg-surface-elevated border-l border-border flex flex-col shadow-elevated z-modal"
           >
             {/* Drawer Header */}
-            <div className="flex items-center justify-between h-16 px-5 border-b border-border">
-              <span className="font-heading text-h4 font-extrabold gradient-text">
-                {BRAND.name}
-              </span>
+            <div className="flex items-center justify-between h-18 px-5 border-b border-border bg-surface">
+              <div className="flex items-center">
+                <img src={BRAND.logo} alt={BRAND.name} className="h-10 w-auto object-contain" />
+              </div>
               <button
                 onClick={closeDrawer}
                 className="p-2 rounded-[8px] hover:bg-surface-alt text-text-muted cursor-pointer"

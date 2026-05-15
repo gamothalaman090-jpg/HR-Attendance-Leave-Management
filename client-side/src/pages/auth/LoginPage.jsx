@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import Meta from '@/components/common/Meta';
 import { useForm } from 'react-hook-form';
 import { Link, useNavigate } from 'react-router-dom';
 import { Eye, EyeOff, LogIn } from 'lucide-react';
@@ -35,9 +36,9 @@ export default function LoginPage() {
       setError('root', { message: err.message || 'Invalid credentials' });
     }
   };
-
   return (
     <div ref={containerRef}>
+      <Meta title="Login" />
       <div data-anim className="mb-8">
         <h1 className="font-heading text-h2 font-extrabold text-text mb-2">Welcome back</h1>
         <p className="text-body text-text-muted">

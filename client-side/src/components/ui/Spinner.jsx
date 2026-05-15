@@ -84,3 +84,29 @@ export function SkeletonCard() {
     </div>
   );
 }
+
+/**
+ * SkeletonTable — Pre-composed table skeleton.
+ */
+export function SkeletonTable({ rows = 5, cols = 4 }) {
+  return (
+    <div className="w-full bg-surface border border-border rounded-[16px] overflow-hidden">
+      <div className="p-4 border-b border-border bg-surface-alt/30">
+        <div className="flex gap-4">
+          {Array.from({ length: cols }).map((_, i) => (
+            <Skeleton key={i} className="h-4 flex-1" />
+          ))}
+        </div>
+      </div>
+      <div className="p-4 space-y-4">
+        {Array.from({ length: rows }).map((_, i) => (
+          <div key={i} className="flex gap-4">
+            {Array.from({ length: cols }).map((_, j) => (
+              <Skeleton key={j} className="h-4 flex-1" />
+            ))}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}

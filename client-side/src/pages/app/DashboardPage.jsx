@@ -1,22 +1,77 @@
+import { useState, useEffect, useRef } from 'react';
+import Meta from '@/components/common/Meta';
+import { Link } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
-import { Users, CalendarOff, Clock, TrendingUp } from 'lucide-react';
+import {
+  Users, CalendarOff, Clock, TrendingUp, ArrowRight,
+  CalendarDays, UserCircle, ClipboardList, BarChart3,
+} from 'lucide-react';
+import {
+  PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis,
+  CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, Legend,
+} from 'recharts';
+import { Badge } from '@/components/ui';
+import { LEAVE_REQUESTS, MY_LEAVE_BALANCE } from '@/data/leaves';
+import { WEEKLY_ATTENDANCE } from '@/data/attendance';
+import { formatDate } from '@/utils/formatters';
+import { cn } from '@/utils/helpers';
+import gsap from 'gsap';
 
-const STATS = [
-  { label: 'Total Employees', value: '156', change: '+12%', icon: Users, color: 'primary' },
-  { label: 'Pending Leaves', value: '8', change: '-3', icon: CalendarOff, color: 'accent' },
-  { label: 'Present Today', value: '142', change: '91%', icon: Clock, color: 'success' },
-  { label: 'Avg Hours/Week', value: '38.5', change: '+0.5', icon: TrendingUp, color: 'secondary' },
-];
+/* ── Chart colors ── */
+const PIE_COLORS = ['#4F46E5', '#8B5CF6', '#F59E0B', '#10B981', '#3B82F6', '#EF4444'];
+
+const STATUS_MAP = {
+  pending: { label: 'Pending', variant: 'warning' },
+  approved: { label: 'Approved', variant: 'success' },
+  rejected: { label: 'Rejected', variant: 'danger' },
+};
 
 export default function DashboardPage() {
   const { user } = useAuth();
+  const statsRef = useRef(null);
+
+  // Derive stats
+  const pendingCount = LEAVE_REQUESTS.filter((l) => l.status === 'pending').length;
+  const approvedCount = LEAVE_REQUESTS.filter((l) => l.status === 'approved').length;
+
+  const STATS = [
+    { label: 'Total Employees', value: '18', change: '+3 this month', icon: Users, color: 'primary' },
+    { label: 'Pending Requests', value: String(pendingCount), change: `${approvedCount} approved`, icon: CalendarOff, color: 'accent' },
+    { label: 'Present Today', value: '15', change: '83%', icon: Clock, color: 'success' },
+    { label: 'Avg Hours/Week', value: '38.5', change: '+0.5h', icon: TrendingUp, color: 'secondary' },
+  ];
+
+  /* ── Leave balance for pie chart ── */
+  const leaveBalanceData = [
+    { name: 'Annual', value: MY_LEAVE_BALANCE.annual.used, remaining: MY_LEAVE_BALANCE.annual.remaining },
+    { name: 'Sick', value: MY_LEAVE_BALANCE.sick.used, remaining: MY_LEAVE_BALANCE.sick.remaining },
+    { name: 'Personal', value: MY_LEAVE_BALANCE.personal.used, remaining: MY_LEAVE_BALANCE.personal.remaining },
+  ];
+
+  /* ── GSAP stagger ── */
+  useEffect(() => {
+    if (!statsRef.current) return;
+    const cards = statsRef.current.querySelectorAll('[data-stat]');
+    gsap.fromTo(
+      cards,
+      { opacity: 0, y: 20 },
+      { opacity: 1, y: 0, duration: 0.5, stagger: 0.1, ease: 'power3.out', clearProps: 'all' }
+    );
+  }, []);
+
+  const greeting = new Date().getHours() < 12
+    ? 'morning'
+    : new Date().getHours() < 18
+    ? 'afternoon'
+    : 'evening';
 
   return (
     <div>
+      <Meta title="Dashboard" />
       {/* Greeting */}
       <div className="mb-8">
         <h1 className="font-heading text-h2 font-bold mb-1">
-          Good {new Date().getHours() < 12 ? 'morning' : new Date().getHours() < 18 ? 'afternoon' : 'evening'}, {user?.name?.split(' ')[0] || 'there'} 👋
+          Good {greeting}, {user?.name?.split(' ')[0] || 'there'} 👋
         </h1>
         <p className="text-text-muted text-body">
           Here's what's happening with your team today.
@@ -24,17 +79,24 @@ export default function DashboardPage() {
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+      <div ref={statsRef} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         {STATS.map(({ label, value, change, icon: Icon, color }) => (
           <div
             key={label}
+            data-stat
             className="p-5 rounded-[16px] bg-surface border border-border hover:shadow-card-hover transition-all duration-base group cursor-pointer"
           >
             <div className="flex items-center justify-between mb-3">
-              <div className={`w-10 h-10 rounded-[10px] bg-${color}/10 flex items-center justify-center text-${color} group-hover:scale-110 transition-transform`}>
+              <div className={cn(
+                'w-10 h-10 rounded-[10px] flex items-center justify-center group-hover:scale-110 transition-transform',
+                color === 'primary' && 'bg-primary/10 text-primary',
+                color === 'accent' && 'bg-accent/10 text-accent',
+                color === 'success' && 'bg-success/10 text-success',
+                color === 'secondary' && 'bg-secondary/10 text-secondary',
+              )}>
                 <Icon size={20} />
               </div>
-              <span className="text-caption font-medium text-success bg-success/10 px-2 py-0.5 rounded-pill">
+              <span className="text-caption font-medium text-success bg-success/10 px-2 py-0.5 rounded-full">
                 {change}
               </span>
             </div>
@@ -44,31 +106,97 @@ export default function DashboardPage() {
         ))}
       </div>
 
+      {/* Charts Row */}
+      <div className="grid lg:grid-cols-2 gap-6 mb-8">
+        {/* Leave Balance Donut */}
+        <div className="p-6 rounded-[16px] bg-surface border border-border">
+          <h2 className="font-heading text-h4 font-bold mb-4">Leave Balance</h2>
+          <div className="h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={leaveBalanceData}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={60}
+                  outerRadius={90}
+                  dataKey="remaining"
+                  stroke="none"
+                  paddingAngle={4}
+                >
+                  {leaveBalanceData.map((_, index) => (
+                    <Cell key={index} fill={PIE_COLORS[index]} />
+                  ))}
+                </Pie>
+                <RechartsTooltip
+                  contentStyle={{
+                    backgroundColor: 'var(--color-surface)',
+                    border: '1px solid var(--color-border)',
+                    borderRadius: '10px',
+                    color: 'var(--color-text)',
+                  }}
+                  formatter={(value, name) => [`${value} days`, name]}
+                />
+                <Legend
+                  formatter={(value) => <span style={{ color: 'var(--color-text)' }}>{value}</span>}
+                />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        {/* Weekly Attendance Bar Chart */}
+        <div className="p-6 rounded-[16px] bg-surface border border-border">
+          <h2 className="font-heading text-h4 font-bold mb-4">This Week's Hours</h2>
+          <div className="h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={WEEKLY_ATTENDANCE} barCategoryGap="20%">
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
+                <XAxis dataKey="day" tick={{ fill: 'var(--color-text-muted)', fontSize: 12 }} />
+                <YAxis tick={{ fill: 'var(--color-text-muted)', fontSize: 12 }} domain={[0, 12]} />
+                <RechartsTooltip
+                  contentStyle={{
+                    backgroundColor: 'var(--color-surface)',
+                    border: '1px solid var(--color-border)',
+                    borderRadius: '10px',
+                    color: 'var(--color-text)',
+                  }}
+                />
+                <Bar dataKey="hours" fill="#4F46E5" radius={[6, 6, 0, 0]} name="Hours" />
+                <Bar dataKey="target" fill="#E2E8F0" radius={[6, 6, 0, 0]} name="Target" />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      </div>
+
       {/* Recent Activity + Quick Actions */}
       <div className="grid lg:grid-cols-3 gap-6">
         {/* Recent Leave Requests */}
         <div className="lg:col-span-2 p-6 rounded-[16px] bg-surface border border-border">
-          <h2 className="font-heading text-h4 font-bold mb-4">Recent Leave Requests</h2>
-          <div className="space-y-3">
-            {[
-              { name: 'Sarah Chen', type: 'Annual Leave', dates: 'May 20 - May 22', status: 'Pending', statusColor: 'warning' },
-              { name: 'James Kim', type: 'Sick Leave', dates: 'May 18', status: 'Approved', statusColor: 'success' },
-              { name: 'Maria Lopez', type: 'Personal Leave', dates: 'May 25 - May 26', status: 'Pending', statusColor: 'warning' },
-              { name: 'David Park', type: 'Annual Leave', dates: 'Jun 1 - Jun 5', status: 'Approved', statusColor: 'success' },
-            ].map((req, i) => (
-              <div key={i} className="flex items-center justify-between py-3 border-b border-border last:border-0">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="font-heading text-h4 font-bold">Recent Leave Requests</h2>
+            <Link to="/app/leave" className="text-body-sm font-medium text-primary hover:text-primary-light flex items-center gap-1">
+              View All <ArrowRight size={14} />
+            </Link>
+          </div>
+          <div className="space-y-1">
+            {LEAVE_REQUESTS.slice(0, 5).map((req) => (
+              <div key={req.id} className="flex items-center justify-between py-3 border-b border-border last:border-0">
                 <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center text-primary text-body-sm font-bold">
-                    {req.name.charAt(0)}
+                  <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center text-primary text-body-sm font-bold shrink-0">
+                    {req.employeeName.charAt(0)}
                   </div>
-                  <div>
-                    <div className="text-body-sm font-medium text-text">{req.name}</div>
-                    <div className="text-caption text-text-muted">{req.type} · {req.dates}</div>
+                  <div className="min-w-0">
+                    <div className="text-body-sm font-medium text-text truncate">{req.employeeName}</div>
+                    <div className="text-caption text-text-muted">
+                      {req.type.charAt(0).toUpperCase() + req.type.slice(1)} · {formatDate(req.startDate)} — {formatDate(req.endDate)}
+                    </div>
                   </div>
                 </div>
-                <span className={`text-caption font-medium px-2.5 py-1 rounded-pill bg-${req.statusColor}/10 text-${req.statusColor}`}>
-                  {req.status}
-                </span>
+                <Badge variant={STATUS_MAP[req.status]?.variant || 'default'}>
+                  {STATUS_MAP[req.status]?.label || req.status}
+                </Badge>
               </div>
             ))}
           </div>
@@ -79,21 +207,26 @@ export default function DashboardPage() {
           <h2 className="font-heading text-h4 font-bold mb-4">Quick Actions</h2>
           <div className="space-y-3">
             {[
-              { label: 'Apply for Leave', desc: 'Submit a new leave request', href: '/app/leave' },
-              { label: 'Clock In', desc: 'Start your work day', href: '/app/attendance' },
-              { label: 'View Calendar', desc: 'See team availability', href: '/app/calendar' },
-              { label: 'My Profile', desc: 'Update your information', href: '/app/profile' },
-            ].map((action) => (
-              <a
-                key={action.label}
-                href={action.href}
-                className="block p-3 rounded-[10px] border border-border hover:border-primary/30 hover:bg-primary-50 dark:hover:bg-primary/5 transition-all duration-base group"
+              { label: 'Apply for Leave', desc: 'Submit a new leave request', href: '/app/leave', icon: ClipboardList },
+              { label: 'Clock In', desc: 'Start your work day', href: '/app/attendance', icon: Clock },
+              { label: 'View Calendar', desc: 'See team availability', href: '/app/calendar', icon: CalendarDays },
+              { label: 'My Profile', desc: 'Update your information', href: '/app/profile', icon: UserCircle },
+            ].map(({ label, desc, href, icon: Icon }) => (
+              <Link
+                key={label}
+                to={href}
+                className="flex items-center gap-3 p-3 rounded-[10px] border border-border hover:border-primary/30 hover:bg-primary-50 dark:hover:bg-primary/5 transition-all duration-base group"
               >
-                <div className="text-body-sm font-medium text-text group-hover:text-primary transition-colors">
-                  {action.label}
+                <div className="w-9 h-9 rounded-[8px] bg-surface-alt flex items-center justify-center text-text-muted group-hover:text-primary group-hover:bg-primary/10 transition-colors shrink-0">
+                  <Icon size={18} />
                 </div>
-                <div className="text-caption text-text-muted">{action.desc}</div>
-              </a>
+                <div className="min-w-0">
+                  <div className="text-body-sm font-medium text-text group-hover:text-primary transition-colors">
+                    {label}
+                  </div>
+                  <div className="text-caption text-text-muted">{desc}</div>
+                </div>
+              </Link>
             ))}
           </div>
         </div>
