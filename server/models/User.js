@@ -46,11 +46,6 @@ const userSchema = new mongoose.Schema({
     timestamps: true
 });
 
-/**
- * Middleware: Password Encryption
- * Note: Removed 'next' because async functions return a promise 
- * which Mongoose uses to determine completion.
- */
 userSchema.pre('save', async function() {
     if (!this.isModified('password')) {
         return;
@@ -59,10 +54,6 @@ userSchema.pre('save', async function() {
     const salt = await bcrypt.genSalt(10);
     this.password = await bcrypt.hash(this.password, salt);
 });
-
-/**
- * Method: Compare entered password with hashed password in DB
- */
 userSchema.methods.matchPassword = async function(enteredPassword) {
     return await bcrypt.compare(enteredPassword, this.password);
 };
