@@ -1,13 +1,14 @@
 /**
- * Name: attendanceController.js
- * Purpose: Handles attendance logic, including clocking in and out.
- * Dependencies: Attendance Model
+ * Name: userController.js
+ * Purpose: Handles user-related logic, including attendance management.
+ * Dependencies: Attendance Model, Announcement Model
  * Author: Ian
- * Location: server/controllers/attendanceController.js
+ * Location: server/controllers/userController.js
  * Created: 2026-05-15
- * Last Updated: 2026-05-15
+ * Last Updated: 2026-05-16
  */
 const Attendance = require('../models/Attendance');
+const Announcement = require('../models/Announcement');
 
 // Clock-In (Time In)
 exports.clockIn = async (req, res) => {
@@ -75,5 +76,25 @@ exports.getAttendanceHistory = async (req, res) => {
         });
     } catch (err) {
         res.status(500).json({ success: false, message: err.message });
+    }
+};
+
+exports.getAnnouncements = async (req, res) => {
+    try {
+        const announcements = await Announcement.find()
+            .populate('author', 'name') 
+            .sort({ createdAt: -1 });
+
+        return res.status(200).json({
+            success: true,
+            count: announcements.length,
+            data: announcements
+        });
+    } catch (error) {
+        console.error('Error fetching announcements for feed:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Server error while fetching announcement feed'
+        });
     }
 };
