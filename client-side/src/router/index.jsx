@@ -38,6 +38,7 @@ const EmployeesPage = lazy(() => import('@/pages/app/EmployeesPage'));
 const CalendarPage = lazy(() => import('@/pages/app/CalendarPage'));
 const SettingsPage = lazy(() => import('@/pages/app/SettingsPage'));
 const ProfilePage = lazy(() => import('@/pages/app/ProfilePage'));
+const ReportsPage = lazy(() => import('@/pages/app/ReportsPage'));
 
 /**
  * Application Router
@@ -162,6 +163,14 @@ const router = createBrowserRouter([
             element: (
               <Suspense fallback={<PageLoader />}>
                 <CalendarPage />
+              </Suspense>
+            ),
+          },
+          {
+            path: '/app/reports',
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <ReportsPage />
               </Suspense>
             ),
           },

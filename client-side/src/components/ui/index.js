@@ -19,3 +19,4 @@ export { default as Tooltip } from './Tooltip';
 export { default as ThemeToggle } from './ThemeToggle';
 export { default as Spinner, PageSpinner, Skeleton, SkeletonCard, SkeletonTable } from './Spinner';
 export { default as ToastContainer } from './Toast';
+export { default as ExportButton } from './ExportButton';

@@ -110,6 +110,38 @@ export const formRules = {
 };
 
 /**
+ * Check whether two date ranges overlap.
+ * Ranges: [start1, end1] and [start2, end2] (ISO date strings or Date objects).
+ * Returns true if they share at least one day.
+ *
+ * @param {string|Date} start1
+ * @param {string|Date} end1
+ * @param {string|Date} start2
+ * @param {string|Date} end2
+ * @returns {boolean}
+ */
+export function isDateRangeOverlapping(start1, end1, start2, end2) {
+  const s1 = new Date(start1);
+  const e1 = new Date(end1);
+  const s2 = new Date(start2);
+  const e2 = new Date(end2);
+  // Overlap: A starts before B ends AND A ends after B starts
+  return s1 <= e2 && e1 >= s2;
+}
+
+/**
+ * Guard: end date must not be before start date.
+ *
+ * @param {string|Date} startDate
+ * @param {string|Date} endDate
+ * @returns {boolean} true if valid (end >= start)
+ */
+export function isEndDateAfterStart(startDate, endDate) {
+  if (!startDate || !endDate) return true; // Defer to required rules
+  return new Date(endDate) >= new Date(startDate);
+}
+
+/**
  * Sanitize user input to prevent XSS.
  * Strips HTML tags and trims whitespace.
  * @param {string} input
