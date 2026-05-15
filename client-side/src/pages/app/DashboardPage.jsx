@@ -111,7 +111,7 @@ export default function DashboardPage() {
         {/* Leave Balance Donut */}
         <div className="p-6 rounded-[16px] bg-surface border border-border">
           <h2 className="font-heading text-h4 font-bold mb-4">Leave Balance</h2>
-          <div className="h-64">
+      <div className="h-64" aria-label="Donut chart showing leave balance by type">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
@@ -148,7 +148,7 @@ export default function DashboardPage() {
         {/* Weekly Attendance Bar Chart */}
         <div className="p-6 rounded-[16px] bg-surface border border-border">
           <h2 className="font-heading text-h4 font-bold mb-4">This Week's Hours</h2>
-          <div className="h-64">
+      <div className="h-64" aria-label="Bar chart showing daily hours worked vs target">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={WEEKLY_ATTENDANCE} barCategoryGap="20%">
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />

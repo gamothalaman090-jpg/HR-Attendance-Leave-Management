@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import Meta from '@/components/common/Meta';
 import { Search, LayoutGrid, List, Users, Mail, Phone, Building } from 'lucide-react';
 import { Badge, SkeletonCard } from '@/components/ui';
+import EmployeeDetailModal from '@/components/ui/EmployeeDetailModal';
 import { employeeService } from '@/services/employeeService';
 import { cn } from '@/utils/helpers';
 import { getInitials, formatDate } from '@/utils/formatters';
@@ -19,6 +20,8 @@ export default function EmployeesPage() {
   const [search, setSearch] = useState('');
   const [deptFilter, setDeptFilter] = useState('all');
   const [view, setView] = useState('grid'); // 'grid' | 'list'
+  const [selectedEmployee, setSelectedEmployee] = useState(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -32,6 +35,11 @@ export default function EmployeesPage() {
       setLoading(false);
     })();
   }, []);
+
+  const handleOpenModal = (emp) => {
+    setSelectedEmployee(emp);
+    setIsModalOpen(true);
+  };
 
   /* ── Filter ── */
   const filtered = employees.filter((e) => {
@@ -152,6 +160,7 @@ export default function EmployeesPage() {
           {filtered.map((emp) => (
             <div
               key={emp.id}
+              onClick={() => handleOpenModal(emp)}
               className="p-5 rounded-[16px] bg-surface border border-border hover:shadow-card-hover hover:border-primary/20 transition-all duration-base group cursor-pointer"
             >
               <div className="flex items-start justify-between mb-4">
@@ -193,7 +202,11 @@ export default function EmployeesPage() {
               </thead>
               <tbody>
                 {filtered.map((emp) => (
-                  <tr key={emp.id} className="border-b border-border last:border-0 hover:bg-surface-alt/50 transition-colors cursor-pointer">
+                  <tr 
+                    key={emp.id} 
+                    onClick={() => handleOpenModal(emp)}
+                    className="border-b border-border last:border-0 hover:bg-surface-alt/50 transition-colors cursor-pointer"
+                  >
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-3">
                         <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary text-body-sm font-bold shrink-0">
@@ -217,6 +230,13 @@ export default function EmployeesPage() {
           </div>
         </div>
       )}
+
+      {/* Detail Modal */}
+      <EmployeeDetailModal 
+        employee={selectedEmployee}
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+      />
     </div>
   );
 }

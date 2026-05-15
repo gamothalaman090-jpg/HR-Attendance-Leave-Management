@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
+import { Outlet, NavLink, useNavigate, useLocation, Link } from 'react-router-dom';
 import PageTransition from '@/components/common/PageTransition';
 import {
   LayoutDashboard,
@@ -12,13 +12,17 @@ import {
   Menu,
   X,
   ChevronLeft,
-  Bell,
   User,
+  BarChart3,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useTheme } from '@/hooks/useTheme';
 import { cn } from '@/utils/helpers';
 import { BRAND } from '@/utils/constants';
+import NotificationCenter from '@/components/layout/NotificationCenter';
+import CommandPalette from '@/components/ui/CommandPalette';
+import Breadcrumbs from '@/components/ui/Breadcrumbs';
+import Schema from '@/components/common/Schema';
 
 const SIDEBAR_ITEMS = [
   { label: 'Dashboard', href: '/app', icon: LayoutDashboard },
@@ -26,6 +30,7 @@ const SIDEBAR_ITEMS = [
   { label: 'Attendance', href: '/app/attendance', icon: Clock },
   { label: 'Employees', href: '/app/employees', icon: Users },
   { label: 'Calendar', href: '/app/calendar', icon: Calendar },
+  { label: 'Reports', href: '/app/reports', icon: BarChart3 },
   { label: 'Settings', href: '/app/settings', icon: Settings },
 ];
 
@@ -52,6 +57,7 @@ export default function DashboardLayout() {
 
   return (
     <div className="min-h-screen flex bg-bg transition-colors duration-base">
+      <Schema />
       {/* ── Desktop Sidebar ── */}
       <aside
         className={cn(
@@ -192,9 +198,15 @@ export default function DashboardLayout() {
             <div className="relative">
               <input
                 type="text"
-                placeholder="Search..."
-                className="w-full pl-4 pr-4 py-2 bg-surface-alt border border-border rounded-[8px] text-body-sm text-text placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all"
+                placeholder="Search... (Ctrl+K)"
+                readOnly
+                onClick={() => document.dispatchEvent(new KeyboardEvent('keydown', { ctrlKey: true, key: 'k' }))}
+                className="w-full pl-4 pr-4 py-2 bg-surface-alt border border-border rounded-[8px] text-body-sm text-text placeholder:text-text-muted hover:bg-surface-alt/80 cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all"
               />
+              <div className="absolute right-3 top-1/2 -translate-y-1/2 flex gap-1">
+                <kbd className="px-1.5 py-0.5 bg-surface rounded-[4px] border border-border text-[10px] font-medium text-text-muted uppercase">Ctrl</kbd>
+                <kbd className="px-1.5 py-0.5 bg-surface rounded-[4px] border border-border text-[10px] font-medium text-text-muted uppercase">K</kbd>
+              </div>
             </div>
           </div>
 
@@ -218,30 +230,35 @@ export default function DashboardLayout() {
             </button>
 
             {/* Notifications */}
-            <button className="relative p-2 rounded-[8px] hover:bg-surface-alt text-text-muted hover:text-text transition-colors cursor-pointer" aria-label="Notifications">
-              <Bell size={20} />
-              <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-danger rounded-full" />
-            </button>
+            <NotificationCenter />
 
             {/* User avatar */}
-            <button className="flex items-center gap-2 p-1.5 rounded-[10px] hover:bg-surface-alt transition-colors cursor-pointer" aria-label="Profile">
+            <Link 
+              to="/app/profile"
+              className="flex items-center gap-2 p-1.5 rounded-[10px] hover:bg-surface-alt transition-colors cursor-pointer" 
+              aria-label="Profile"
+            >
               <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-white text-body-sm font-bold">
                 {user?.name?.charAt(0) || <User size={16} />}
               </div>
               <span className="hidden sm:block text-body-sm font-medium text-text">
                 {user?.name || 'User'}
               </span>
-            </button>
+            </Link>
           </div>
         </header>
 
         {/* Page content */}
         <main className="flex-1 p-4 sm:p-6">
+          <Breadcrumbs />
           <PageTransition>
             <Outlet />
           </PageTransition>
         </main>
       </div>
+
+      {/* Global Command Palette */}
+      <CommandPalette />
     </div>
   );
 }

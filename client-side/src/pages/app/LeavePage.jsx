@@ -3,13 +3,14 @@ import Meta from '@/components/common/Meta';
 import { useForm } from 'react-hook-form';
 import {
   CalendarOff, Plus, Filter, Search,
-  Calendar, CheckCircle2, XCircle, Clock,
+  Calendar, CheckCircle2, XCircle, Clock, AlertTriangle,
 } from 'lucide-react';
 import { Badge, Modal, Button, Input, Select, Textarea, SkeletonTable } from '@/components/ui';
 import { LEAVE_TYPES, LEAVE_STATUS } from '@/utils/constants';
 import { leaveService } from '@/services/leaveService';
 import { formatDate } from '@/utils/formatters';
 import { cn } from '@/utils/helpers';
+import { isEndDateAfterStart } from '@/utils/validators';
 
 const TAB_ITEMS = [
   { id: 'my', label: 'My Leaves' },
@@ -39,8 +40,9 @@ export default function LeavePage() {
   const [search, setSearch] = useState('');
   const [showRequestModal, setShowRequestModal] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [overlapError, setOverlapError] = useState(null);
 
-  const { register, handleSubmit, reset, formState: { errors } } = useForm();
+  const { register, handleSubmit, reset, watch, formState: { errors } } = useForm();
 
   /* ── Fetch data ── */
   const loadData = useCallback(async () => {
@@ -72,6 +74,7 @@ export default function LeavePage() {
   /* ── Submit new request ── */
   const onSubmit = async (data) => {
     setSubmitting(true);
+    setOverlapError(null);
     try {
       const startDate = data.startDate;
       const endDate = data.endDate || data.startDate;
@@ -92,10 +95,18 @@ export default function LeavePage() {
       setShowRequestModal(false);
       reset();
       loadData();
+    } catch (err) {
+      // Surface overlap conflicts as a visible banner in the modal
+      if (err.code === 'LEAVE_OVERLAP') {
+        setOverlapError(err.message);
+      } else {
+        setOverlapError('An unexpected error occurred. Please try again.');
+      }
     } finally {
       setSubmitting(false);
     }
   };
+
 
   /* ── Approve/Reject ── */
   const handleAction = async (leaveId, action) => {
@@ -293,12 +304,12 @@ export default function LeavePage() {
       {/* Leave Request Modal */}
       <Modal
         isOpen={showRequestModal}
-        onClose={() => { setShowRequestModal(false); reset(); }}
+        onClose={() => { setShowRequestModal(false); reset(); setOverlapError(null); }}
         title="Request Leave"
         size="lg"
         footer={
           <>
-            <Button variant="secondary" onClick={() => { setShowRequestModal(false); reset(); }}>
+            <Button variant="secondary" onClick={() => { setShowRequestModal(false); reset(); setOverlapError(null); }}>
               Cancel
             </Button>
             <Button onClick={handleSubmit(onSubmit)} loading={submitting}>
@@ -308,6 +319,13 @@ export default function LeavePage() {
         }
       >
         <form className="space-y-4" onSubmit={(e) => e.preventDefault()}>
+          {/* Overlap / server error banner */}
+          {overlapError && (
+            <div className="flex items-start gap-3 p-3 rounded-[10px] bg-danger/10 border border-danger/20">
+              <AlertTriangle size={18} className="text-danger shrink-0 mt-0.5" />
+              <p className="text-body-sm text-danger">{overlapError}</p>
+            </div>
+          )}
           <div>
             <label className="block text-body-sm font-medium text-text mb-1">Leave Type</label>
             <select
@@ -336,7 +354,14 @@ export default function LeavePage() {
               <label className="block text-body-sm font-medium text-text mb-1">End Date</label>
               <input
                 type="date"
-                {...register('endDate', { required: 'End date is required' })}
+                {...register('endDate', {
+                  required: 'End date is required',
+                  validate: (endDate) => {
+                    const startDate = watch('startDate');
+                    return isEndDateAfterStart(startDate, endDate) ||
+                      'End date must be on or after the start date';
+                  },
+                })}
                 className="w-full px-3 py-2.5 bg-bg border border-border rounded-[8px] text-body text-text focus:ring-2 focus:ring-primary/30 focus:border-primary outline-none transition-all"
               />
               {errors.endDate && <p className="text-caption text-danger mt-1">{errors.endDate.message}</p>}
