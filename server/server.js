@@ -1,0 +1,71 @@
+/**
+ * Name: server.js
+ * Purpose: Initializes the Express app and sets up middleware and routes.
+ * Dependencies: express, dotenv, cors, morgan, connectDB, routes
+ * Author: Ian
+ * Location: server/server.js
+ * Created: 2026-05-15
+ * Last Updated: 2026-05-15
+ */
+
+const express = require('express');
+const dotenv = require('dotenv');
+dotenv.config();
+const cors = require('cors');
+const morgan = require('morgan');
+const connectDB = require('./config/db');
+const routes = require('./routes/index');
+
+
+
+// Connect to Database
+connectDB();
+
+const app = express();
+
+// --- MIDDLEWARE ---
+app.use(cors()); 
+app.use(express.json()); 
+app.use(express.urlencoded({ extended: true })); 
+
+if (process.env.NODE_ENV === 'development') {
+  app.use(morgan('dev'));
+}
+
+// --- HEALTH CHECK ---
+app.get('/health', (req, res) => {
+  res.status(200).json({
+    status: 'active',
+    service: 'HR-Attendance-Leave-Management-API',
+    time: new Date().toLocaleString(),
+    uptime: `${Math.floor(process.uptime())}s`
+  });
+});
+
+// --- API ROUTES ---
+app.use('/api', routes);
+
+// --- ERROR HANDLING ---
+app.use((req, res, next) => {
+  res.status(404).json({ message: `Route not found - ${req.originalUrl}` });
+});
+
+// Global Error Handler
+app.use((err, req, res, next) => {
+  const statusCode = err.statusCode || 500;
+  res.status(statusCode).json({
+    success: false,
+    message: err.message || 'Server Error',
+    stack: process.env.NODE_ENV === 'production' ? null : err.stack,
+  });
+});
+
+const PORT = process.env.PORT || 5000;
+const server = app.listen(PORT, () => {
+  console.log(`Server running in ${process.env.NODE_ENV || 'development'} mode on port ${PORT}`);
+});
+
+process.on('unhandledRejection', (err, promise) => {
+  console.log(`Error: ${err.message}`);
+  server.close(() => process.exit(1));
+});
