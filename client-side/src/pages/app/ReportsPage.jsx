@@ -181,10 +181,14 @@ export default function ReportsPage() {
         </div>
 
         {/* Tabs */}
-        <div className="flex gap-1 p-1 bg-surface-alt rounded-[12px] w-fit">
+        <div className="flex gap-1 p-1 bg-surface-alt rounded-[12px] w-fit" role="tablist" aria-label="Report types">
           {TABS.map((tab) => (
             <button
               key={tab}
+              role="tab"
+              aria-selected={activeTab === tab}
+              aria-controls={`${tab}-panel`}
+              id={`${tab}-tab`}
               onClick={() => setActiveTab(tab)}
               className={cn(
                 'px-5 py-2 rounded-[10px] text-body-sm font-semibold transition-all duration-base cursor-pointer capitalize',
@@ -200,7 +204,7 @@ export default function ReportsPage() {
 
         {/* ── ATTENDANCE TAB ── */}
         {activeTab === 'attendance' && (
-          <div className="space-y-6">
+          <div className="space-y-6" role="tabpanel" id="attendance-panel" aria-labelledby="attendance-tab">
             {/* Stat cards */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
               <StatCard icon={CheckCircle2} label="Present" value={attStats.present} color="bg-success/10 text-success" sub="days this month" />
@@ -274,7 +278,7 @@ export default function ReportsPage() {
 
         {/* ── LEAVE TAB ── */}
         {activeTab === 'leave' && (
-          <div className="space-y-6">
+          <div className="space-y-6" role="tabpanel" id="leave-panel" aria-labelledby="leave-tab">
             {/* Stat cards */}
             <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
               <StatCard icon={CheckCircle2} label="Approved" value={leaveStats.approved} color="bg-success/10 text-success" sub="requests" />

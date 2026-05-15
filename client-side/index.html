@@ -40,7 +40,7 @@
       (function() {
         const saved = localStorage.getItem('nini-theme');
         const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-        if (saved === 'dark' || (!saved && prefersDark)) {
+        if (saved === 'dark' || (saved === 'system' && prefersDark) || (!saved && prefersDark)) {
           document.documentElement.classList.add('dark');
         }
       })();

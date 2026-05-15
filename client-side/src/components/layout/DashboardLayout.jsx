@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
+import { Outlet, NavLink, useNavigate, useLocation, Link } from 'react-router-dom';
 import PageTransition from '@/components/common/PageTransition';
 import {
   LayoutDashboard,
@@ -22,6 +22,7 @@ import { BRAND } from '@/utils/constants';
 import NotificationCenter from '@/components/layout/NotificationCenter';
 import CommandPalette from '@/components/ui/CommandPalette';
 import Breadcrumbs from '@/components/ui/Breadcrumbs';
+import Schema from '@/components/common/Schema';
 
 const SIDEBAR_ITEMS = [
   { label: 'Dashboard', href: '/app', icon: LayoutDashboard },
@@ -56,6 +57,7 @@ export default function DashboardLayout() {
 
   return (
     <div className="min-h-screen flex bg-bg transition-colors duration-base">
+      <Schema />
       {/* ── Desktop Sidebar ── */}
       <aside
         className={cn(
@@ -231,14 +233,18 @@ export default function DashboardLayout() {
             <NotificationCenter />
 
             {/* User avatar */}
-            <button className="flex items-center gap-2 p-1.5 rounded-[10px] hover:bg-surface-alt transition-colors cursor-pointer" aria-label="Profile">
+            <Link 
+              to="/app/profile"
+              className="flex items-center gap-2 p-1.5 rounded-[10px] hover:bg-surface-alt transition-colors cursor-pointer" 
+              aria-label="Profile"
+            >
               <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-white text-body-sm font-bold">
                 {user?.name?.charAt(0) || <User size={16} />}
               </div>
               <span className="hidden sm:block text-body-sm font-medium text-text">
                 {user?.name || 'User'}
               </span>
-            </button>
+            </Link>
           </div>
         </header>
 
