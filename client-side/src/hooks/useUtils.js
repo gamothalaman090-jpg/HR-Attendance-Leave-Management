@@ -74,6 +74,11 @@ export function useDebounce(value, delay = 300) {
 /**
  * useLocalStorage — Persistent state hook with localStorage.
  * 
+ * SECURITY WARNING: 
+ * Do NOT use this hook for storing sensitive information such as 
+ * authentication tokens, JWTs, or PII. Use HttpOnly cookies instead 
+ * to prevent Cross-Site Scripting (XSS) attacks.
+ * 
  * @param {string} key - Storage key
  * @param {*} initialValue - Default value
  * @returns {[*, Function]}

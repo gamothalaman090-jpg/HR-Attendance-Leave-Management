@@ -1,9 +1,18 @@
 import { useState } from 'react';
+import Meta from '@/components/common/Meta';
 import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
 import { Link, useNavigate } from 'react-router-dom';
 import { Eye, EyeOff, LogIn } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useGsap } from '@/hooks/useGsap';
+
+// Define strict validation schema using Zod
+const loginSchema = z.object({
+  email: z.string().min(1, 'Email is required').email('Invalid email address'),
+  password: z.string().min(6, 'Password must be at least 6 characters'),
+});
 
 export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
@@ -25,19 +34,22 @@ export default function LoginPage() {
     handleSubmit,
     formState: { errors, isSubmitting },
     setError,
-  } = useForm();
+  } = useForm({
+    resolver: zodResolver(loginSchema),
+  });
 
   const onSubmit = async (data) => {
     try {
       await login(data.email, data.password);
       navigate('/app');
     } catch (err) {
-      setError('root', { message: err.message || 'Invalid credentials' });
+      // Use generic error messages to prevent sensitive data leakage
+      setError('root', { message: err.message || 'An error occurred during sign in. Please try again.' });
     }
   };
-
   return (
     <div ref={containerRef}>
+      <Meta title="Login" />
       <div data-anim className="mb-8">
         <h1 className="font-heading text-h2 font-extrabold text-text mb-2">Welcome back</h1>
         <p className="text-body text-text-muted">
@@ -61,10 +73,7 @@ export default function LoginPage() {
             type="email"
             autoComplete="email"
             autoFocus
-            {...register('email', {
-              required: 'Email is required',
-              pattern: { value: /^[^\s@]+@[^\s@]+\.[^\s@]+$/, message: 'Invalid email address' },
-            })}
+            {...register('email')}
             className="w-full px-4 py-3 bg-surface border border-border rounded-[8px] text-body text-text placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all"
             placeholder="you@company.com"
           />
@@ -85,7 +94,7 @@ export default function LoginPage() {
               id="login-password"
               type={showPassword ? 'text' : 'password'}
               autoComplete="current-password"
-              {...register('password', { required: 'Password is required' })}
+              {...register('password')}
               className="w-full px-4 py-3 pr-11 bg-surface border border-border rounded-[8px] text-body text-text placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all"
               placeholder="Enter your password"
             />

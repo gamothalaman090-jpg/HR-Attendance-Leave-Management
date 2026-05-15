@@ -1,5 +1,6 @@
-import { useState } from 'react';
-import { Outlet, NavLink, useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
+import PageTransition from '@/components/common/PageTransition';
 import {
   LayoutDashboard,
   CalendarOff,
@@ -17,6 +18,7 @@ import {
 import { useAuth } from '@/context/AuthContext';
 import { useTheme } from '@/hooks/useTheme';
 import { cn } from '@/utils/helpers';
+import { BRAND } from '@/utils/constants';
 
 const SIDEBAR_ITEMS = [
   { label: 'Dashboard', href: '/app', icon: LayoutDashboard },
@@ -42,6 +44,12 @@ export default function DashboardLayout() {
     navigate('/');
   };
 
+  // Close mobile menu on route change
+  const location = useLocation();
+  useEffect(() => {
+    setMobileMenuOpen(false);
+  }, [location.pathname]);
+
   return (
     <div className="min-h-screen flex bg-bg transition-colors duration-base">
       {/* ── Desktop Sidebar ── */}
@@ -53,11 +61,16 @@ export default function DashboardLayout() {
       >
         {/* Logo */}
         <div className="flex items-center justify-between h-16 px-4 border-b border-border">
-          {sidebarOpen && (
-            <span className="font-heading text-h4 font-extrabold gradient-text">
-              Nini
-            </span>
-          )}
+          <div className="flex items-center">
+            <img 
+              src={BRAND.logo} 
+              alt={BRAND.name} 
+              className={cn(
+                "object-contain transition-all duration-base",
+                sidebarOpen ? "h-10 w-auto" : "h-8 w-auto"
+              )} 
+            />
+          </div>
           <button
             onClick={() => setSidebarOpen(!sidebarOpen)}
             className="p-2 rounded-[8px] hover:bg-surface-alt transition-colors text-text-muted hover:text-text"
@@ -107,16 +120,18 @@ export default function DashboardLayout() {
 
       {/* ── Mobile Sidebar Overlay ── */}
       {mobileMenuOpen && (
-        <div className="lg:hidden fixed inset-0 z-overlay">
+        <div className="lg:hidden fixed inset-0 z-[1500]">
           {/* Backdrop */}
           <div
-            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200"
             onClick={() => setMobileMenuOpen(false)}
           />
           {/* Drawer */}
-          <aside className="absolute left-0 top-0 h-full w-72 bg-surface border-r border-border flex flex-col">
+          <aside className="absolute left-0 top-0 h-full w-72 bg-surface border-r border-border flex flex-col shadow-elevated animate-in slide-in-from-left duration-300 ease-out">
             <div className="flex items-center justify-between h-16 px-4 border-b border-border">
-              <span className="font-heading text-h4 font-extrabold gradient-text">Nini</span>
+              <div className="flex items-center">
+                <img src={BRAND.logo} alt={BRAND.name} className="h-10 w-auto object-contain" />
+              </div>
               <button
                 onClick={() => setMobileMenuOpen(false)}
                 className="p-2 rounded-[8px] hover:bg-surface-alt text-text-muted"
@@ -222,7 +237,9 @@ export default function DashboardLayout() {
 
         {/* Page content */}
         <main className="flex-1 p-4 sm:p-6">
-          <Outlet />
+          <PageTransition>
+            <Outlet />
+          </PageTransition>
         </main>
       </div>
     </div>

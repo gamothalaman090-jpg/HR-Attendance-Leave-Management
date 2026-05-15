@@ -80,8 +80,8 @@ export default function Footer() {
         <div className="grid grid-cols-2 md:grid-cols-5 gap-8">
           {/* Brand Column */}
           <div className="col-span-2 md:col-span-1">
-            <Link to="/" className="font-heading text-h4 font-extrabold gradient-text">
-              {BRAND.name}
+            <Link to="/" className="flex items-center mb-4 shrink-0 hover:opacity-80 transition-opacity">
+              <img src={BRAND.logo} alt={BRAND.name} className="w-16 h-16 object-contain" />
             </Link>
             <p className="text-body-sm text-text-muted mt-3 leading-relaxed">
               {BRAND.description}

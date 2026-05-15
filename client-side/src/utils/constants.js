@@ -1,3 +1,5 @@
+import logo from '@/assets/nini_logo.png';
+
 /**
  * Application Constants
  * 
@@ -7,6 +9,7 @@
 /* ── Brand ── */
 export const BRAND = {
   name: 'Nini',
+  logo: logo,
   tagline: 'Smart HR, Happy Teams',
   description: 'Simplify leave requests, attendance tracking, and team management for modern businesses.',
   url: 'https://nini-hr.com',

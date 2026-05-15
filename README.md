@@ -112,18 +112,6 @@ cp .env.example .env
 npm run dev
 ```
 
-## 🤝 Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
-
----
-
-## 📞 Support
-
-For issues or questions, please open an issue in the repository.
-
----
-
 ## 📱 Live Demo
 
 **[Demo Link Coming Soon]**
