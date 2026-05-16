@@ -26,9 +26,26 @@ const STATUS_MAP = {
   rejected: { label: 'Rejected', variant: 'danger' },
 };
 
+export function StatCardSkeleton() {
+  return (
+    <div className="p-5 rounded-[16px] bg-surface border border-border animate-pulse">
+      <div className="w-10 h-10 rounded-[10px] bg-surface-alt mb-3"></div>
+      <div className="w-24 h-8 bg-surface-alt rounded mb-2"></div>
+      <div className="w-16 h-4 bg-surface-alt rounded"></div>
+    </div>
+  );
+}
+
 export default function DashboardPage() {
   const { user } = useAuth();
   const statsRef = useRef(null);
+  const [loading, setLoading] = useState(true);
+
+  // Simulate data loading for skeleton demonstration
+  useEffect(() => {
+    const timer = setTimeout(() => setLoading(false), 800);
+    return () => clearTimeout(timer);
+  }, []);
 
   // Derive stats
   const pendingCount = LEAVE_REQUESTS.filter((l) => l.status === 'pending').length;
@@ -55,14 +72,14 @@ export default function DashboardPage() {
 
   /* ── GSAP stagger ── */
   useEffect(() => {
-    if (!statsRef.current) return;
+    if (!statsRef.current || loading) return;
     const cards = statsRef.current.querySelectorAll('[data-stat]');
     gsap.fromTo(
       cards,
       { opacity: 0, y: 20 },
       { opacity: 1, y: 0, duration: 0.5, stagger: 0.1, ease: 'power3.out', clearProps: 'all' }
     );
-  }, []);
+  }, [loading]);
 
   const greeting = new Date().getHours() < 12
     ? 'morning'
@@ -85,30 +102,36 @@ export default function DashboardPage() {
 
       {/* Stats Grid */}
       <div ref={statsRef} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        {STATS.map(({ label, value, change, icon: Icon, color }) => (
-          <div
-            key={label}
-            data-stat
-            className="p-5 rounded-[16px] bg-surface border border-border hover:shadow-card-hover transition-all duration-base group cursor-pointer"
-          >
-            <div className="flex items-center justify-between mb-3">
-              <div className={cn(
-                'w-10 h-10 rounded-[10px] flex items-center justify-center group-hover:scale-110 transition-transform',
-                color === 'primary' && 'bg-primary/10 text-primary',
-                color === 'accent' && 'bg-accent/10 text-accent',
-                color === 'success' && 'bg-success/10 text-success',
-                color === 'secondary' && 'bg-secondary/10 text-secondary',
-              )}>
-                <Icon size={20} />
+        {loading ? (
+          Array.from({ length: isHR ? 4 : 2 }).map((_, i) => (
+            <StatCardSkeleton key={i} />
+          ))
+        ) : (
+          STATS.map(({ label, value, change, icon: Icon, color }) => (
+            <div
+              key={label}
+              data-stat
+              className="p-5 rounded-[16px] bg-surface border border-border hover:shadow-card-hover transition-all duration-base group cursor-pointer"
+            >
+              <div className="flex items-center justify-between mb-3">
+                <div className={cn(
+                  'w-10 h-10 rounded-[10px] flex items-center justify-center group-hover:scale-110 transition-transform',
+                  color === 'primary' && 'bg-primary/10 text-primary',
+                  color === 'accent' && 'bg-accent/10 text-accent',
+                  color === 'success' && 'bg-success/10 text-success',
+                  color === 'secondary' && 'bg-secondary/10 text-secondary',
+                )}>
+                  <Icon size={20} />
+                </div>
+                <span className="text-caption font-medium text-success bg-success/10 px-2 py-0.5 rounded-full">
+                  {change}
+                </span>
               </div>
-              <span className="text-caption font-medium text-success bg-success/10 px-2 py-0.5 rounded-full">
-                {change}
-              </span>
+              <div className="text-h3 font-heading font-bold mb-0.5">{value}</div>
+              <div className="text-body-sm text-text-muted">{label}</div>
             </div>
-            <div className="text-h3 font-heading font-bold mb-0.5">{value}</div>
-            <div className="text-body-sm text-text-muted">{label}</div>
-          </div>
-        ))}
+          ))
+        )}
       </div>
 
       {/* Charts Row */}

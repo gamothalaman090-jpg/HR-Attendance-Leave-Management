@@ -1,10 +1,12 @@
 import { useState, useEffect, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import Meta from '@/components/common/Meta';
 import {
   Clock, LogIn, LogOut, Calendar, BarChart3,
   CheckCircle, XCircle, AlertCircle, Sun,
 } from 'lucide-react';
 import { attendanceService } from '@/services/attendanceService';
+import { Modal, Button } from '@/components/ui';
 import { cn } from '@/utils/helpers';
 import { downloadCSV } from '@/utils/helpers';
 
@@ -28,10 +30,20 @@ export default function AttendancePage() {
   const [clockStatus, setClockStatus] = useState({ isClockedIn: false, clockInTime: null, clockOutTime: null });
   const [loading, setLoading] = useState(true);
   const [clocking, setClocking] = useState(false);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [elapsed, setElapsed] = useState(0);
+  const [searchParams, setSearchParams] = useSearchParams();
   const timerRef = useRef(null);
 
   const today = new Date();
+
+  useEffect(() => {
+    if (searchParams.get('action') === 'clock') {
+      setShowConfirmModal(true);
+      searchParams.delete('action');
+      setSearchParams(searchParams, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
 
   useEffect(() => {
     (async () => {
@@ -78,6 +90,7 @@ export default function AttendancePage() {
         const result = await attendanceService.clockIn();
         setClockStatus(result);
       }
+      setShowConfirmModal(false);
     } finally {
       setClocking(false);
     }
@@ -134,17 +147,15 @@ export default function AttendancePage() {
             </div>
           )}
           <button
-            onClick={handleClock}
-            disabled={clocking}
+            onClick={() => setShowConfirmModal(true)}
             className={cn(
               'w-full py-3 rounded-[10px] text-body font-semibold transition-all duration-base cursor-pointer',
               clockStatus.isClockedIn
                 ? 'bg-danger text-white hover:bg-danger-light shadow-glow-accent'
-                : 'bg-primary text-white hover:bg-primary-light shadow-glow-primary',
-              clocking && 'opacity-70 cursor-not-allowed'
+                : 'bg-primary text-white hover:bg-primary-light shadow-glow-primary'
             )}
           >
-            {clocking ? 'Processing...' : clockStatus.isClockedIn ? (
+            {clockStatus.isClockedIn ? (
               <span className="flex items-center justify-center gap-2"><LogOut size={18} /> Clock Out</span>
             ) : (
               <span className="flex items-center justify-center gap-2"><LogIn size={18} /> Clock In</span>
@@ -254,6 +265,39 @@ export default function AttendancePage() {
             ))}
         </div>
       </div>
+
+      {/* Confirmation Modal */}
+      <Modal
+        isOpen={showConfirmModal}
+        onClose={() => setShowConfirmModal(false)}
+        title={clockStatus.isClockedIn ? "Confirm Clock Out" : "Confirm Clock In"}
+        size="md"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setShowConfirmModal(false)}>
+              Cancel
+            </Button>
+            <Button 
+              variant={clockStatus.isClockedIn ? "danger" : "primary"}
+              onClick={handleClock} 
+              loading={clocking}
+            >
+              {clockStatus.isClockedIn ? "Yes, Clock Out" : "Yes, Clock In"}
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <p className="text-body text-text-muted">
+            {clockStatus.isClockedIn 
+              ? `You are about to clock out. Your elapsed time is ${formatElapsed(elapsed)}.` 
+              : `You are about to clock in for ${today.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}.`}
+          </p>
+          <p className="text-body font-medium text-text">
+            Are you sure you want to proceed?
+          </p>
+        </div>
+      </Modal>
     </div>
   );
 }

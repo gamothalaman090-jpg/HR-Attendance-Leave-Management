@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, FileText, Users, Calendar, BarChart3, Settings, User } from 'lucide-react';
+import { Search, FileText, Users, Calendar, BarChart3, Settings, User, Clock, PlusCircle } from 'lucide-react';
 import { EMPLOYEES } from '@/data/employees';
 import { LEAVE_REQUESTS } from '@/data/leaves';
 import { cn } from '@/utils/helpers';
@@ -66,6 +66,18 @@ export default function CommandPalette() {
   if (matchedPages.length > 0) {
     results.push({ type: 'header', label: 'Pages' });
     matchedPages.forEach(p => results.push({ ...p, type: 'page' }));
+  }
+
+  // 1.5 Actions
+  const ACTIONS = [
+    { id: 'a1', label: 'Clock In / Out', icon: Clock, path: '/app/attendance?action=clock' },
+    { id: 'a2', label: 'Request Leave', icon: PlusCircle, path: '/app/leave?new=true' },
+    { id: 'a3', label: 'View Profile', icon: User, path: '/app/profile' },
+  ];
+  const matchedActions = ACTIONS.filter(a => a.label.toLowerCase().includes(lowerQuery));
+  if (matchedActions.length > 0) {
+    results.push({ type: 'header', label: 'Quick Actions' });
+    matchedActions.forEach(a => results.push({ ...a, type: 'action' }));
   }
 
   // 2. Employees & Leaves (if query > 1 char)

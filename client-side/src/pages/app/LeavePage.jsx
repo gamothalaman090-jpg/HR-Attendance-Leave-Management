@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import Meta from '@/components/common/Meta';
 import { useForm } from 'react-hook-form';
 import {
   CalendarOff, Plus, Search,
-  CheckCircle2, XCircle, AlertTriangle,
+  CheckCircle2, XCircle, AlertTriangle, Eye, Clock, Check, X
 } from 'lucide-react';
 import { Badge, Modal, Button, SkeletonTable } from '@/components/ui';
 import { LEAVE_TYPES } from '@/utils/constants';
@@ -18,6 +19,7 @@ import {
   useRejectLeave,
 } from '@/hooks/useLeaves';
 import { useAuth } from '@/context/AuthContext';
+import { useNotifications } from '@/context/NotificationContext';
 import RequireRole from '@/components/common/RequireRole';
 
 const TAB_ITEMS = [
@@ -39,15 +41,71 @@ const BADGE_VARIANT = {
   cancelled: 'default',
 };
 
+function LeaveTableSkeleton() {
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full">
+        <thead>
+          <tr className="border-b border-border">
+            <th className="text-left px-4 py-3 text-caption font-semibold text-text-muted uppercase tracking-wider">Employee</th>
+            <th className="text-left px-4 py-3 text-caption font-semibold text-text-muted uppercase tracking-wider">Type</th>
+            <th className="text-left px-4 py-3 text-caption font-semibold text-text-muted uppercase tracking-wider hidden sm:table-cell">Dates</th>
+            <th className="text-left px-4 py-3 text-caption font-semibold text-text-muted uppercase tracking-wider hidden md:table-cell">Days</th>
+            <th className="text-left px-4 py-3 text-caption font-semibold text-text-muted uppercase tracking-wider">Status</th>
+            <th className="text-right px-4 py-3 text-caption font-semibold text-text-muted uppercase tracking-wider">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {Array.from({ length: 5 }).map((_, i) => (
+            <tr key={i} className="border-b border-border last:border-0 animate-pulse">
+              <td className="px-4 py-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-full bg-surface-alt shrink-0"></div>
+                  <div className="min-w-0 flex-1">
+                    <div className="w-24 h-4 bg-surface-alt rounded mb-1"></div>
+                    <div className="w-32 h-3 bg-surface-alt rounded sm:hidden"></div>
+                  </div>
+                </div>
+              </td>
+              <td className="px-4 py-3"><div className="w-16 h-4 bg-surface-alt rounded"></div></td>
+              <td className="px-4 py-3 hidden sm:table-cell"><div className="w-24 h-4 bg-surface-alt rounded"></div></td>
+              <td className="px-4 py-3 hidden md:table-cell"><div className="w-8 h-4 bg-surface-alt rounded"></div></td>
+              <td className="px-4 py-3"><div className="w-16 h-6 bg-surface-alt rounded-full"></div></td>
+              <td className="px-4 py-3 text-right">
+                <div className="flex items-center justify-end gap-1">
+                  <div className="w-6 h-6 bg-surface-alt rounded-[6px]"></div>
+                  <div className="w-6 h-6 bg-surface-alt rounded-[6px]"></div>
+                </div>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 export default function LeavePage() {
   const { user } = useAuth();
+  const { addNotification } = useNotifications();
   const isHR = ['hr', 'admin', 'manager'].some(r => user?.role?.toLowerCase().includes(r));
-  
+
   const [activeTab, setActiveTab] = useState(isHR ? 'team' : 'my');
   const [statusFilter, setStatusFilter] = useState('all');
   const [search, setSearch] = useState('');
   const [showRequestModal, setShowRequestModal] = useState(false);
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [selectedLeave, setSelectedLeave] = useState(null);
   const [overlapError, setOverlapError] = useState(null);
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  useEffect(() => {
+    if (searchParams.get('new') === 'true') {
+      setShowRequestModal(true);
+      searchParams.delete('new');
+      setSearchParams(searchParams, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
 
   const { register, handleSubmit, reset, watch, formState: { errors } } = useForm();
 
@@ -66,7 +124,7 @@ export default function LeavePage() {
     } else if (activeTab === 'my') {
       if (l.employeeName !== user?.name) return false;
     }
-    
+
     if (statusFilter !== 'all' && l.status !== statusFilter) return false;
     if (search) {
       const q = search.toLowerCase();
@@ -95,6 +153,12 @@ export default function LeavePage() {
         reason: data.reason,
       });
 
+      addNotification({
+        type: 'leave',
+        title: 'Leave Requested',
+        message: `Your ${data.type} leave request has been submitted successfully.`,
+      });
+
       setShowRequestModal(false);
       reset();
     } catch (err) {
@@ -111,18 +175,28 @@ export default function LeavePage() {
   const handleAction = async (leaveId, action) => {
     if (action === 'approve') {
       await approveMutation.mutateAsync({ id: leaveId, approver: 'Alex Rivera' });
+      addNotification({
+        type: 'leave',
+        title: 'Leave Approved',
+        message: 'Leave request has been approved successfully.',
+      });
     } else {
       await rejectMutation.mutateAsync({ id: leaveId, approver: 'Alex Rivera' });
+      addNotification({
+        type: 'leave',
+        title: 'Leave Rejected',
+        message: 'Leave request has been rejected.',
+      });
     }
   };
 
   /* ── Balance cards ── */
   const balanceCards = balance
     ? [
-        { label: 'Annual', used: balance.annual.used, total: balance.annual.total, remaining: balance.annual.remaining, color: 'primary' },
-        { label: 'Sick', used: balance.sick.used, total: balance.sick.total, remaining: balance.sick.remaining, color: 'danger' },
-        { label: 'Personal', used: balance.personal.used, total: balance.personal.total, remaining: balance.personal.remaining, color: 'secondary' },
-      ]
+      { label: 'Annual', used: balance.annual.used, total: balance.annual.total, remaining: balance.annual.remaining, color: 'primary' },
+      { label: 'Sick', used: balance.sick.used, total: balance.sick.total, remaining: balance.sick.remaining, color: 'danger' },
+      { label: 'Personal', used: balance.personal.used, total: balance.personal.total, remaining: balance.personal.remaining, color: 'secondary' },
+    ]
     : [];
 
   return (
@@ -134,8 +208,8 @@ export default function LeavePage() {
           <h1 className="font-heading text-h2 font-bold mb-1">Leave Management</h1>
           <p className="text-text-muted text-body">Request, track, and manage team leave.</p>
         </div>
-        <Button 
-          onClick={() => setShowRequestModal(true)} 
+        <Button
+          onClick={() => setShowRequestModal(true)}
           className="shrink-0"
           leftIcon={<Plus size={16} />}
         >
@@ -225,7 +299,7 @@ export default function LeavePage() {
       {/* Leave Requests Table */}
       <div className="bg-surface border border-border rounded-[16px] overflow-hidden">
         {loading ? (
-          <SkeletonTable rows={6} cols={5} />
+          <LeaveTableSkeleton />
         ) : filteredLeaves.length === 0 ? (
           <div className="p-12 text-center">
             <CalendarOff size={40} className="mx-auto mb-3 text-text-muted/50" />
@@ -275,28 +349,39 @@ export default function LeavePage() {
                       </Badge>
                     </td>
                     <td className="px-4 py-3 text-right">
-                      {req.status === 'pending' && isHR ? (
-                        <div className="flex items-center justify-end gap-1">
-                          <button
-                            onClick={() => handleAction(req.id, 'approve')}
-                            className="p-1.5 rounded-[6px] text-success hover:bg-success/10 transition-colors cursor-pointer"
-                            title="Approve"
-                            aria-label="Approve leave request"
-                          >
-                            <CheckCircle2 size={18} />
-                          </button>
-                          <button
-                            onClick={() => handleAction(req.id, 'reject')}
-                            className="p-1.5 rounded-[6px] text-danger hover:bg-danger/10 transition-colors cursor-pointer"
-                            title="Reject"
-                            aria-label="Reject leave request"
-                          >
-                            <XCircle size={18} />
-                          </button>
-                        </div>
-                      ) : (
-                        <span className="text-caption text-text-muted">—</span>
-                      )}
+                      <div className="flex items-center justify-end gap-1">
+                        <button
+                          onClick={() => {
+                            setSelectedLeave(req);
+                            setShowDetailsModal(true);
+                          }}
+                          className="p-1.5 rounded-[6px] text-primary hover:bg-primary/10 transition-colors cursor-pointer"
+                          title="View Details"
+                          aria-label="View leave details"
+                        >
+                          <Eye size={18} />
+                        </button>
+                        {req.status === 'pending' && isHR && (
+                          <>
+                            <button
+                              onClick={() => handleAction(req.id, 'approve')}
+                              className="p-1.5 rounded-[6px] text-success hover:bg-success/10 transition-colors cursor-pointer"
+                              title="Approve"
+                              aria-label="Approve leave request"
+                            >
+                              <CheckCircle2 size={18} />
+                            </button>
+                            <button
+                              onClick={() => handleAction(req.id, 'reject')}
+                              className="p-1.5 rounded-[6px] text-danger hover:bg-danger/10 transition-colors cursor-pointer"
+                              title="Reject"
+                              aria-label="Reject leave request"
+                            >
+                              <XCircle size={18} />
+                            </button>
+                          </>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -384,6 +469,113 @@ export default function LeavePage() {
             {errors.reason && <p className="text-caption text-danger mt-1">{errors.reason.message}</p>}
           </div>
         </form>
+      </Modal>
+
+      {/* Leave Details & Audit Trail Modal */}
+      <Modal
+        isOpen={showDetailsModal}
+        onClose={() => { setShowDetailsModal(false); setSelectedLeave(null); }}
+        title="Leave Details & Audit Trail"
+        size="md"
+        footer={
+          <Button variant="secondary" onClick={() => { setShowDetailsModal(false); setSelectedLeave(null); }}>
+            Close
+          </Button>
+        }
+      >
+        {selectedLeave && (
+          <div className="space-y-6">
+            {/* Summary */}
+            <div className="bg-surface-alt rounded-[12px] p-4 border border-border">
+              <div className="flex justify-between items-start mb-3">
+                <div>
+                  <h4 className="text-body font-bold text-text">{selectedLeave.employeeName}</h4>
+                  <p className="text-caption text-text-muted capitalize">{selectedLeave.type} Leave</p>
+                </div>
+                <Badge variant={BADGE_VARIANT[selectedLeave.status] || 'default'}>
+                  {selectedLeave.status.charAt(0).toUpperCase() + selectedLeave.status.slice(1)}
+                </Badge>
+              </div>
+              <div className="grid grid-cols-2 gap-2 mt-4 text-body-sm">
+                <div>
+                  <span className="text-text-muted block text-caption">Dates</span>
+                  <span className="font-medium text-text">{formatDate(selectedLeave.startDate)} — {formatDate(selectedLeave.endDate)}</span>
+                </div>
+                <div>
+                  <span className="text-text-muted block text-caption">Total Days</span>
+                  <span className="font-medium text-text">{selectedLeave.days} Day(s)</span>
+                </div>
+              </div>
+              <div className="mt-4 pt-3 border-t border-border text-body-sm">
+                <span className="text-text-muted block text-caption">Reason</span>
+                <p className="text-text mt-1">{selectedLeave.reason}</p>
+              </div>
+            </div>
+
+            {/* Audit Trail Timeline */}
+            <div>
+              <h4 className="text-body-sm font-bold text-text mb-4 uppercase tracking-wider">Audit Trail</h4>
+              <div className="relative pl-3">
+                {/* Connecting Line */}
+                <div className="absolute left-[28px] top-2 bottom-2 w-px bg-border"></div>
+
+                <div className="space-y-6">
+                  {/* Step 1: Submitted */}
+                  <div className="relative flex gap-4">
+                    <div className="w-8 h-8 rounded-full bg-surface ring-4 ring-surface flex items-center justify-center shrink-0 z-10 relative">
+                      <div className="absolute inset-0 rounded-full bg-primary/10"></div>
+                      <Clock size={14} className="text-primary relative z-10" />
+                    </div>
+                    <div className="pt-1.5">
+                      <p className="text-body-sm font-bold text-text">Request Submitted</p>
+                      <p className="text-caption text-text-muted">{selectedLeave.createdAt ? formatDate(selectedLeave.createdAt) : formatDate(selectedLeave.startDate)} by {selectedLeave.employeeName}</p>
+                    </div>
+                  </div>
+
+                  {/* Step 2: Review/Decision */}
+                  {selectedLeave.status === 'pending' && (
+                    <div className="relative flex gap-4">
+                      <div className="w-8 h-8 rounded-full bg-surface ring-4 ring-surface flex items-center justify-center shrink-0 z-10 relative">
+                        <div className="absolute inset-0 rounded-full bg-surface-alt"></div>
+                        <div className="w-2 h-2 rounded-full bg-text-muted/50 relative z-10"></div>
+                      </div>
+                      <div className="pt-1.5">
+                        <p className="text-body-sm font-medium text-text-muted">Pending Review</p>
+                        <p className="text-caption text-text-muted/50">Waiting for manager approval</p>
+                      </div>
+                    </div>
+                  )}
+
+                  {selectedLeave.status === 'approved' && (
+                    <div className="relative flex gap-4">
+                      <div className="w-8 h-8 rounded-full bg-surface ring-4 ring-surface flex items-center justify-center shrink-0 z-10 relative">
+                        <div className="absolute inset-0 rounded-full bg-success/10"></div>
+                        <Check size={14} className="text-success relative z-10" />
+                      </div>
+                      <div className="pt-1.5">
+                        <p className="text-body-sm font-bold text-text">Request Approved</p>
+                        <p className="text-caption text-text-muted">Approved by Manager</p>
+                      </div>
+                    </div>
+                  )}
+
+                  {selectedLeave.status === 'rejected' && (
+                    <div className="relative flex gap-4">
+                      <div className="w-8 h-8 rounded-full bg-surface ring-4 ring-surface flex items-center justify-center shrink-0 z-10 relative">
+                        <div className="absolute inset-0 rounded-full bg-danger/10"></div>
+                        <X size={14} className="text-danger relative z-10" />
+                      </div>
+                      <div className="pt-1.5">
+                        <p className="text-body-sm font-bold text-text">Request Rejected</p>
+                        <p className="text-caption text-text-muted">Rejected by Manager</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </Modal>
     </div>
   );
