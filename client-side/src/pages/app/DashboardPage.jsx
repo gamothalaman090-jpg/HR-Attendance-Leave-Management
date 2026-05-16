@@ -34,9 +34,14 @@ export default function DashboardPage() {
   const pendingCount = LEAVE_REQUESTS.filter((l) => l.status === 'pending').length;
   const approvedCount = LEAVE_REQUESTS.filter((l) => l.status === 'approved').length;
 
+  // Check if user is HR/Admin
+  const isHR = ['hr', 'admin'].some(r => user?.role?.toLowerCase().includes(r));
+
   const STATS = [
-    { label: 'Total Employees', value: '18', change: '+3 this month', icon: Users, color: 'primary' },
-    { label: 'Pending Requests', value: String(pendingCount), change: `${approvedCount} approved`, icon: CalendarOff, color: 'accent' },
+    ...(isHR ? [
+      { label: 'Total Employees', value: '18', change: '+3 this month', icon: Users, color: 'primary' },
+      { label: 'Pending Requests', value: String(pendingCount), change: `${approvedCount} approved`, icon: CalendarOff, color: 'accent' },
+    ] : []),
     { label: 'Present Today', value: '15', change: '83%', icon: Clock, color: 'success' },
     { label: 'Avg Hours/Week', value: '38.5', change: '+0.5h', icon: TrendingUp, color: 'secondary' },
   ];
@@ -175,13 +180,18 @@ export default function DashboardPage() {
         {/* Recent Leave Requests */}
         <div className="lg:col-span-2 p-6 rounded-[16px] bg-surface border border-border">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="font-heading text-h4 font-bold">Recent Leave Requests</h2>
+            <h2 className="font-heading text-h4 font-bold">
+              {isHR ? 'Recent Leave Requests' : 'My Recent Requests'}
+            </h2>
             <Link to="/app/leave" className="text-body-sm font-medium text-primary hover:text-primary-light flex items-center gap-1">
               View All <ArrowRight size={14} />
             </Link>
           </div>
           <div className="space-y-1">
-            {LEAVE_REQUESTS.slice(0, 5).map((req) => (
+            {LEAVE_REQUESTS
+              .filter((req) => isHR || req.employeeName === user?.name)
+              .slice(0, 5)
+              .map((req) => (
               <div key={req.id} className="flex items-center justify-between py-3 border-b border-border last:border-0">
                 <div className="flex items-center gap-3">
                   <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center text-primary text-body-sm font-bold shrink-0">
@@ -199,6 +209,11 @@ export default function DashboardPage() {
                 </Badge>
               </div>
             ))}
+            {LEAVE_REQUESTS.filter((req) => isHR || req.employeeName === user?.name).length === 0 && (
+              <div className="text-center py-4 text-text-muted text-body-sm">
+                No recent requests found.
+              </div>
+            )}
           </div>
         </div>
 

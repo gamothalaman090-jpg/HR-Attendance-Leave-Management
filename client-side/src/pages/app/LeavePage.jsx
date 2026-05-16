@@ -1,16 +1,24 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState } from 'react';
 import Meta from '@/components/common/Meta';
 import { useForm } from 'react-hook-form';
 import {
-  CalendarOff, Plus, Filter, Search,
-  Calendar, CheckCircle2, XCircle, Clock, AlertTriangle,
+  CalendarOff, Plus, Search,
+  CheckCircle2, XCircle, AlertTriangle,
 } from 'lucide-react';
-import { Badge, Modal, Button, Input, Select, Textarea, SkeletonTable } from '@/components/ui';
-import { LEAVE_TYPES, LEAVE_STATUS } from '@/utils/constants';
-import { leaveService } from '@/services/leaveService';
+import { Badge, Modal, Button, SkeletonTable } from '@/components/ui';
+import { LEAVE_TYPES } from '@/utils/constants';
 import { formatDate } from '@/utils/formatters';
 import { cn } from '@/utils/helpers';
 import { isEndDateAfterStart } from '@/utils/validators';
+import {
+  useLeaves,
+  useLeaveBalance,
+  useCreateLeave,
+  useApproveLeave,
+  useRejectLeave,
+} from '@/hooks/useLeaves';
+import { useAuth } from '@/context/AuthContext';
+import RequireRole from '@/components/common/RequireRole';
 
 const TAB_ITEMS = [
   { id: 'my', label: 'My Leaves' },
@@ -32,37 +40,33 @@ const BADGE_VARIANT = {
 };
 
 export default function LeavePage() {
-  const [activeTab, setActiveTab] = useState('team');
-  const [leaves, setLeaves] = useState([]);
-  const [balance, setBalance] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const { user } = useAuth();
+  const isHR = ['hr', 'admin', 'manager'].some(r => user?.role?.toLowerCase().includes(r));
+  
+  const [activeTab, setActiveTab] = useState(isHR ? 'team' : 'my');
   const [statusFilter, setStatusFilter] = useState('all');
   const [search, setSearch] = useState('');
   const [showRequestModal, setShowRequestModal] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
   const [overlapError, setOverlapError] = useState(null);
 
   const { register, handleSubmit, reset, watch, formState: { errors } } = useForm();
 
-  /* ── Fetch data ── */
-  const loadData = useCallback(async () => {
-    setLoading(true);
-    try {
-      const [allLeaves, bal] = await Promise.all([
-        leaveService.getAll(),
-        leaveService.getBalance(),
-      ]);
-      setLeaves(allLeaves);
-      setBalance(bal);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => { loadData(); }, [loadData]);
+  /* ── TanStack Query Hooks ── */
+  const { data: leaves = [], isLoading: loading } = useLeaves();
+  const { data: balance } = useLeaveBalance();
+  const createMutation = useCreateLeave();
+  const approveMutation = useApproveLeave();
+  const rejectMutation = useRejectLeave();
 
   /* ── Filter leaves ── */
   const filteredLeaves = leaves.filter((l) => {
+    // Role-based filtering
+    if (!isHR) {
+      if (l.employeeName !== user?.name) return false;
+    } else if (activeTab === 'my') {
+      if (l.employeeName !== user?.name) return false;
+    }
+    
     if (statusFilter !== 'all' && l.status !== statusFilter) return false;
     if (search) {
       const q = search.toLowerCase();
@@ -73,7 +77,6 @@ export default function LeavePage() {
 
   /* ── Submit new request ── */
   const onSubmit = async (data) => {
-    setSubmitting(true);
     setOverlapError(null);
     try {
       const startDate = data.startDate;
@@ -82,7 +85,7 @@ export default function LeavePage() {
       const end = new Date(endDate);
       const days = Math.ceil((end - start) / 86400000) + 1;
 
-      await leaveService.create({
+      await createMutation.mutateAsync({
         employeeId: 'emp-001',
         employeeName: 'Alex Rivera',
         type: data.type,
@@ -94,25 +97,23 @@ export default function LeavePage() {
 
       setShowRequestModal(false);
       reset();
-      loadData();
     } catch (err) {
-      // Surface overlap conflicts as a visible banner in the modal
       if (err.code === 'LEAVE_OVERLAP') {
         setOverlapError(err.message);
       } else {
         setOverlapError('An unexpected error occurred. Please try again.');
       }
-    } finally {
-      setSubmitting(false);
     }
   };
 
 
   /* ── Approve/Reject ── */
   const handleAction = async (leaveId, action) => {
-    if (action === 'approve') await leaveService.approve(leaveId);
-    else await leaveService.reject(leaveId);
-    loadData();
+    if (action === 'approve') {
+      await approveMutation.mutateAsync({ id: leaveId, approver: 'Alex Rivera' });
+    } else {
+      await rejectMutation.mutateAsync({ id: leaveId, approver: 'Alex Rivera' });
+    }
   };
 
   /* ── Balance cards ── */
@@ -176,22 +177,26 @@ export default function LeavePage() {
       {/* Tabs + Filters */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
         {/* Tabs */}
-        <div className="flex bg-surface-alt rounded-[10px] p-1">
-          {TAB_ITEMS.map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={cn(
-                'px-4 py-2 rounded-[8px] text-body-sm font-medium transition-all cursor-pointer',
-                activeTab === tab.id
-                  ? 'bg-surface text-text shadow-card'
-                  : 'text-text-muted hover:text-text'
-              )}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
+        {isHR ? (
+          <div className="flex bg-surface-alt rounded-[10px] p-1">
+            {TAB_ITEMS.map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={cn(
+                  'px-4 py-2 rounded-[8px] text-body-sm font-medium transition-all cursor-pointer',
+                  activeTab === tab.id
+                    ? 'bg-surface text-text shadow-card'
+                    : 'text-text-muted hover:text-text'
+                )}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+        ) : (
+          <h2 className="font-heading text-h4 font-bold">My Leave Requests</h2>
+        )}
 
         {/* Filters */}
         <div className="flex items-center gap-2">
@@ -270,7 +275,7 @@ export default function LeavePage() {
                       </Badge>
                     </td>
                     <td className="px-4 py-3 text-right">
-                      {req.status === 'pending' ? (
+                      {req.status === 'pending' && isHR ? (
                         <div className="flex items-center justify-end gap-1">
                           <button
                             onClick={() => handleAction(req.id, 'approve')}
@@ -312,7 +317,7 @@ export default function LeavePage() {
             <Button variant="secondary" onClick={() => { setShowRequestModal(false); reset(); setOverlapError(null); }}>
               Cancel
             </Button>
-            <Button onClick={handleSubmit(onSubmit)} loading={submitting}>
+            <Button onClick={handleSubmit(onSubmit)} loading={createMutation.isPending}>
               Submit Request
             </Button>
           </>

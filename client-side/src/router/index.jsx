@@ -121,76 +121,90 @@ const router = createBrowserRouter([
 
   /* ── Protected App Routes ── */
   {
-    element: <ProtectedRoute />,
+    element: <DashboardLayout />,
     children: [
+      /* ── Common Routes (All roles) ── */
       {
-        element: <DashboardLayout />,
-        children: [
-          {
-            path: '/app',
-            element: (
-              <Suspense fallback={<PageLoader />}>
-                <DashboardPage />
-              </Suspense>
-            ),
-          },
-          {
-            path: '/app/leave',
-            element: (
-              <Suspense fallback={<PageLoader />}>
-                <LeavePage />
-              </Suspense>
-            ),
-          },
-          {
-            path: '/app/attendance',
-            element: (
-              <Suspense fallback={<PageLoader />}>
-                <AttendancePage />
-              </Suspense>
-            ),
-          },
-          {
-            path: '/app/employees',
-            element: (
-              <Suspense fallback={<PageLoader />}>
-                <EmployeesPage />
-              </Suspense>
-            ),
-          },
-          {
-            path: '/app/calendar',
-            element: (
-              <Suspense fallback={<PageLoader />}>
-                <CalendarPage />
-              </Suspense>
-            ),
-          },
-          {
-            path: '/app/reports',
-            element: (
-              <Suspense fallback={<PageLoader />}>
-                <ReportsPage />
-              </Suspense>
-            ),
-          },
-          {
-            path: '/app/settings',
-            element: (
-              <Suspense fallback={<PageLoader />}>
-                <SettingsPage />
-              </Suspense>
-            ),
-          },
-          {
-            path: '/app/profile',
-            element: (
-              <Suspense fallback={<PageLoader />}>
-                <ProfilePage />
-              </Suspense>
-            ),
-          },
-        ],
+        path: '/app',
+        element: (
+          <ProtectedRoute>
+            <Suspense fallback={<PageLoader />}>
+              <DashboardPage />
+            </Suspense>
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: '/app/leave',
+        element: (
+          <ProtectedRoute>
+            <Suspense fallback={<PageLoader />}>
+              <LeavePage />
+            </Suspense>
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: '/app/attendance',
+        element: (
+          <ProtectedRoute>
+            <Suspense fallback={<PageLoader />}>
+              <AttendancePage />
+            </Suspense>
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: '/app/calendar',
+        element: (
+          <ProtectedRoute>
+            <Suspense fallback={<PageLoader />}>
+              <CalendarPage />
+            </Suspense>
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: '/app/settings',
+        element: (
+          <ProtectedRoute>
+            <Suspense fallback={<PageLoader />}>
+              <SettingsPage />
+            </Suspense>
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: '/app/profile',
+        element: (
+          <ProtectedRoute>
+            <Suspense fallback={<PageLoader />}>
+              <ProfilePage />
+            </Suspense>
+          </ProtectedRoute>
+        ),
+      },
+
+      /* ── HR & Admin Only Routes ── */
+      {
+        path: '/app/employees',
+        element: (
+          <ProtectedRoute allowedRoles={['admin', 'manager', 'hr']}>
+            <Suspense fallback={<PageLoader />}>
+              <EmployeesPage />
+            </Suspense>
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: '/app/reports',
+        element: (
+          <ProtectedRoute allowedRoles={['admin', 'manager', 'hr']}>
+            <Suspense fallback={<PageLoader />}>
+              <ReportsPage />
+            </Suspense>
+          </ProtectedRoute>
+        ),
       },
     ],
   },

@@ -28,9 +28,9 @@ const SIDEBAR_ITEMS = [
   { label: 'Dashboard', href: '/app', icon: LayoutDashboard },
   { label: 'Leave', href: '/app/leave', icon: CalendarOff },
   { label: 'Attendance', href: '/app/attendance', icon: Clock },
-  { label: 'Employees', href: '/app/employees', icon: Users },
+  { label: 'Employees', href: '/app/employees', icon: Users, roles: ['admin', 'manager', 'hr'] },
   { label: 'Calendar', href: '/app/calendar', icon: Calendar },
-  { label: 'Reports', href: '/app/reports', icon: BarChart3 },
+  { label: 'Reports', href: '/app/reports', icon: BarChart3, roles: ['admin', 'manager', 'hr'] },
   { label: 'Settings', href: '/app/settings', icon: Settings },
 ];
 
@@ -43,6 +43,11 @@ export default function DashboardLayout() {
   const { user, logout } = useAuth();
   const { isDark, toggleTheme } = useTheme();
   const navigate = useNavigate();
+
+  const visibleSidebarItems = SIDEBAR_ITEMS.filter(item => {
+    if (!item.roles) return true;
+    return item.roles.some(r => user?.role?.toLowerCase().includes(r));
+  });
 
   const handleLogout = () => {
     logout();
@@ -91,7 +96,7 @@ export default function DashboardLayout() {
 
         {/* Nav Items */}
         <nav className="flex-1 py-4 px-3 space-y-1">
-          {SIDEBAR_ITEMS.map(({ label, href, icon: Icon }) => (
+          {visibleSidebarItems.map(({ label, href, icon: Icon }) => (
             <NavLink
               key={href}
               to={href}
@@ -147,7 +152,7 @@ export default function DashboardLayout() {
               </button>
             </div>
             <nav className="flex-1 py-4 px-3 space-y-1">
-              {SIDEBAR_ITEMS.map(({ label, href, icon: Icon }) => (
+              {visibleSidebarItems.map(({ label, href, icon: Icon }) => (
                 <NavLink
                   key={href}
                   to={href}

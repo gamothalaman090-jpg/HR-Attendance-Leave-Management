@@ -4,6 +4,7 @@ import { Search, FileText, Users, Calendar, BarChart3, Settings, User } from 'lu
 import { EMPLOYEES } from '@/data/employees';
 import { LEAVE_REQUESTS } from '@/data/leaves';
 import { cn } from '@/utils/helpers';
+import { useAuth } from '@/context/AuthContext';
 
 /**
  * CommandPalette — Global search triggered by Ctrl+K
@@ -14,6 +15,9 @@ export default function CommandPalette() {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef(null);
   const navigate = useNavigate();
+  const { user } = useAuth();
+
+  const isHR = ['hr', 'admin', 'manager'].some(r => user?.role?.toLowerCase().includes(r));
 
   // Keyboard shortcut listener (Ctrl+K or Cmd+K)
   useEffect(() => {
@@ -48,46 +52,55 @@ export default function CommandPalette() {
   const lowerQuery = query.toLowerCase();
 
   // 1. Pages
-  const PAGES = [
+  const ALL_PAGES = [
     { id: 'p1', label: 'Dashboard', icon: BarChart3, path: '/app' },
     { id: 'p2', label: 'Leave Requests', icon: Calendar, path: '/app/leave' },
     { id: 'p3', label: 'Attendance', icon: Calendar, path: '/app/attendance' },
-    { id: 'p4', label: 'Employees', icon: Users, path: '/app/employees' },
-    { id: 'p5', label: 'Reports', icon: FileText, path: '/app/reports' },
+    { id: 'p4', label: 'Employees', icon: Users, path: '/app/employees', roles: ['admin', 'manager', 'hr'] },
+    { id: 'p5', label: 'Reports', icon: FileText, path: '/app/reports', roles: ['admin', 'manager', 'hr'] },
     { id: 'p6', label: 'Settings', icon: Settings, path: '/app/settings' },
     { id: 'p7', label: 'My Profile', icon: User, path: '/app/profile' },
   ];
+  const PAGES = ALL_PAGES.filter(p => !p.roles || p.roles.some(r => user?.role?.toLowerCase().includes(r)));
   const matchedPages = PAGES.filter(p => p.label.toLowerCase().includes(lowerQuery));
   if (matchedPages.length > 0) {
     results.push({ type: 'header', label: 'Pages' });
     matchedPages.forEach(p => results.push({ ...p, type: 'page' }));
   }
 
-  // 2. Employees (if query > 1 char)
+  // 2. Employees & Leaves (if query > 1 char)
   if (query.length > 1) {
-    const matchedEmps = EMPLOYEES.filter(e => 
-      e.name.toLowerCase().includes(lowerQuery) || 
-      e.role.toLowerCase().includes(lowerQuery) ||
-      e.department.toLowerCase().includes(lowerQuery)
-    ).slice(0, 5);
-    
-    if (matchedEmps.length > 0) {
-      results.push({ type: 'header', label: 'Employees' });
-      matchedEmps.forEach(e => results.push({
-        id: e.id,
-        label: e.name,
-        sub: `${e.role} • ${e.department}`,
-        icon: User,
-        type: 'employee',
-        path: '/app/employees',
-      }));
+    // Employees (HR only)
+    if (isHR) {
+      const matchedEmps = EMPLOYEES.filter(e => 
+        e.name.toLowerCase().includes(lowerQuery) || 
+        e.role.toLowerCase().includes(lowerQuery) ||
+        e.department.toLowerCase().includes(lowerQuery)
+      ).slice(0, 5);
+      
+      if (matchedEmps.length > 0) {
+        results.push({ type: 'header', label: 'Employees' });
+        matchedEmps.forEach(e => results.push({
+          id: e.id,
+          label: e.name,
+          sub: `${e.role} • ${e.department}`,
+          icon: User,
+          type: 'employee',
+          path: '/app/employees',
+        }));
+      }
     }
 
     // 3. Leaves
-    const matchedLeaves = LEAVE_REQUESTS.filter(l => 
+    let matchedLeaves = LEAVE_REQUESTS.filter(l => 
       l.employeeName.toLowerCase().includes(lowerQuery) ||
       l.type.toLowerCase().includes(lowerQuery)
-    ).slice(0, 3);
+    );
+    
+    if (!isHR) {
+      matchedLeaves = matchedLeaves.filter(l => l.employeeName === user?.name);
+    }
+    matchedLeaves = matchedLeaves.slice(0, 3);
 
     if (matchedLeaves.length > 0) {
       results.push({ type: 'header', label: 'Leave Requests' });
