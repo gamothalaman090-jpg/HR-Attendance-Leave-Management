@@ -34,21 +34,27 @@ A modern, comprehensive HR management platform designed to streamline employee a
 
 ### 🎨 Modern User Experience
 - **Responsive Design**: Works seamlessly on desktop, tablet, and mobile
-- **Dark Mode**: Built-in theme toggle with Tailwind CSS
+- **Dark Mode**: Built-in system theme detection and manual toggle
 - **GSAP Animations**: Smooth transitions and micro-interactions
 - **Toast Notifications**: Real-time feedback for user actions
+- **Progressive Web App (PWA)**: Installable on supported devices with offline capabilities
+- **Advanced UI Components**: Command palette, data tables, and interactive dashboards
+- **Robust Form Validation**: Client-side validation using Zod and React Hook Form
 
 ---
 
 ## 🛠️ Tech Stack
 
 ### Frontend
-- **Framework**: React 18
+- **Framework**: React 19
 - **Language**: JavaScript (ES6+)
-- **Styling**: Tailwind CSS 4
+- **Styling**: Tailwind CSS v4
 - **Animation**: GSAP (GreenSock Animation Platform)
-- **Build Tool**: Vite
-- **Routing**: React Router
+- **State Management**: React Query, Context API
+- **Forms & Validation**: React Hook Form, Zod
+- **Icons & Charts**: Lucide React, Recharts
+- **Build Tool**: Vite 8
+- **Routing**: React Router 7
 
 ---
 
@@ -66,13 +72,16 @@ HR-Attendance-Leave-Management/
 │   └── package.json
 ├── client-side/            # Frontend Application
 │   ├── src/
-│   │   ├── components/     # Reusable UI components
+│   │   ├── assets/         # Static media and graphics
+│   │   ├── components/     # Reusable UI components (ui, common, layout)
 │   │   ├── context/        # React Context for state management
-│   │   ├── hooks/          # Custom hooks
-│   │   ├── pages/          # Page components
+│   │   ├── data/           # Mock data and fixtures
+│   │   ├── hooks/          # Custom React hooks
+│   │   ├── pages/          # Page components (app, auth, public)
 │   │   ├── router/         # Route configuration
+│   │   ├── services/       # External API communication layers
 │   │   ├── styles/         # Global styles
-│   │   ├── utils/          # Helper functions
+│   │   ├── utils/          # Helper functions and validators
 │   │   ├── App.jsx         # Main App component
 │   │   └── main.jsx        # Entry point
 │   ├── index.html          # HTML template
