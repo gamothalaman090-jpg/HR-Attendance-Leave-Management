@@ -5,7 +5,7 @@
  * Author: Ian
  * Location: server/models/User.js
  * Created: 2026-05-15
- * Last Updated: 2026-05-15
+ * Last Updated: 2026-05-17
  */
 
 const mongoose = require('mongoose');
@@ -41,7 +41,23 @@ const userSchema = new mongoose.Schema({
     createdAt: {
         type: Date,
         default: Date.now
+    },
+
+leaveBalances: {
+        annual: { 
+            allotted: { type: Number, default: 20 }, 
+            left: { type: Number, default: 20 }
+        },
+        sick: { 
+            allotted: { type: Number, default: 12 }, 
+            left: { type: Number, default: 12 }
+        },
+        personal: { 
+            allotted: { type: Number, default: 7 }, 
+            left: { type: Number, default: 7 }
+        }
     }
+    
 }, {
     timestamps: true
 });

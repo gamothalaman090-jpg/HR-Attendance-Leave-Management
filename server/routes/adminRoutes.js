@@ -29,4 +29,10 @@ router.route('/announcements')
 router.route('/announcements/:id')
     .delete(deleteAnnouncement);
 
+router.route('/leaves')
+    .get(require('../controllers/adminController').getAllLeaveRequests);
+    
+router.route('/leaves/:id/review')
+    .put(require('../controllers/adminController').reviewLeaveRequest);
+
 module.exports = router;

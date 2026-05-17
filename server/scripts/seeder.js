@@ -1,29 +1,19 @@
 /**
- * Name: Seeder.js
+ * Name: seeder.js
  * Purpose: Populates the database with initial admin and user accounts.
- * Dependencies:
+ * Dependencies: mongoose, dotenv, path, bcryptjs, dns
  * Author: Ian
  * Location: server/scripts/seeder.js
  * Created: 2026-05-15
- * Last Updated: 2026-05-15
- */
-
-/**
- * Name: seeder.js
- * Location: server/scripts/seeder.js
+ * Last Updated: 2026-05-17
  */
 
 const mongoose = require('mongoose');
 const dotenv = require('dotenv');
 const path = require('path');
-const bcrypt = require('bcryptjs');
 const dns = require('dns');
-
-// DNS Fix for SRV issues
 dns.setDefaultResultOrder('ipv4first');
 dns.setServers(['8.8.8.8', '8.8.4.4']);
-
-// Load .env
 const envPath = path.join(__dirname, '../.env');
 const result = dotenv.config({ path: envPath });
 
@@ -36,13 +26,15 @@ const User = require('../models/User');
 
 const seedData = async () => {
     try {
+
         if (!process.env.MONGODB_URI) {
-            throw new Error('MONGODB_URI is not defined in .env file');
+            throw new Error('MONGO_URI is not defined in .env file');
         }
 
         console.log('Connecting to MongoDB...');
         await mongoose.connect(process.env.MONGODB_URI);
-        console.log('✅ Database Connected');
+        console.log('Database Connected');
+
         const users = [
             {
                 fullname: 'Super Admin User',
@@ -60,11 +52,16 @@ const seedData = async () => {
                 fullname: 'Regular User',
                 email: 'user@nini.com',
                 password: 'password123',
-                role: 'user'
+                role: 'user',
+                leaveBalances: {
+                    annual: { allotted: 20, left: 15 },
+                    sick: { allotted: 12, left: 10 },
+                    personal: { allotted: 7, left: 5 }
+                }
             }
         ];
 
-        console.log('🌱 Seeding users (appending to existing data)...');
+        console.log('Seeding users (appending to existing data)...');
         for (let u of users) {
             const exists = await User.findOne({ email: u.email });
             if (!exists) {
@@ -75,10 +72,10 @@ const seedData = async () => {
             }
         }
 
-        console.log('🚀 SEEDING COMPLETED SUCCESSFULLY!');
+        console.log('SEEDING COMPLETED SUCCESSFULLY!');
         process.exit();
     } catch (err) {
-        console.error('❌ SEEDING FAILED:');
+        console.error('SEEDING FAILED:');
         console.error(err.message);
         process.exit(1);
     }
