@@ -17,13 +17,13 @@ const SECTIONS = [
 ];
 
 export default function SettingsPage() {
-  const { user } = useAuth();
+  const { user, updateUser } = useAuth();
   const { theme, setTheme } = useTheme();
   const [activeSection, setActiveSection] = useState('profile');
   const [profileData, setProfileData] = useState({
     name: user?.name || '',
     email: user?.email || '',
-    phone: '+1 (555) 234-5678',
+    phone: user?.phone || '+1 (555) 234-5678',
     department: user?.department || '',
   });
   const [notifications, setNotifications] = useState({
@@ -36,6 +36,9 @@ export default function SettingsPage() {
   const [saved, setSaved] = useState(false);
 
   const handleSave = () => {
+    if (activeSection === 'profile') {
+      updateUser(profileData);
+    }
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
   };

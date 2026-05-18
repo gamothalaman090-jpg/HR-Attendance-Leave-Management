@@ -14,6 +14,7 @@ import {
   ChevronLeft,
   User,
   BarChart3,
+  Megaphone,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useTheme } from '@/hooks/useTheme';
@@ -26,6 +27,7 @@ import Schema from '@/components/common/Schema';
 
 const SIDEBAR_ITEMS = [
   { label: 'Dashboard', href: '/app', icon: LayoutDashboard },
+  { label: 'Announcements', href: '/app/announcements', icon: Megaphone },
   { label: 'Leave', href: '/app/leave', icon: CalendarOff },
   { label: 'Attendance', href: '/app/attendance', icon: Clock },
   { label: 'Employees', href: '/app/employees', icon: Users, roles: ['admin', 'manager', 'hr'] },

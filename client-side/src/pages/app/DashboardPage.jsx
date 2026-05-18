@@ -2,9 +2,10 @@ import { useState, useEffect, useRef } from 'react';
 import Meta from '@/components/common/Meta';
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
+import { employeeService } from '@/services/employeeService';
 import {
   Users, CalendarOff, Clock, TrendingUp, ArrowRight,
-  CalendarDays, UserCircle, ClipboardList, BarChart3,
+  CalendarDays, UserCircle, ClipboardList,
 } from 'lucide-react';
 import {
   PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis,
@@ -40,11 +41,31 @@ export default function DashboardPage() {
   const { user } = useAuth();
   const statsRef = useRef(null);
   const [loading, setLoading] = useState(true);
+  const [employees, setEmployees] = useState([]);
+  const [employeeStats, setEmployeeStats] = useState({ total: 0, active: 0, onLeave: 0 });
 
-  // Simulate data loading for skeleton demonstration
+  // Fetch real employee data and statistics from the service
   useEffect(() => {
-    const timer = setTimeout(() => setLoading(false), 800);
-    return () => clearTimeout(timer);
+    let active = true;
+    const fetchDashboardData = async () => {
+      try {
+        const [emps, st] = await Promise.all([
+          employeeService.getAll(),
+          employeeService.getStats()
+        ]);
+        if (!active) return;
+        setEmployees(emps);
+        setEmployeeStats(st);
+      } catch (err) {
+        console.error('Failed to fetch dashboard data', err);
+      } finally {
+        if (active) setLoading(false);
+      }
+    };
+    fetchDashboardData();
+    return () => {
+      active = false;
+    };
   }, []);
 
   // Derive stats
@@ -54,12 +75,26 @@ export default function DashboardPage() {
   // Check if user is HR/Admin
   const isHR = ['hr', 'admin'].some(r => user?.role?.toLowerCase().includes(r));
 
+  // Calculate dynamic changes
+  const currentMonth = new Date().getMonth();
+  const currentYear = new Date().getFullYear();
+  const joinedThisMonth = employees.filter(emp => {
+    if (!emp.joinDate) return false;
+    const d = new Date(emp.joinDate);
+    return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+  }).length;
+  const changeText = joinedThisMonth > 0 ? `+${joinedThisMonth} this month` : '0 this month';
+
+  const presentPercentage = employeeStats.total > 0 
+    ? Math.round((employeeStats.active / employeeStats.total) * 100) 
+    : 0;
+
   const STATS = [
     ...(isHR ? [
-      { label: 'Total Employees', value: '18', change: '+3 this month', icon: Users, color: 'primary' },
+      { label: 'Total Employees', value: String(employeeStats.total), change: changeText, icon: Users, color: 'primary' },
       { label: 'Pending Requests', value: String(pendingCount), change: `${approvedCount} approved`, icon: CalendarOff, color: 'accent' },
     ] : []),
-    { label: 'Present Today', value: '15', change: '83%', icon: Clock, color: 'success' },
+    { label: 'Present Today', value: String(employeeStats.active), change: `${presentPercentage}%`, icon: Clock, color: 'success' },
     { label: 'Avg Hours/Week', value: '38.5', change: '+0.5h', icon: TrendingUp, color: 'secondary' },
   ];
 
