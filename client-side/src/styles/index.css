@@ -95,6 +95,7 @@
    DARK MODE — .dark class overrides
    =================================================================== */
 .dark {
+  color-scheme: dark;
   --color-bg: #0F172A;
   --color-surface: #1E293B;
   --color-surface-alt: #334155;
@@ -125,6 +126,7 @@
     scroll-behavior: smooth;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    color-scheme: light;
   }
 
   body {
@@ -135,6 +137,11 @@
     background-color: var(--color-bg);
     transition: background-color var(--duration-base) var(--ease-smooth),
                 color var(--duration-base) var(--ease-smooth);
+  }
+
+  select option {
+    background-color: var(--color-surface);
+    color: var(--color-text);
   }
 
   h1, h2, h3, h4, h5, h6 {

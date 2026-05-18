@@ -29,9 +29,11 @@ const ContactPage = lazy(() => import('@/pages/public/ContactPage'));
 const LoginPage = lazy(() => import('@/pages/auth/LoginPage'));
 const SignupPage = lazy(() => import('@/pages/auth/SignupPage'));
 const ForgotPasswordPage = lazy(() => import('@/pages/auth/ForgotPasswordPage'));
+const OnboardingPage = lazy(() => import('@/pages/auth/OnboardingPage'));
 
 /* ── App Pages (lazy loaded — behind auth) ── */
 const DashboardPage = lazy(() => import('@/pages/app/DashboardPage'));
+const AnnouncementsPage = lazy(() => import('@/pages/app/AnnouncementsPage'));
 const LeavePage = lazy(() => import('@/pages/app/LeavePage'));
 const AttendancePage = lazy(() => import('@/pages/app/AttendancePage'));
 const EmployeesPage = lazy(() => import('@/pages/app/EmployeesPage'));
@@ -88,6 +90,18 @@ const router = createBrowserRouter([
     ],
   },
 
+  /* ── Standalone Setup Route ── */
+  {
+    path: '/onboarding',
+    element: (
+      <ProtectedRoute>
+        <Suspense fallback={<PageLoader />}>
+          <OnboardingPage />
+        </Suspense>
+      </ProtectedRoute>
+    ),
+  },
+
   /* ── Auth Routes ── */
   {
     element: <AuthLayout />,
@@ -130,6 +144,16 @@ const router = createBrowserRouter([
           <ProtectedRoute>
             <Suspense fallback={<PageLoader />}>
               <DashboardPage />
+            </Suspense>
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: '/app/announcements',
+        element: (
+          <ProtectedRoute>
+            <Suspense fallback={<PageLoader />}>
+              <AnnouncementsPage />
             </Suspense>
           </ProtectedRoute>
         ),

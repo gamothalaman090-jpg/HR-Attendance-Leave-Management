@@ -34,6 +34,15 @@ export default function ProtectedRoute({ allowedRoles, children }) {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
+  // Onboarding Guard
+  const isOnboardingPath = location.pathname === '/onboarding';
+  if (!user?.onboarded && !isOnboardingPath) {
+    return <Navigate to="/onboarding" replace />;
+  }
+  if (user?.onboarded && isOnboardingPath) {
+    return <Navigate to="/app" replace />;
+  }
+
   // Role Guard (if allowedRoles is specified)
   if (allowedRoles && allowedRoles.length > 0) {
     const userRole = user?.role?.toLowerCase();

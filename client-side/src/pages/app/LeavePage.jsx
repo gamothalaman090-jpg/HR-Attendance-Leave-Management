@@ -144,8 +144,8 @@ export default function LeavePage() {
       const days = Math.ceil((end - start) / 86400000) + 1;
 
       await createMutation.mutateAsync({
-        employeeId: 'emp-001',
-        employeeName: 'Alex Rivera',
+        employeeId: user?.id || 'EMP-1001',
+        employeeName: user?.name || 'Alex Rivera',
         type: data.type,
         startDate,
         endDate,

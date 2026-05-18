@@ -50,7 +50,7 @@ export function AuthProvider({ children }) {
       setAuthSession(userData);
       return { success: true };
     } catch (error) {
-      return { success: false, error: error.message || 'Invalid credentials' };
+      throw error;
     } finally {
       setIsLoading(false);
     }
@@ -64,7 +64,7 @@ export function AuthProvider({ children }) {
       setAuthSession(userData);
       return { success: true };
     } catch (error) {
-      return { success: false, error: error.message || 'Registration failed' };
+      throw error;
     } finally {
       setIsLoading(false);
     }
@@ -76,11 +76,20 @@ export function AuthProvider({ children }) {
     setUser(null);
   }, []);
 
+  const updateUser = useCallback((updatedFields) => {
+    setUser((prev) => {
+      if (!prev) return null;
+      const updated = { ...prev, ...updatedFields };
+      localStorage.setItem('nini-user', JSON.stringify(updated));
+      return updated;
+    });
+  }, []);
+
   const isAuthenticated = !!user;
 
   return (
     <AuthContext.Provider
-      value={{ user, isAuthenticated, isLoading, login, signup, logout }}
+      value={{ user, isAuthenticated, isLoading, login, signup, logout, updateUser }}
     >
       {children}
     </AuthContext.Provider>
