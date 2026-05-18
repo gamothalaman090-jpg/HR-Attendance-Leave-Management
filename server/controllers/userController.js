@@ -1,16 +1,17 @@
 /**
  * Name: userController.js
  * Purpose: Handles user-related logic, including attendance management and leave requests.
- * Dependencies: User Model, Attendance Model, Announcement Model, Leave Model
+ * Dependencies: User Model, Attendance Model, Announcement Model, Leave Model, Logger Utility
  * Author: Ian
  * Location: server/controllers/userController.js
  * Created: 2026-05-15
- * Last Updated: 2026-05-17
+ * Last Updated: 2026-05-18
  */
-const User = require('../models/User'); // ADDED: Required to query leave balances
+const User = require('../models/User'); 
 const Attendance = require('../models/Attendance');
 const Announcement = require('../models/Announcement');
 const Leave = require('../models/Leave');
+const { createAuditLog } = require('../utils/logger'); 
 
 exports.getUserProfile = async (req, res, next) => {
     try {
@@ -49,6 +50,13 @@ exports.clockIn = async (req, res) => {
             type: 'in'
         });
 
+        await createAuditLog(
+            userId, 
+            'attendance_in', 
+            `${req.user.fullname || 'Employee'} successfully clocked in (Time In).`, 
+            req
+        );
+
         res.status(201).json({ success: true, message: 'Clock-In successful', data: entry });
     } catch (err) {
         res.status(500).json({ success: false, message: err.message });
@@ -72,6 +80,13 @@ exports.clockOut = async (req, res) => {
             user: userId,
             type: 'out'
         });
+
+        await createAuditLog(
+            userId, 
+            'attendance_out', 
+            `${req.user.fullname || 'Employee'} successfully clocked out (Time Out).`, 
+            req
+        );
 
         res.status(201).json({ success: true, message: 'Clock-Out successful', data: entry });
     } catch (err) {
@@ -117,10 +132,7 @@ exports.getAnnouncements = async (req, res) => {
     }
 };
 
-
-
 // Leaves
-
 exports.requestLeave = async (req, res, next) => {
     try {
         const { leaveType, startDate, endDate, reason } = req.body;
@@ -152,7 +164,6 @@ exports.requestLeave = async (req, res, next) => {
         });
 
         if (overlappingLeave) {
-
             const existingStart = overlappingLeave.startDate.toISOString().split('T')[0];
             const existingEnd = overlappingLeave.endDate.toISOString().split('T')[0];
             
@@ -162,7 +173,6 @@ exports.requestLeave = async (req, res, next) => {
             });
         }
 
-        // Deficit Floor Limit
         const maxDeficit = -10; 
         const projectedBalance = user.leaveBalances[typeKey].left - totalDaysRequested;
 
@@ -181,6 +191,12 @@ exports.requestLeave = async (req, res, next) => {
             reason,
             status: 'pending'
         });
+        await createAuditLog(
+            req.user.id, 
+            'leave_request', 
+            `${user.fullname} submitted a pending ${leaveType} leave request for ${totalDaysRequested} day(s) (${startDate} to ${endDate}).`, 
+            req
+        );
 
         res.status(201).json({
             success: true,

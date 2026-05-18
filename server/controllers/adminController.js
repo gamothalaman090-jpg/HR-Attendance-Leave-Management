@@ -1,18 +1,17 @@
 /**
  * Name: adminController.js
  * Purpose: Contains controller functions for admin-specific operations, including announcement and leave management.
- * Dependencies: Announcement model, Leave model, User model
+ * Dependencies: Announcement model, Leave model, User model, Logger Utility
  * Author: Ian
  * Location: server/controllers/adminController.js
  * Created: 2026-05-15
- * Last Updated: 2026-05-17
+ * Last Updated: 2026-05-18
  */
 
 const Announcement = require('../models/Announcement');
 const Leave = require('../models/Leave');
 const User = require('../models/User');
-
-
+const { createAuditLog } = require('../utils/logger');
 
 exports.getAdminAnnouncements = async (req, res) => {
     try {
@@ -50,6 +49,12 @@ exports.createAnnouncement = async (req, res) => {
             content,
             author: adminId 
         });
+        await createAuditLog(
+            adminId,
+            'profile_update',
+            `Admin created a new announcement titled: "${title}".`,
+            req
+        );
 
         return res.status(201).json({
             success: true,
@@ -86,7 +91,14 @@ exports.deleteAnnouncement = async (req, res) => {
             });
         }
 
+        const exactTitle = announcement.title;
         await announcement.deleteOne();
+        await createAuditLog(
+            adminId,
+            'profile_update',
+            `Admin deleted an announcement titled: "${exactTitle}".`,
+            req
+        );
 
         return res.status(200).json({
             success: true,
@@ -101,11 +113,9 @@ exports.deleteAnnouncement = async (req, res) => {
     }
 };
 
-
 exports.getAllLeaveRequests = async (req, res, next) => {
     try {
         const today = new Date();
-
 
         await Leave.updateMany(
             {
@@ -131,10 +141,10 @@ exports.getAllLeaveRequests = async (req, res, next) => {
     }
 };
 
-
 exports.reviewLeaveRequest = async (req, res, next) => {
     try {
         const leaveId = req.params.id;
+        const adminId = req.user.id; 
         const { action } = req.body; 
 
         if (!action || !['approved', 'declined'].includes(action)) {
@@ -170,7 +180,6 @@ exports.reviewLeaveRequest = async (req, res, next) => {
             const end = new Date(leave.endDate);
             const totalDays = Math.ceil((end - start) / (1000 * 60 * 60 * 24)) + 1;
 
-
             if (user.leaveBalances && user.leaveBalances[typeKey]) {
                 user.leaveBalances[typeKey].left -= totalDays;
                 user.markModified(`leaveBalances.${typeKey}`);
@@ -178,9 +187,14 @@ exports.reviewLeaveRequest = async (req, res, next) => {
             }
         }
 
-
         leave.status = action;
         await leave.save();
+        await createAuditLog(
+            adminId,
+            'leave_review',
+            `Admin processed leave request ${leaveId} for employee ${leave.user}. Decision set to: ${action.toUpperCase()}.`,
+            req
+        );
 
         return res.status(200).json({
             success: true,

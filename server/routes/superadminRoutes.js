@@ -16,7 +16,8 @@ const {
     getUsers,
     getUserById,
     updateUser,
-    deleteUser
+    deleteUser,
+    getSystemLogs
 } = require('../controllers/superadminController');
 
 router.use(protect);
@@ -26,9 +27,16 @@ router.route('/')
     .post(createUser)
     .get(getUsers);
 
+router.route('/logs')
+    .get(getSystemLogs);
+
 router.route('/:id')
     .get(getUserById)
     .put(updateUser)
     .delete(deleteUser);
+
+
+
+
 
 module.exports = router;
