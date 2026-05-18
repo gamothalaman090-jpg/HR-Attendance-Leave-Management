@@ -107,3 +107,4 @@ Generate a fully optimized production bundle:
 npm run build
 ```
 This compiles the application assets, validates imports, and registers service workers for installable PWA compliance.
+a
