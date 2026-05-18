@@ -15,11 +15,22 @@ const cors = require('cors');
 const morgan = require('morgan');
 const connectDB = require('./config/db');
 const routes = require('./routes/index');
-
+const { cloudinary } = require('./config/cloudinary');
 
 
 // Connect to Database
 connectDB();
+
+// --- CLOUDINARY CONNECTION CHECK ---
+cloudinary.api.ping()
+  .then((result) => {
+    console.log(`Cloudinary Connected: Environment active (${result.status})`);
+  })
+  .catch((err) => {
+    console.error('Cloudinary Connection Error! Check your keys in .env:');
+    console.error(`-> ${err.message}`);
+  });
+
 
 const app = express();
 

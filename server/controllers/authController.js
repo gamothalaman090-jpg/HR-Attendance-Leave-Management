@@ -150,3 +150,72 @@ exports.logout = async (req, res, next) => {
         next(error);
     }
 };
+
+exports.updateProfile = async (req, res, next) => {
+    try {
+        const user = await User.findById(req.user.id);
+        if (!user) {
+            return res.status(404).json({ success: false, message: 'User not found' });
+        }
+
+        if (req.body.fullname) user.fullname = req.body.fullname;
+        if (req.file && req.file.path) {
+            user.profilePicture = req.file.path;
+        }
+
+        await user.save();
+
+
+        await createAuditLog(
+            req.user.id,
+            'profile_update',
+            `${user.fullname} updated their profile info${req.file ? ' including avatar picture' : ''}.`,
+            req
+        );
+
+        res.status(200).json({
+            success: true,
+            message: 'Profile updated successfully',
+            data: {
+                id: user._id,
+                fullname: user.fullname,
+                email: user.email,
+                profilePicture: user.profilePicture,
+                role: user.role
+            }
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+
+exports.changePassword = async (req, res, next) => {
+    try {
+        const { currentPassword, newPassword } = req.body;
+
+        if (!currentPassword || !newPassword) {
+            return res.status(400).json({ success: false, message: 'Please provide current and new passwords' });
+        }
+
+
+        const user = await User.findById(req.user.id).select('+password');
+
+        const isMatch = await user.matchPassword(currentPassword);
+        if (!isMatch) {
+            return res.status(401).json({ success: false, message: 'Incorrect current password' });
+        }
+        user.password = newPassword;
+        await user.save();
+        await createAuditLog(
+            req.user.id,
+            'profile_update',
+            `${user.fullname} changed their account security password.`,
+            req
+        );
+
+        res.status(200).json({ success: true, message: 'Password updated successfully' });
+    } catch (error) {
+        next(error);
+    }
+};

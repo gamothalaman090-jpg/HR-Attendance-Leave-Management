@@ -42,8 +42,12 @@ const userSchema = new mongoose.Schema({
         type: Date,
         default: Date.now
     },
+    profilePicture: {
+        type: String,
+        default: '' 
+    },
 
-leaveBalances: {
+    leaveBalances: {
         annual: { 
             allotted: { type: Number, default: 20 }, 
             left: { type: Number, default: 20 }
