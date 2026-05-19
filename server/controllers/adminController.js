@@ -108,7 +108,7 @@ exports.deleteAnnouncement = async (req, res) => {
         console.error('Error deleting announcement:', error);
         return res.status(500).json({
             success: false,
-            message: 'Server error while deleting announcement'
+            message: 'Server error'
         });
     }
 };
@@ -172,7 +172,7 @@ exports.reviewLeaveRequest = async (req, res, next) => {
         if (action === 'approved') {
             const user = await User.findById(leave.user);
             if (!user) {
-                return res.status(404).json({ success: false, message: 'Associated employee record not found' });
+                return res.status(404).json({ success: false, message: 'Employee record not found' });
             }
 
             const typeKey = leave.leaveType.toLowerCase();

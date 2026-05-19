@@ -97,7 +97,7 @@ exports.forgotPassword = async (req, res, next) => {
         const user = await User.findOne({ email: req.body.email });
 
         if (!user) {
-            return res.status(404).json({ success: false, message: 'No user found with that email' });
+            return res.status(404).json({ success: false, message: 'User not found' });
         }
 
         const resetToken = crypto.randomBytes(20).toString('hex');
@@ -203,7 +203,7 @@ exports.changePassword = async (req, res, next) => {
 
         const isMatch = await user.matchPassword(currentPassword);
         if (!isMatch) {
-            return res.status(401).json({ success: false, message: 'Incorrect current password' });
+            return res.status(401).json({ success: false, message: 'Incorrect password' });
         }
         user.password = newPassword;
         await user.save();
