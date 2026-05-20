@@ -25,7 +25,7 @@ export default function DepartmentsPage() {
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [isDeleteBlockOpen, setIsDeleteBlockOpen] = useState(false);
 
-  const isHighRanking = user?.role?.toLowerCase().match(/(admin|manager|hr)/);
+  const isHighRanking = user?.role?.toLowerCase().match(/(admin|manager|hr)/) || user?.role?.toLowerCase() === 'superadmin';
 
   const fetchData = async () => {
     setLoading(true);

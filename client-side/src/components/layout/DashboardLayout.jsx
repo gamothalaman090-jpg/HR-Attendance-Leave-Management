@@ -56,7 +56,9 @@ export default function DashboardLayout() {
 
   const visibleSidebarItems = SIDEBAR_ITEMS.filter(item => {
     if (!item.roles) return true;
-    return item.roles.some(r => user?.role?.toLowerCase().includes(r));
+    const userRole = user?.role?.toLowerCase();
+    if (userRole === 'superadmin') return true;
+    return item.roles.some(r => userRole?.includes(r));
   });
 
   const handleLogout = () => {

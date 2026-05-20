@@ -16,7 +16,7 @@ export default function AnnouncementsPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newAnnouncement, setNewAnnouncement] = useState({ title: '', content: '', category: 'General', priority: 'normal' });
 
-  const isHighRanking = user?.role?.toLowerCase().match(/(admin|manager|hr)/);
+  const isHighRanking = user?.role?.toLowerCase().match(/(admin|manager|hr)/) || user?.role?.toLowerCase() === 'superadmin';
 
   const fetchAnnouncements = async () => {
     setLoading(true);

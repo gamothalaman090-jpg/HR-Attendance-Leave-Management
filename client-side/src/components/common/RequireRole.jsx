@@ -13,7 +13,17 @@ import { useAuth } from '@/context/AuthContext';
 export default function RequireRole({ allowedRoles = [], children, fallback = null }) {
   const { user } = useAuth();
 
-  const hasAccess = user && allowedRoles.includes(user.role);
+  const userRole = user?.role?.toLowerCase();
+  
+  // Superadmin has full access override
+  const hasAccess = user && (
+    userRole === 'superadmin' ||
+    allowedRoles.some(role => {
+      const targetRole = role.toLowerCase();
+      if (targetRole === 'hr' && userRole?.includes('hr')) return true;
+      return userRole === targetRole;
+    })
+  );
 
   if (!hasAccess) {
     return fallback;

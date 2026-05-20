@@ -32,8 +32,8 @@ export default function CommandPalette() {
   const navigate = useNavigate();
   const { user } = useAuth();
 
-  const isHR = ['hr', 'admin', 'manager'].some(r => user?.role?.toLowerCase().includes(r));
   const isSuperadmin = user?.role?.toLowerCase() === 'superadmin';
+  const isHR = ['hr', 'admin', 'manager'].some(r => user?.role?.toLowerCase().includes(r)) || isSuperadmin;
 
   // Keyboard shortcut listener (Ctrl+K or Cmd+K)
   useEffect(() => {
@@ -106,7 +106,7 @@ export default function CommandPalette() {
     { id: 'p-profile',        label: 'My Profile',      icon: User,         path: '/app/profile' },
     { id: 'p-superadmin',     label: 'Superadmin Console', icon: ShieldAlert, path: '/app/superadmin', roles: ['superadmin'] },
   ];
-  const PAGES = ALL_PAGES.filter(p => !p.roles || p.roles.some(r => user?.role?.toLowerCase().includes(r)));
+  const PAGES = ALL_PAGES.filter(p => !p.roles || isSuperadmin || p.roles.some(r => user?.role?.toLowerCase().includes(r)));
   const matchedPages = PAGES.filter(p => p.label.toLowerCase().includes(lowerQuery));
   if (matchedPages.length > 0) {
     results.push({ type: 'header', label: 'Pages' });

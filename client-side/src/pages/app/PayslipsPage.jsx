@@ -14,7 +14,7 @@ export default function PayslipsPage() {
   const [search, setSearch] = useState('');
   const [selectedPayslip, setSelectedPayslip] = useState(null);
 
-  const isHighRanking = user?.role?.toLowerCase().match(/(admin|manager|hr)/);
+  const isHighRanking = user?.role?.toLowerCase().match(/(admin|manager|hr)/) || user?.role?.toLowerCase() === 'superadmin';
 
   const fetchData = async () => {
     setLoading(true);

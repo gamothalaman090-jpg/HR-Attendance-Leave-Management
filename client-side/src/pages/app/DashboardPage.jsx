@@ -73,7 +73,7 @@ export default function DashboardPage() {
   const approvedCount = LEAVE_REQUESTS.filter((l) => l.status === 'approved').length;
 
   // Check if user is HR/Admin
-  const isHR = ['hr', 'admin'].some(r => user?.role?.toLowerCase().includes(r));
+  const isHR = ['hr', 'admin'].some(r => user?.role?.toLowerCase().includes(r)) || user?.role?.toLowerCase() === 'superadmin';
 
   // Calculate dynamic changes
   const currentMonth = new Date().getMonth();

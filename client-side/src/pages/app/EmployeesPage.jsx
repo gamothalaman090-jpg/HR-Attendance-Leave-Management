@@ -39,7 +39,7 @@ export default function EmployeesPage() {
   const [approveTarget, setApproveTarget] = useState(null);
   const [rejectTarget, setRejectTarget] = useState(null);
 
-  const isHighRanking = user?.role?.toLowerCase().match(/(admin|manager|hr)/);
+  const isHighRanking = user?.role?.toLowerCase().match(/(admin|manager|hr)/) || user?.role?.toLowerCase() === 'superadmin';
 
   const fetchData = async () => {
     setLoading(true);

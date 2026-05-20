@@ -46,6 +46,12 @@ export default function ProtectedRoute({ allowedRoles, children }) {
   // Role Guard (if allowedRoles is specified)
   if (allowedRoles && allowedRoles.length > 0) {
     const userRole = user?.role?.toLowerCase();
+    
+    // Superadmin has full access override
+    if (userRole === 'superadmin') {
+      return children ? children : <Outlet />;
+    }
+
     const isAuthorized = allowedRoles.some(role => {
       const targetRole = role.toLowerCase();
       // Flexible matching: 'hr' matches 'HR Manager'

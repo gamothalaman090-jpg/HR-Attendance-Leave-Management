@@ -29,7 +29,7 @@ const MONTHS = ['January','February','March','April','May','June','July','August
 export default function AttendancePage() {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState('personal'); // 'personal' or 'staff'
-  const isHighRanking = user?.role?.toLowerCase().match(/(admin|manager|hr)/);
+  const isHighRanking = user?.role?.toLowerCase().match(/(admin|manager|hr)/) || user?.role?.toLowerCase() === 'superadmin';
 
   /* ── Personal View State ── */
   const [records, setRecords] = useState([]);

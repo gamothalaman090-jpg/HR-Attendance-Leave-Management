@@ -24,7 +24,7 @@ export default function PayrollPage() {
     payPeriodEnd: '2026-05-31'
   });
 
-  const isHighRanking = user?.role?.toLowerCase().match(/(admin|manager|hr)/);
+  const isHighRanking = user?.role?.toLowerCase().match(/(admin|manager|hr)/) || user?.role?.toLowerCase() === 'superadmin';
 
   const fetchData = async () => {
     setLoading(true);

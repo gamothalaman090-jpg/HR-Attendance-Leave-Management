@@ -88,7 +88,7 @@ function LeaveTableSkeleton() {
 export default function LeavePage() {
   const { user } = useAuth();
   const { addNotification } = useNotifications();
-  const isHR = ['hr', 'admin', 'manager'].some(r => user?.role?.toLowerCase().includes(r));
+  const isHR = ['hr', 'admin', 'manager'].some(r => user?.role?.toLowerCase().includes(r)) || user?.role?.toLowerCase() === 'superadmin';
 
   const [activeTab, setActiveTab] = useState(isHR ? 'team' : 'my');
   const [statusFilter, setStatusFilter] = useState('all');
