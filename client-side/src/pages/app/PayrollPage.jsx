@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import Meta from '@/components/common/Meta';
-import { Search, DollarSign, Plus, CheckCircle, Clock, Trash2, Calendar, FileText, AlertCircle } from 'lucide-react';
+import { Search, DollarSign, Plus, CheckCircle, Clock, Trash2, Calendar, FileText, AlertCircle, HelpCircle } from 'lucide-react';
 import { Badge, SkeletonCard, Input, Select, Button, Modal } from '@/components/ui';
 import { payrollService } from '@/services/payrollService';
 import { employeeService } from '@/services/employeeService';
@@ -23,6 +23,12 @@ export default function PayrollPage() {
     payPeriodStart: '2026-05-01',
     payPeriodEnd: '2026-05-31'
   });
+
+  // Custom modal confirmation states
+  const [paymentToProcess, setPaymentToProcess] = useState(null); // stores { id, employeeName, salary }
+  const [payrollToDelete, setPayrollToDelete] = useState(null); // stores { id, employeeName }
+  const [processingPayment, setProcessingPayment] = useState(false);
+  const [deletingPayroll, setDeletingPayroll] = useState(false);
 
   const isHighRanking = user?.role?.toLowerCase().match(/(admin|manager|hr)/) || user?.role?.toLowerCase() === 'superadmin';
 
@@ -52,22 +58,31 @@ export default function PayrollPage() {
     fetchData();
   }, []);
 
-  const handleProcessPayment = async (id) => {
+  const confirmProcessPayment = async () => {
+    if (!paymentToProcess) return;
+    setProcessingPayment(true);
     try {
-      await payrollService.processPayment(id);
-      fetchData();
+      await payrollService.processPayment(paymentToProcess.id);
+      await fetchData();
+      setPaymentToProcess(null);
     } catch (err) {
       alert(err.message || 'Payment processing failed');
+    } finally {
+      setProcessingPayment(false);
     }
   };
 
-  const handleDelete = async (id) => {
-    if (!confirm('Are you sure you want to delete this payroll record?')) return;
+  const confirmDeletePayroll = async () => {
+    if (!payrollToDelete) return;
+    setDeletingPayroll(true);
     try {
-      await payrollService.delete(id);
-      fetchData();
+      await payrollService.delete(payrollToDelete.id);
+      await fetchData();
+      setPayrollToDelete(null);
     } catch (err) {
       alert(err.message || 'Deletion failed');
+    } finally {
+      setDeletingPayroll(false);
     }
   };
 
@@ -239,7 +254,7 @@ export default function PayrollPage() {
                         <div className="flex justify-end items-center gap-2">
                           {pay.status === 'pending' ? (
                             <button
-                              onClick={() => handleProcessPayment(pay.id)}
+                              onClick={() => setPaymentToProcess({ id: pay.id, employeeName: pay.employeeName, salary: pay.salary })}
                               className="px-3 py-1.5 rounded-[6px] text-caption font-semibold text-white bg-success hover:bg-success-dark transition-all hover:shadow-[0_4px_10px_rgba(34,197,94,0.15)] flex items-center gap-1 cursor-pointer"
                             >
                               Release Salary
@@ -250,7 +265,7 @@ export default function PayrollPage() {
                             </span>
                           )}
                           <button
-                            onClick={() => handleDelete(pay.id)}
+                            onClick={() => setPayrollToDelete({ id: pay.id, employeeName: pay.employeeName })}
                             className="p-2 rounded-full border border-border hover:bg-danger/10 hover:border-danger/20 hover:text-danger text-text-muted transition-all cursor-pointer"
                             title="Purge record"
                           >
@@ -328,6 +343,91 @@ export default function PayrollPage() {
             </div>
           </form>
         )}
+      </Modal>
+
+      {/* Custom Modal: Release Salary Confirmation */}
+      <Modal
+        isOpen={!!paymentToProcess}
+        onClose={() => setPaymentToProcess(null)}
+        title="Confirm Salary Release"
+        size="md"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setPaymentToProcess(null)}>
+              Cancel
+            </Button>
+            <Button
+              variant="primary"
+              onClick={confirmProcessPayment}
+              loading={processingPayment}
+            >
+              Confirm & Release
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-4 pt-2">
+          <div className="flex items-center gap-3 p-4 rounded-[12px] bg-primary/5 border border-primary/10">
+            <HelpCircle className="text-primary shrink-0" size={24} />
+            <div className="text-body-sm text-text-muted leading-relaxed">
+              You are about to authorize and release the payroll salary processing for this employee record.
+            </div>
+          </div>
+          <div className="p-4 rounded-[12px] bg-surface-alt/50 border border-border space-y-2">
+            <div className="flex justify-between text-body-sm">
+              <span className="text-text-muted">Employee:</span>
+              <span className="font-semibold text-text">{paymentToProcess?.employeeName}</span>
+            </div>
+            <div className="flex justify-between text-body-sm">
+              <span className="text-text-muted">Salary Amount:</span>
+              <span className="font-bold text-text">${paymentToProcess?.salary.toLocaleString()}</span>
+            </div>
+            <div className="flex justify-between text-body-sm">
+              <span className="text-text-muted">Transaction Type:</span>
+              <span className="font-semibold text-success">Direct Deposit Run</span>
+            </div>
+          </div>
+          <p className="text-body-sm text-text-muted">
+            Are you sure you want to proceed with releasing this salary payment? This action is recorded in the activity system logs.
+          </p>
+        </div>
+      </Modal>
+
+      {/* Custom Modal: Delete Payroll Record Confirmation */}
+      <Modal
+        isOpen={!!payrollToDelete}
+        onClose={() => setPayrollToDelete(null)}
+        title="Delete Payroll Record"
+        size="md"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setPayrollToDelete(null)}>
+              Cancel
+            </Button>
+            <Button
+              variant="danger"
+              onClick={confirmDeletePayroll}
+              loading={deletingPayroll}
+            >
+              Yes, Delete Record
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-4 pt-2">
+          <div className="flex items-center gap-3 p-4 rounded-[12px] bg-danger/5 border border-danger/10">
+            <AlertCircle className="text-danger shrink-0" size={24} />
+            <div className="text-body-sm text-danger leading-relaxed font-semibold">
+              Warning: This action is permanent and cannot be undone.
+            </div>
+          </div>
+          <p className="text-body-sm text-text-muted">
+            You are about to permanently purge the payroll run record for <span className="font-semibold text-text">{payrollToDelete?.employeeName}</span>. This will clear the entry from all historical reporting summaries.
+          </p>
+          <p className="text-body-sm text-text-muted">
+            Do you wish to proceed?
+          </p>
+        </div>
       </Modal>
     </div>
   );

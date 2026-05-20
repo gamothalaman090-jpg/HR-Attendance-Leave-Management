@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
 import Meta from '@/components/common/Meta';
-import { Terminal, Shield, RefreshCw, Trash2, Cpu, HardDrive, Database, Activity } from 'lucide-react';
+import { Terminal, Shield, RefreshCw, Trash2, Cpu, HardDrive, Database, Activity, AlertTriangle } from 'lucide-react';
 import { logService } from '@/services/logService';
 import { useAuth } from '@/context/AuthContext';
 import { cn } from '@/utils/helpers';
+import { Modal, Button } from '@/components/ui';
 
 export default function SuperadminPage() {
   const { user } = useAuth();
@@ -16,6 +17,12 @@ export default function SuperadminPage() {
     status: 'Operational'
   });
   
+  // Custom modal confirmation states
+  const [showClearLogsModal, setShowClearLogsModal] = useState(false);
+  const [showFullResetModal, setShowFullResetModal] = useState(false);
+  const [clearingLogs, setClearingLogs] = useState(false);
+  const [resettingDb, setResettingDb] = useState(false);
+
   const terminalEndRef = useRef(null);
 
   // Safety checks
@@ -55,30 +62,41 @@ export default function SuperadminPage() {
     }
   }, [logs]);
 
-  const handleClearLogs = async () => {
-    if (!confirm('Are you sure you want to flush all system activity logs?')) return;
-    await logService.clearLogs();
-    await logService.log({
-      action: 'FLUSH_LOGS',
-      performedBy: user.email,
-      details: 'Superadmin cleared all historical diagnostics logs.'
-    });
-    fetchLogs();
+  const handleClearLogsConfirm = async () => {
+    setClearingLogs(true);
+    try {
+      await logService.clearLogs();
+      await logService.log({
+        action: 'FLUSH_LOGS',
+        performedBy: user.email,
+        details: 'Superadmin cleared all historical diagnostics logs.'
+      });
+      await fetchLogs();
+      setShowClearLogsModal(false);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setClearingLogs(false);
+    }
   };
 
-  const handleFullReset = async () => {
-    if (!confirm('CRITICAL WARNING: This will completely purge the local database state, including all departments, employees, payrolls, and clocks. The application will be reset and re-seeded. Do you wish to continue?')) return;
-    
-    // Clear all localStorage keys starting with nini-
-    const keys = Object.keys(localStorage);
-    keys.forEach(k => {
-      if (k.startsWith('nini-')) {
-        localStorage.removeItem(k);
-      }
-    });
-
-    alert('System state purged successfully. Reloading page...');
-    window.location.reload();
+  const handleFullResetConfirm = async () => {
+    setResettingDb(true);
+    try {
+      // Clear all localStorage keys starting with nini-
+      const keys = Object.keys(localStorage);
+      keys.forEach(k => {
+        if (k.startsWith('nini-')) {
+          localStorage.removeItem(k);
+        }
+      });
+      // Small visual delay before page reloads
+      await new Promise(resolve => setTimeout(resolve, 800));
+      window.location.reload();
+    } catch (err) {
+      console.error(err);
+      setResettingDb(false);
+    }
   };
 
   if (!isSuperadmin) {
@@ -192,20 +210,102 @@ export default function SuperadminPage() {
 
         <div className="flex flex-wrap gap-3">
           <button
-            onClick={handleClearLogs}
+            onClick={() => setShowClearLogsModal(true)}
             className="px-4 py-2.5 bg-danger/10 hover:bg-danger/20 text-danger border border-danger/20 text-body-sm font-semibold rounded-[10px] flex items-center gap-2 transition-all cursor-pointer"
           >
             <Trash2 size={16} /> Flush Logs
           </button>
           
           <button
-            onClick={handleFullReset}
+            onClick={() => setShowFullResetModal(true)}
             className="px-4 py-2.5 bg-danger hover:bg-danger-light text-white text-body-sm font-semibold rounded-[10px] flex items-center gap-2 shadow-glow-accent hover:shadow-[0_4px_12px_rgba(239,68,68,0.2)] transition-all cursor-pointer"
           >
             <RefreshCw size={16} /> Purge Database Reset
           </button>
         </div>
       </div>
+
+      {/* Custom Modal: Flush System Logs */}
+      <Modal
+        isOpen={showClearLogsModal}
+        onClose={() => setShowClearLogsModal(false)}
+        title="Flush Activity Logs"
+        size="md"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setShowClearLogsModal(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="danger"
+              onClick={handleClearLogsConfirm}
+              loading={clearingLogs}
+            >
+              Flush All Logs
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-4 pt-2">
+          <div className="flex items-center gap-3 p-4 rounded-[12px] bg-danger/5 border border-danger/10">
+            <Trash2 className="text-danger shrink-0" size={24} />
+            <div className="text-body-sm text-text-muted leading-relaxed">
+              You are about to flush all system logs and diagnostics history from this application's telemetry logs.
+            </div>
+          </div>
+          <p className="text-body-sm text-text-muted font-semibold text-danger">
+            Are you sure you want to permanently clear the historical diagnostics logs? This action is logged for compliance security.
+          </p>
+        </div>
+      </Modal>
+
+      {/* Custom Modal: Purge Database Reset */}
+      <Modal
+        isOpen={showFullResetModal}
+        onClose={() => setShowFullResetModal(false)}
+        title="Purge Database Reset"
+        size="md"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setShowFullResetModal(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="danger"
+              onClick={handleFullResetConfirm}
+              loading={resettingDb}
+            >
+              Purge & Reset
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-4 pt-2">
+          <div className="flex items-center gap-3 p-4 rounded-[12px] bg-danger/10 border border-danger/20">
+            <AlertTriangle className="text-danger shrink-0 animate-bounce" size={28} />
+            <div className="text-body-sm text-text-muted leading-relaxed font-bold text-danger">
+              CRITICAL SYSTEM PURGE INITIATED
+            </div>
+          </div>
+          <p className="text-body text-text font-semibold">
+            This will completely purge the local database state, including:
+          </p>
+          <ul className="list-disc pl-5 text-body-sm text-text-muted space-y-1">
+            <li>All organizational departments & hierarchy structures.</li>
+            <li>All active, pending, or archived employee profiles.</li>
+            <li>All generated payroll runs, payslips, & bank transfers.</li>
+            <li>All historical attendance clock records & leave files.</li>
+          </ul>
+          <div className="p-4 rounded-[12px] bg-surface-alt/50 border border-border">
+            <p className="text-body-sm text-text-muted leading-relaxed">
+              Upon completion, the application state will be cleared, re-seeded with default demo data partitions, and the page will reload automatically.
+            </p>
+          </div>
+          <p className="text-body-sm font-semibold text-danger">
+            Do you wish to confirm this absolute purge and reset?
+          </p>
+        </div>
+      </Modal>
     </div>
   );
 }
