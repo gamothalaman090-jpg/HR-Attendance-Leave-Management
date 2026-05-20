@@ -54,6 +54,21 @@ export const authService = {
       };
     }
 
+    // Direct check for Superadmin testing
+    if (email.toLowerCase().includes('superadmin')) {
+      return {
+        id: 'SA-9999',
+        name: 'System Superadmin',
+        email: email,
+        role: 'superadmin',
+        department: 'Operations',
+        avatar: null,
+        joinDate: '2024-01-01',
+        token: 'mock-jwt-token-' + Math.random().toString(36).substring(7),
+        onboarded: true,
+      };
+    }
+
     // Ultimate fallback to HR Manager (Alex Rivera)
     const mockUser = {
       id: '1',
