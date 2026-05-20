@@ -122,6 +122,7 @@ To experience both sides of the platform, use the credentials below. **Any passw
 
 | User Identity | Email Address | Assigned Role | Access Level |
 | :--- | :--- | :--- | :--- |
+| **System Superadmin** | `superadmin@nini.io` | Superadmin | **Workspace Superadmin** (Console & Logs) |
 | **Alex Rivera** | `alex.rivera@nini.io` | HR Manager | **Administrative** (Full Access) |
 | **Sarah Chen** | `sarah.chen@nini.io` | Lead AI Engineer | **Employee** (Restricted Personal View) |
 | **James Kim** | `james.kim@nini.io` | Principal UX Designer | **Employee** (Restricted Personal View) |
