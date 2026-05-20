@@ -15,6 +15,10 @@ import {
   User,
   BarChart3,
   Megaphone,
+  Building,
+  DollarSign,
+  FileText,
+  Shield,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useTheme } from '@/hooks/useTheme';
@@ -31,8 +35,12 @@ const SIDEBAR_ITEMS = [
   { label: 'Leave', href: '/app/leave', icon: CalendarOff },
   { label: 'Attendance', href: '/app/attendance', icon: Clock },
   { label: 'Employees', href: '/app/employees', icon: Users, roles: ['admin', 'manager', 'hr'] },
+  { label: 'Departments', href: '/app/departments', icon: Building, roles: ['admin', 'manager', 'hr'] },
+  { label: 'Payroll', href: '/app/payroll', icon: DollarSign, roles: ['admin', 'manager', 'hr'] },
+  { label: 'Payslips', href: '/app/payslips', icon: FileText },
   { label: 'Calendar', href: '/app/calendar', icon: Calendar },
   { label: 'Reports', href: '/app/reports', icon: BarChart3, roles: ['admin', 'manager', 'hr'] },
+  { label: 'Diagnostics', href: '/app/superadmin', icon: Shield, roles: ['superadmin'] },
   { label: 'Settings', href: '/app/settings', icon: Settings },
 ];
 

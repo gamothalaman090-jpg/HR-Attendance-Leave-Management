@@ -62,9 +62,57 @@ HR-Attendance-Leave-Management/
 │   │   └── main.jsx           # App mounting entry point
 │   ├── package.json           # Frontend dependencies
 │   └── vite.config.js         # Bundler & PWA configurations
+├── server/                    # Node.js Express Backend
+│   ├── config/                # Database and middleware configs
+│   ├── controllers/           # API request controllers
+│   ├── middlewares/           # JWT, role-based, and validation middlewares
+│   ├── models/                # MongoDB Schema models
+│   ├── routes/                # Express API router definitions
+│   ├── scripts/               # Seeding and database utility scripts
+│   ├── server.js              # Server entry point
+│   └── package.json           # Server-side dependencies
 ├── README.md                  # Project documentation
 └── .gitignore
 ```
+
+---
+
+## 📦 Dependencies Overview
+
+### 💻 Client-Side (Frontend React SPA)
+
+| Dependency | Purpose |
+| :--- | :--- |
+| **`react` & `react-dom`** (v19) | Main UI component library and DOM rendering client. |
+| **`react-router-dom`** | Client-side routing, query state parsing, and route guards. |
+| **`@tanstack/react-query`** | Query caching, optimistic UI updates, and server synchronization state. |
+| **`gsap`** | GreenSock Animation Platform for premium layout entries and page transitions. |
+| **`recharts`** | Beautiful D3-based charting widgets for dashboards and reporting modules. |
+| **`react-hook-form` & `@hookform/resolvers`** | Performant, schema-validated input form controller state. |
+| **`zod`** | Schema-first object parsing and client form input validation. |
+| **`xlsx`** (SheetJS) | Client-side Excel spreadsheet parser/generator for payroll reports exports. |
+| **`axios`** | HTTP request client for communication with backend routers. |
+| **`lucide-react`** | High-quality customizable SVG icon components library. |
+| **`react-error-boundary`** | Declarative React error interception boundary wrappers. |
+| **`tailwindcss` & `@tailwindcss/vite`** (v4) | Utility-first styling framework and lightning-fast Vite compilation plugin. |
+| **`vite-plugin-pwa`** | Automated Progressive Web App configurations and offline asset caching. |
+
+### 🗄️ Server-Side (Node.js & Express API)
+
+| Dependency | Purpose |
+| :--- | :--- |
+| **`express`** (v5) | Fast, opinionated backend router and API framework. |
+| **`mongoose`** | MongoDB Object Document Mapper (ODM) for database models and validation. |
+| **`jsonwebtoken`** | Creation and validation of encrypted JWT tokens for authentication. |
+| **`bcryptjs`** | Secure hashing and verification of employee login passwords. |
+| **`nodemailer`** | General SMTP email sending integrations. |
+| **`resend`** | Dedicated transactional email delivery service API client. |
+| **`multer` & `multer-storage-cloudinary`** | Handling multipart form data and direct image uploads. |
+| **`cloudinary`** | Storage manager integration for hosting employee profile avatars. |
+| **`cors`** | Cross-Origin Resource Sharing middleware wrapper. |
+| **`dotenv`** | Zero-dependency environment variable parser. |
+| **`morgan`** | High-performance console HTTP request logger middleware. |
+| **`nodemon`** (dev) | File watcher for live server auto-reloading during development. |
 
 ---
 

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import Meta from '@/components/common/Meta';
 import { useAuth } from '@/context/AuthContext';
 import { useTheme } from '@/hooks/useTheme';
-import { Button } from '@/components/ui';
+import { Button, Input } from '@/components/ui';
 import {
   User, Bell, Palette, Shield, Save,
   Sun, Moon, Monitor,
@@ -59,7 +59,7 @@ export default function SettingsPage() {
   );
 
   return (
-    <div>
+    <div className="p-6 md:p-8 max-w-5xl mx-auto">
       <Meta title="Settings" />
       <div className="mb-6">
         <h1 className="font-heading text-h2 font-bold mb-1">Settings</h1>
@@ -112,17 +112,17 @@ export default function SettingsPage() {
               <div className="grid sm:grid-cols-2 gap-4">
                 {[
                   { key: 'name', label: 'Full Name' },
-                  { key: 'email', label: 'Email Address' },
-                  { key: 'phone', label: 'Phone Number' },
-                  { key: 'department', label: 'Department' },
-                ].map(({ key, label }) => (
+                  { key: 'email', label: 'Email Address', type: 'email' },
+                  { key: 'phone', label: 'Phone Number', type: 'tel' },
+                  { key: 'department', label: 'Department', disabled: true },
+                ].map(({ key, label, type = 'text', disabled = false }) => (
                   <div key={key}>
-                    <label className="block text-body-sm font-medium text-text mb-1">{label}</label>
-                    <input
-                      type="text"
+                    <Input
+                      label={label}
+                      type={type}
+                      disabled={disabled}
                       value={profileData[key]}
                       onChange={(e) => setProfileData((prev) => ({ ...prev, [key]: e.target.value }))}
-                      className="w-full px-3 py-2.5 bg-bg border border-border rounded-[8px] text-body text-text focus:ring-2 focus:ring-primary/30 focus:border-primary outline-none transition-all"
                     />
                   </div>
                 ))}
@@ -204,31 +204,22 @@ export default function SettingsPage() {
               <h2 className="font-heading text-h4 font-bold mb-1">Security</h2>
               <p className="text-body-sm text-text-muted mb-6">Manage your password and account security.</p>
 
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-body-sm font-medium text-text mb-1">Current Password</label>
-                  <input
-                    type="password"
-                    placeholder="Enter current password"
-                    className="w-full px-3 py-2.5 bg-bg border border-border rounded-[8px] text-body text-text placeholder:text-text-muted focus:ring-2 focus:ring-primary/30 focus:border-primary outline-none transition-all max-w-md"
-                  />
-                </div>
-                <div>
-                  <label className="block text-body-sm font-medium text-text mb-1">New Password</label>
-                  <input
-                    type="password"
-                    placeholder="Enter new password"
-                    className="w-full px-3 py-2.5 bg-bg border border-border rounded-[8px] text-body text-text placeholder:text-text-muted focus:ring-2 focus:ring-primary/30 focus:border-primary outline-none transition-all max-w-md"
-                  />
-                </div>
-                <div>
-                  <label className="block text-body-sm font-medium text-text mb-1">Confirm New Password</label>
-                  <input
-                    type="password"
-                    placeholder="Confirm new password"
-                    className="w-full px-3 py-2.5 bg-bg border border-border rounded-[8px] text-body text-text placeholder:text-text-muted focus:ring-2 focus:ring-primary/30 focus:border-primary outline-none transition-all max-w-md"
-                  />
-                </div>
+              <div className="space-y-4 max-w-md">
+                <Input
+                  label="Current Password"
+                  type="password"
+                  placeholder="Enter current password"
+                />
+                <Input
+                  label="New Password"
+                  type="password"
+                  placeholder="Enter new password"
+                />
+                <Input
+                  label="Confirm New Password"
+                  type="password"
+                  placeholder="Confirm new password"
+                />
                 <div className="pt-2">
                   <Button onClick={handleSave} leftIcon={<Shield size={16} />}>
                     Update Password

@@ -15,10 +15,38 @@ const getStoredEmployees = () => {
       localStorage.setItem(STORAGE_KEY, JSON.stringify([]));
       return [];
     }
-    return parsed;
   }
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(DEFAULT_EMPLOYEES));
-  return DEFAULT_EMPLOYEES;
+  const pendingSeeded = [
+    ...DEFAULT_EMPLOYEES,
+    {
+      id: 'EMP-9001',
+      name: 'Oliver Thorne',
+      email: 'oliver.thorne@nini.io',
+      role: 'Frontend Engineer',
+      department: 'Engineering',
+      phone: '+1 (555) 601-9231',
+      status: 'pending',
+      joinDate: '2026-05-15',
+      annualBalance: 20,
+      sickBalance: 10,
+      personalBalance: 5
+    },
+    {
+      id: 'EMP-9002',
+      name: 'Claire Sinclair',
+      email: 'claire.sinclair@nini.io',
+      role: 'Growth Specialist',
+      department: 'Marketing',
+      phone: '+1 (555) 712-4491',
+      status: 'pending',
+      joinDate: '2026-05-18',
+      annualBalance: 15,
+      sickBalance: 8,
+      personalBalance: 5
+    }
+  ];
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(pendingSeeded));
+  return pendingSeeded;
 };
 
 const saveEmployees = (employees) => {
@@ -103,6 +131,26 @@ export const employeeService = {
     const employees = getStoredEmployees();
     const filtered = employees.filter((e) => e.id !== id);
     if (filtered.length === employees.length) return false; // not found
+    saveEmployees(filtered);
+    return true;
+  },
+
+  /** Approve a pending employee registration */
+  async approve(id) {
+    await sleep(300);
+    const employees = getStoredEmployees();
+    const index = employees.findIndex(e => e.id === id);
+    if (index === -1) throw new Error('Employee not found');
+    employees[index].status = 'active';
+    saveEmployees(employees);
+    return employees[index];
+  },
+
+  /** Reject/Delete a pending employee registration */
+  async reject(id) {
+    await sleep(300);
+    const employees = getStoredEmployees();
+    const filtered = employees.filter(e => e.id !== id);
     saveEmployees(filtered);
     return true;
   }

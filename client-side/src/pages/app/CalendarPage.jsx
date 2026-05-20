@@ -136,15 +136,17 @@ export default function CalendarPage() {
                   key={day}
                   onClick={() => setSelectedDay(day)}
                   className={cn(
-                    'min-h-[80px] sm:min-h-[100px] p-1.5 rounded-[10px] text-left transition-all cursor-pointer',
-                    'border hover:border-primary/30',
-                    isSelected ? 'border-primary bg-primary/5' : 'border-transparent',
-                    isToday && 'ring-2 ring-primary/50',
-                    isWeekend ? 'bg-surface-alt/50' : 'bg-surface',
+                    'min-h-[80px] sm:min-h-[100px] p-2 rounded-[12px] text-left transition-all duration-300 ease-out cursor-pointer',
+                    'border hover:border-primary/40 hover:shadow-card hover:scale-[1.03] hover:-translate-y-0.5',
+                    isSelected 
+                      ? 'border-primary bg-primary/5 shadow-glow-primary' 
+                      : 'border-border/50 hover:bg-surface-alt/30',
+                    isToday && 'ring-2 ring-primary/60 border-primary',
+                    isWeekend ? 'bg-surface-alt/40' : 'bg-surface',
                   )}
                 >
                   <span className={cn(
-                    'text-body-sm font-medium block mb-1',
+                    'text-body-sm font-semibold block mb-1.5 transition-colors',
                     isToday ? 'text-primary font-bold' : isWeekend ? 'text-text-muted' : 'text-text',
                   )}>
                     {day}

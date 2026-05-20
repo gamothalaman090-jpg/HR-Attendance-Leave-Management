@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import Meta from '@/components/common/Meta';
-import { Search, LayoutGrid, List, Users, Mail, Phone, Building, Plus, Trash2, X, AlertTriangle, Lock, Sparkles } from 'lucide-react';
+import { Search, LayoutGrid, List, Users, Mail, Phone, Building, Plus, Trash2, X, AlertTriangle, Lock, Sparkles, Check, XCircle, UserCheck } from 'lucide-react';
 import { Badge, SkeletonCard } from '@/components/ui';
 import EmployeeDetailModal from '@/components/ui/EmployeeDetailModal';
 import { employeeService } from '@/services/employeeService';
@@ -12,6 +12,7 @@ const STATUS_BADGE = {
   active: 'success',
   'on-leave': 'warning',
   inactive: 'default',
+  pending: 'warning',
 };
 
 export default function EmployeesPage() {
@@ -23,6 +24,7 @@ export default function EmployeesPage() {
   const [search, setSearch] = useState('');
   const [deptFilter, setDeptFilter] = useState('all');
   const [view, setView] = useState('grid');
+  const [activeTab, setActiveTab] = useState('directory'); // 'directory' or 'approvals'
   
   const [selectedEmployee, setSelectedEmployee] = useState(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
@@ -31,10 +33,11 @@ export default function EmployeesPage() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [newEmp, setNewEmp] = useState({ name: '', email: '', role: '', department: 'Engineering', phone: '', annualBalance: 20, sickBalance: 10, personalBalance: 5 });
 
-  // Custom Confirm & Limit Modal States
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [pendingAddEmp, setPendingAddEmp] = useState(null);
   const [isTierLimitOpen, setIsTierLimitOpen] = useState(false);
+  const [approveTarget, setApproveTarget] = useState(null);
+  const [rejectTarget, setRejectTarget] = useState(null);
 
   const isHighRanking = user?.role?.toLowerCase().match(/(admin|manager|hr)/);
 
@@ -80,6 +83,13 @@ export default function EmployeesPage() {
 
   /* ── Filter ── */
   const filtered = employees.filter((e) => {
+    // Filter based on active tab
+    if (activeTab === 'approvals') {
+      if (e.status !== 'pending') return false;
+    } else {
+      if (e.status === 'pending') return false;
+    }
+
     if (deptFilter !== 'all' && e.department !== deptFilter) return false;
     if (search) {
       const q = search.toLowerCase();
@@ -114,6 +124,41 @@ export default function EmployeesPage() {
           </button>
         )}
       </div>
+
+      {/* Role-based Tab Switching for Admins/HR/Managers */}
+      {isHighRanking && (
+        <div className="flex border-b border-border mb-6">
+          <button
+            onClick={() => setActiveTab('directory')}
+            className={cn(
+              'px-5 py-3 text-body-sm font-semibold border-b-2 transition-all cursor-pointer flex items-center gap-2',
+              activeTab === 'directory'
+                ? 'border-primary text-primary'
+                : 'border-transparent text-text-muted hover:text-text'
+            )}
+          >
+            <Users size={16} />
+            Employee Directory
+          </button>
+          <button
+            onClick={() => setActiveTab('approvals')}
+            className={cn(
+              'px-5 py-3 text-body-sm font-semibold border-b-2 transition-all cursor-pointer flex items-center gap-2 relative',
+              activeTab === 'approvals'
+                ? 'border-primary text-primary'
+                : 'border-transparent text-text-muted hover:text-text'
+            )}
+          >
+            <UserCheck size={16} />
+            Pending Approvals
+            {employees.filter(e => e.status === 'pending').length > 0 && (
+              <span className="bg-danger text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full ml-1.5">
+                {employees.filter(e => e.status === 'pending').length}
+              </span>
+            )}
+          </button>
+        </div>
+      )}
 
       {/* Stats Row */}
       <div className="grid grid-cols-3 gap-4 mb-6">
@@ -237,7 +282,22 @@ export default function EmployeesPage() {
                   <span className="truncate">{emp.email}</span>
                 </div>
               </div>
-              {isHighRanking && (
+              {isHighRanking && activeTab === 'approvals' ? (
+                <div className="mt-4 pt-4 border-t border-border/50 flex gap-2" onClick={(e) => e.stopPropagation()}>
+                  <button
+                    onClick={() => setApproveTarget(emp)}
+                    className="flex-1 flex items-center justify-center gap-1.5 bg-success/15 hover:bg-success/25 text-success text-body-sm font-semibold py-2 rounded-[8px] border border-success/20 transition-all cursor-pointer"
+                  >
+                    <Check size={14} /> Approve
+                  </button>
+                  <button
+                    onClick={() => setRejectTarget(emp)}
+                    className="flex-1 flex items-center justify-center gap-1.5 bg-danger/15 hover:bg-danger/25 text-danger text-body-sm font-semibold py-2 rounded-[8px] border border-danger/20 transition-all cursor-pointer"
+                  >
+                    <XCircle size={14} /> Reject
+                  </button>
+                </div>
+              ) : isHighRanking && (
                 <div className="mt-4 pt-4 border-t border-border/50">
                   <Badge variant={STATUS_BADGE[emp.status] || 'default'}>
                     {emp.status === 'on-leave' ? 'On Leave' : emp.status.charAt(0).toUpperCase() + emp.status.slice(1)}
@@ -285,14 +345,33 @@ export default function EmployeesPage() {
                         {emp.status === 'on-leave' ? 'On Leave' : emp.status.charAt(0).toUpperCase() + emp.status.slice(1)}
                       </Badge>
                     </td>
-                    {isHighRanking && (
-                      <td className="px-4 py-3 text-right">
-                        <button 
-                          onClick={(e) => handleDelete(e, emp)}
-                          className="opacity-0 group-hover:opacity-100 p-2 text-text-muted hover:text-danger hover:bg-danger/10 rounded-full transition-all"
-                        >
-                          <Trash2 size={16} />
-                        </button>
+                     {isHighRanking && (
+                      <td className="px-4 py-3 text-right" onClick={(e) => e.stopPropagation()}>
+                        {activeTab === 'approvals' ? (
+                          <div className="flex justify-end gap-2">
+                            <button
+                              onClick={() => setApproveTarget(emp)}
+                              className="p-1.5 rounded-full border border-success/20 bg-success/10 text-success hover:bg-success/20 transition-all cursor-pointer"
+                              title="Approve registration"
+                            >
+                              <Check size={14} />
+                            </button>
+                            <button
+                              onClick={() => setRejectTarget(emp)}
+                              className="p-1.5 rounded-full border border-danger/20 bg-danger/10 text-danger hover:bg-danger/20 transition-all cursor-pointer"
+                              title="Reject registration"
+                            >
+                              <XCircle size={14} />
+                            </button>
+                          </div>
+                        ) : (
+                          <button 
+                            onClick={(e) => handleDelete(e, emp)}
+                            className="opacity-0 group-hover:opacity-100 p-2 text-text-muted hover:text-danger hover:bg-danger/10 rounded-full transition-all"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        )}
                       </td>
                     )}
                   </tr>
@@ -541,6 +620,106 @@ export default function EmployeesPage() {
                 className="flex-1 py-3 rounded-[12px] font-semibold text-white bg-primary hover:bg-primary-light transition-all hover:shadow-glow-primary flex items-center justify-center gap-2 cursor-pointer"
               >
                 <Sparkles size={16} /> Upgrade Plan
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* CUSTOM MODAL: APPROVE CONFIRMATION */}
+      {approveTarget && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-background/80 backdrop-blur-sm" onClick={() => setApproveTarget(null)} />
+          <div className="relative bg-surface border border-border rounded-[24px] shadow-2xl w-full max-w-md p-6 flex flex-col items-center text-center overflow-hidden onboard-step-anim">
+            <div className="absolute -top-12 -right-12 w-24 h-24 bg-success/10 rounded-full blur-xl" />
+            <div className="w-16 h-16 rounded-full bg-success/10 flex items-center justify-center text-success mb-4 shrink-0">
+              <Check size={28} className="stroke-[2.5]" />
+            </div>
+            
+            <h3 className="text-h3 font-heading font-bold text-text mb-2">Approve Registration?</h3>
+            <p className="text-body-sm text-text-muted mb-4 max-w-xs">
+              Are you sure you want to approve <span className="font-semibold text-text">{approveTarget.name}</span>'s registration? They will gain immediate access to their dashboard.
+            </p>
+            
+            <div className="w-full bg-surface-alt border border-border rounded-[12px] p-3 mb-6 text-left flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary text-body-sm font-bold shrink-0">
+                {getInitials(approveTarget.name)}
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="text-body-sm font-semibold text-text truncate">{approveTarget.name}</div>
+                <div className="text-caption text-text-muted truncate">{approveTarget.role} • {approveTarget.department}</div>
+              </div>
+            </div>
+            
+            <div className="flex w-full gap-3">
+              <button 
+                type="button"
+                onClick={() => setApproveTarget(null)}
+                className="flex-1 py-3 rounded-[12px] font-medium border border-border hover:bg-surface-alt text-text transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button 
+                type="button"
+                onClick={async () => {
+                  const targetId = approveTarget.id;
+                  setApproveTarget(null);
+                  await employeeService.approve(targetId);
+                  fetchData();
+                }}
+                className="flex-1 py-3 rounded-[12px] font-semibold text-white bg-success hover:bg-success/90 transition-all hover:shadow-[0_4px_12px_rgba(34,197,94,0.2)] cursor-pointer"
+              >
+                Approve
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* CUSTOM MODAL: REJECT CONFIRMATION */}
+      {rejectTarget && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-background/80 backdrop-blur-sm" onClick={() => setRejectTarget(null)} />
+          <div className="relative bg-surface border border-border rounded-[24px] shadow-2xl w-full max-w-md p-6 flex flex-col items-center text-center overflow-hidden onboard-step-anim">
+            <div className="absolute -top-12 -right-12 w-24 h-24 bg-danger/10 rounded-full blur-xl" />
+            <div className="w-16 h-16 rounded-full bg-danger/10 flex items-center justify-center text-danger mb-4 shrink-0">
+              <XCircle size={28} className="stroke-[2]" />
+            </div>
+            
+            <h3 className="text-h3 font-heading font-bold text-text mb-2">Reject Registration?</h3>
+            <p className="text-body-sm text-text-muted mb-4 max-w-xs">
+              Are you sure you want to reject and purge <span className="font-semibold text-text">{rejectTarget.name}</span>'s pending registration request?
+            </p>
+            
+            <div className="w-full bg-surface-alt border border-border rounded-[12px] p-3 mb-6 text-left flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary text-body-sm font-bold shrink-0">
+                {getInitials(rejectTarget.name)}
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="text-body-sm font-semibold text-text truncate">{rejectTarget.name}</div>
+                <div className="text-caption text-text-muted truncate">{rejectTarget.role} • {rejectTarget.department}</div>
+              </div>
+            </div>
+            
+            <div className="flex w-full gap-3">
+              <button 
+                type="button"
+                onClick={() => setRejectTarget(null)}
+                className="flex-1 py-3 rounded-[12px] font-medium border border-border hover:bg-surface-alt text-text transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button 
+                type="button"
+                onClick={async () => {
+                  const targetId = rejectTarget.id;
+                  setRejectTarget(null);
+                  await employeeService.reject(targetId);
+                  fetchData();
+                }}
+                className="flex-1 py-3 rounded-[12px] font-semibold text-white bg-danger hover:bg-danger/90 transition-all hover:shadow-[0_4px_12px_rgba(239,68,68,0.2)] cursor-pointer"
+              >
+                Reject Request
               </button>
             </div>
           </div>

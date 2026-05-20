@@ -50,6 +50,7 @@ export const authService = {
         avatar: null,
         joinDate: matchingEmployee.joinDate || new Date().toISOString().split('T')[0],
         token: 'mock-jwt-token-' + Math.random().toString(36).substring(7),
+        onboarded: true,
       };
     }
 
@@ -63,6 +64,7 @@ export const authService = {
       avatar: null,
       joinDate: '2024-03-15',
       token: 'mock-jwt-token-' + Math.random().toString(36).substring(7),
+      onboarded: true,
     };
 
     return mockUser;

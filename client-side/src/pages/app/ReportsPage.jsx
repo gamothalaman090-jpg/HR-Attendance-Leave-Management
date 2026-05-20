@@ -3,7 +3,7 @@
  * Tabs: Attendance Report | Leave Report
  * Features: stat cards, charts (recharts), data table, Excel export (ExportButton)
  */
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import Meta from '@/components/common/Meta';
 import {
   BarChart, Bar, PieChart, Pie, Cell,
@@ -11,11 +11,14 @@ import {
 } from 'recharts';
 import {
   BarChart3, Clock, Calendar, CheckCircle2,
-  XCircle, TrendingUp, Users, CalendarOff,
+  XCircle, TrendingUp, Users, CalendarOff, Filter
 } from 'lucide-react';
-import { Card, CardHeader, CardContent, Badge, ExportButton } from '@/components/ui';
-import { ATTENDANCE_RECORDS } from '@/data/attendance';
-import { LEAVE_REQUESTS } from '@/data/leaves';
+import {
+  Card, CardHeader, CardContent, Badge, ExportButton,
+  Table, TableCell, Select, SkeletonCard, SkeletonTable
+} from '@/components/ui';
+import { attendanceService } from '@/services/attendanceService';
+import { leaveService } from '@/services/leaveService';
 import { cn, capitalize } from '@/utils/helpers';
 
 /* ── Colour palette aligned with CSS tokens ── */
@@ -23,7 +26,9 @@ const CHART_COLORS = {
   present: '#10b981',
   absent: '#ef4444',
   late: '#f59e0b',
-  leave: '#8b5cf6',
+  'half-day': '#8b5cf6',
+  leave: '#6366f1',
+  holiday: '#3b82f6',
   pending: '#f59e0b',
   approved: '#10b981',
   rejected: '#ef4444',
@@ -91,15 +96,47 @@ function CustomTooltip({ active, payload, label }) {
 
 export default function ReportsPage() {
   const [activeTab, setActiveTab] = useState('attendance');
+  const [attendanceRecords, setAttendanceRecords] = useState([]);
+  const [leaveRequests, setLeaveRequests] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  /* ── Attendance data ── */
+  /* ── Filter States ── */
+  const [attStatusFilter, setAttStatusFilter] = useState('all');
+  const [leaveTypeFilter, setLeaveTypeFilter] = useState('all');
+  const [leaveStatusFilter, setLeaveStatusFilter] = useState('all');
+
+  /* ── Fetch Data ── */
+  useEffect(() => {
+    let active = true;
+    async function loadData() {
+      try {
+        setLoading(true);
+        const [attData, leaveData] = await Promise.all([
+          attendanceService.getMonthly(),
+          leaveService.getAll()
+        ]);
+        if (active) {
+          setAttendanceRecords(attData);
+          setLeaveRequests(leaveData);
+        }
+      } catch (err) {
+        console.error('Failed to load reports data:', err);
+      } finally {
+        if (active) setLoading(false);
+      }
+    }
+    loadData();
+    return () => { active = false; };
+  }, []);
+
+  /* ── Attendance data computations ── */
   const workdays = useMemo(() =>
-    ATTENDANCE_RECORDS.filter((r) => !['weekend', 'upcoming'].includes(r.status)),
-    []
+    attendanceRecords.filter((r) => !['weekend', 'upcoming'].includes(r.status)),
+    [attendanceRecords]
   );
 
   const attStats = useMemo(() => ({
-    present: workdays.filter((r) => r.status === 'present').length,
+    present: workdays.filter((r) => r.status === 'present' || r.status === 'late' || r.status === 'half-day').length,
     absent: workdays.filter((r) => r.status === 'absent').length,
     late: workdays.filter((r) => r.status === 'late').length,
     leave: workdays.filter((r) => r.status === 'leave').length,
@@ -108,8 +145,15 @@ export default function ReportsPage() {
       : 0,
   }), [workdays]);
 
+  const filteredWorkdays = useMemo(() => {
+    return workdays.filter((r) => {
+      if (attStatusFilter !== 'all' && r.status !== attStatusFilter) return false;
+      return true;
+    });
+  }, [workdays, attStatusFilter]);
+
   const barData = useMemo(() =>
-    workdays
+    filteredWorkdays
       .filter((r) => r.hours > 0)
       .slice(-14) // last 14 working days
       .map((r) => ({
@@ -117,37 +161,70 @@ export default function ReportsPage() {
         hours: r.hours,
         status: r.status,
       })),
-    [workdays]
+    [filteredWorkdays]
   );
 
-  /* ── Leave data ── */
+  /* ── Leave data computations ── */
   const leaveStats = useMemo(() => {
     const counts = { approved: 0, pending: 0, rejected: 0 };
-    LEAVE_REQUESTS.forEach((l) => { if (counts[l.status] !== undefined) counts[l.status]++; });
+    leaveRequests.forEach((l) => { if (counts[l.status] !== undefined) counts[l.status]++; });
     return counts;
-  }, []);
+  }, [leaveRequests]);
+
+  const filteredLeaves = useMemo(() => {
+    return leaveRequests.filter((l) => {
+      if (leaveTypeFilter !== 'all' && l.type !== leaveTypeFilter) return false;
+      if (leaveStatusFilter !== 'all' && l.status !== leaveStatusFilter) return false;
+      return true;
+    });
+  }, [leaveRequests, leaveTypeFilter, leaveStatusFilter]);
 
   const leaveByType = useMemo(() => {
     const map = {};
-    LEAVE_REQUESTS.filter((l) => l.status === 'approved').forEach((l) => {
+    filteredLeaves.filter((l) => l.status === 'approved').forEach((l) => {
       map[l.type] = (map[l.type] || 0) + l.days;
     });
     return Object.entries(map).map(([name, value]) => ({ name, value }));
-  }, []);
+  }, [filteredLeaves]);
 
-  const statusPieData = useMemo(() =>
-    Object.entries(leaveStats).map(([name, value]) => ({ name, value })),
-    [leaveStats]
-  );
+  const statusPieData = useMemo(() => {
+    const counts = { approved: 0, pending: 0, rejected: 0 };
+    filteredLeaves.forEach((l) => { if (counts[l.status] !== undefined) counts[l.status]++; });
+    return Object.entries(counts).map(([name, value]) => ({ name, value }));
+  }, [filteredLeaves]);
 
   /* ── Export data (cleaned) ── */
-  const attendanceExportData = workdays.map((r) => ({
-    date: r.date,
-    status: r.status,
-    clockIn: r.clockIn || '—',
-    clockOut: r.clockOut || '—',
-    hours: r.hours || 0,
-  }));
+  const attendanceExportData = useMemo(() =>
+    filteredWorkdays.map((r) => ({
+      date: r.date,
+      status: r.status,
+      clockIn: r.clockIn || '—',
+      clockOut: r.clockOut || '—',
+      hours: r.hours || 0,
+    })),
+    [filteredWorkdays]
+  );
+
+  if (loading) {
+    return (
+      <>
+        <Meta title="Reports | Nini HR" />
+        <div className="space-y-6">
+          <div className="flex justify-between items-center">
+            <div className="w-1/3 h-8 bg-surface-alt/60 animate-pulse rounded-[8px]" />
+            <div className="w-32 h-10 bg-surface-alt/60 animate-pulse rounded-[8px]" />
+          </div>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <SkeletonCard />
+            <SkeletonCard />
+            <SkeletonCard />
+            <SkeletonCard />
+          </div>
+          <SkeletonTable rows={6} cols={5} />
+        </div>
+      </>
+    );
+  }
 
   return (
     <>
@@ -172,7 +249,7 @@ export default function ReportsPage() {
             />
           ) : (
             <ExportButton
-              data={LEAVE_REQUESTS}
+              data={filteredLeaves}
               columns={LEAVE_COLS}
               filename="leave_report"
               sheetName="Leave Requests"
@@ -180,29 +257,87 @@ export default function ReportsPage() {
           )}
         </div>
 
-        {/* Tabs */}
-        <div className="flex gap-1 p-1 bg-surface-alt rounded-[12px] w-fit" role="tablist" aria-label="Report types">
-          {TABS.map((tab) => (
-            <button
-              key={tab}
-              role="tab"
-              aria-selected={activeTab === tab}
-              aria-controls={`${tab}-panel`}
-              id={`${tab}-tab`}
-              onClick={() => setActiveTab(tab)}
-              className={cn(
-                'px-5 py-2 rounded-[10px] text-body-sm font-semibold transition-all duration-base cursor-pointer capitalize',
-                activeTab === tab
-                  ? 'bg-surface text-text shadow-sm'
-                  : 'text-text-muted hover:text-text'
-              )}
-            >
-              {tab === 'attendance' ? 'Attendance' : 'Leave'}
-            </button>
-          ))}
+        {/* Tabs & Filters Toolbar */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-4 rounded-[16px] bg-surface border border-border">
+          <div className="flex gap-1 p-1 bg-surface-alt rounded-[12px] w-fit shrink-0" role="tablist" aria-label="Report types">
+            {TABS.map((tab) => (
+              <button
+                key={tab}
+                role="tab"
+                aria-selected={activeTab === tab}
+                aria-controls={`${tab}-panel`}
+                id={`${tab}-tab`}
+                onClick={() => setActiveTab(tab)}
+                className={cn(
+                  'px-5 py-2 rounded-[10px] text-body-sm font-semibold transition-all duration-base cursor-pointer capitalize',
+                  activeTab === tab
+                    ? 'bg-surface text-text shadow-sm'
+                    : 'text-text-muted hover:text-text'
+                )}
+              >
+                {tab === 'attendance' ? 'Attendance' : 'Leave'}
+              </button>
+            ))}
+          </div>
+
+          {/* Contextual Filters */}
+          <div className="flex items-center gap-3 w-full md:w-auto">
+            <Filter size={16} className="text-text-muted shrink-0 hidden sm:inline" />
+            
+            {activeTab === 'attendance' ? (
+              <div className="w-full sm:w-48">
+                <Select
+                  value={attStatusFilter}
+                  onChange={(e) => setAttStatusFilter(e.target.value)}
+                  options={[
+                    { value: 'all', label: 'All Statuses' },
+                    { value: 'present', label: 'Present' },
+                    { value: 'absent', label: 'Absent' },
+                    { value: 'late', label: 'Late' },
+                    { value: 'half-day', label: 'Half Day' },
+                    { value: 'leave', label: 'Leave' },
+                    { value: 'holiday', label: 'Holiday' },
+                  ]}
+                  placeholder="Filter Status"
+                />
+              </div>
+            ) : (
+              <div className="flex gap-3 w-full sm:w-auto">
+                <div className="w-1/2 sm:w-36">
+                  <Select
+                    value={leaveTypeFilter}
+                    onChange={(e) => setLeaveTypeFilter(e.target.value)}
+                    options={[
+                      { value: 'all', label: 'All Types' },
+                      { value: 'annual', label: 'Annual' },
+                      { value: 'sick', label: 'Sick' },
+                      { value: 'personal', label: 'Personal' },
+                      { value: 'maternity', label: 'Maternity' },
+                      { value: 'paternity', label: 'Paternity' },
+                      { value: 'unpaid', label: 'Unpaid' },
+                    ]}
+                    placeholder="Filter Type"
+                  />
+                </div>
+                <div className="w-1/2 sm:w-36">
+                  <Select
+                    value={leaveStatusFilter}
+                    onChange={(e) => setLeaveStatusFilter(e.target.value)}
+                    options={[
+                      { value: 'all', label: 'All Status' },
+                      { value: 'approved', label: 'Approved' },
+                      { value: 'pending', label: 'Pending' },
+                      { value: 'rejected', label: 'Rejected' },
+                    ]}
+                    placeholder="Filter Status"
+                  />
+                </div>
+              </div>
+            )}
+          </div>
         </div>
 
-        {/* ── ATTENDANCE TAB ── */}
+        {/* ── ATTENDANCE TAB PANEL ── */}
         {activeTab === 'attendance' && (
           <div className="space-y-6" role="tabpanel" id="attendance-panel" aria-labelledby="attendance-tab">
             {/* Stat cards */}
@@ -215,68 +350,71 @@ export default function ReportsPage() {
 
             {/* Bar chart */}
             <Card>
-              <CardHeader title="Daily Hours Worked" subtitle="Last 14 working days" />
+              <CardHeader title="Daily Hours Worked" subtitle="Last 14 working days recorded" />
               <CardContent>
                 <div className="h-56">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={barData} barSize={20}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
-                      <XAxis dataKey="date" tick={{ fontSize: 11, fill: 'var(--color-text-muted)' }} />
-                      <YAxis tick={{ fontSize: 11, fill: 'var(--color-text-muted)' }} unit="h" domain={[0, 10]} />
-                      <Tooltip content={<CustomTooltip />} />
-                      <Bar dataKey="hours" name="Hours" radius={[6, 6, 0, 0]}>
-                        {barData.map((entry, i) => (
-                          <Cell key={i} fill={CHART_COLORS[entry.status] || 'var(--color-primary)'} />
-                        ))}
-                      </Bar>
-                    </BarChart>
-                  </ResponsiveContainer>
+                  {barData.length === 0 ? (
+                    <div className="h-full flex items-center justify-center text-text-muted text-body-sm">
+                      No matching records with active hours.
+                    </div>
+                  ) : (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={barData} barSize={20}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
+                        <XAxis dataKey="date" tick={{ fontSize: 11, fill: 'var(--color-text-muted)' }} />
+                        <YAxis tick={{ fontSize: 11, fill: 'var(--color-text-muted)' }} unit="h" domain={[0, 10]} />
+                        <Tooltip content={<CustomTooltip />} />
+                        <Bar dataKey="hours" name="Hours" radius={[6, 6, 0, 0]}>
+                          {barData.map((entry, i) => (
+                            <Cell key={i} fill={CHART_COLORS[entry.status] || 'var(--color-primary)'} />
+                          ))}
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  )}
                 </div>
               </CardContent>
             </Card>
 
             {/* Table */}
             <Card>
-              <CardHeader title="Attendance Records" subtitle={`${workdays.length} working days recorded`} />
+              <CardHeader title="Attendance Records" subtitle={`${filteredWorkdays.length} working days filtered`} />
               <CardContent className="p-0">
-                <div className="overflow-x-auto">
-                  <table className="w-full text-body-sm">
-                    <thead>
-                      <tr className="border-b border-border bg-surface-alt/40">
-                        <th className="text-left px-4 py-3 font-semibold text-text-muted">Date</th>
-                        <th className="text-left px-4 py-3 font-semibold text-text-muted">Status</th>
-                        <th className="text-left px-4 py-3 font-semibold text-text-muted">Clock In</th>
-                        <th className="text-left px-4 py-3 font-semibold text-text-muted">Clock Out</th>
-                        <th className="text-right px-4 py-3 font-semibold text-text-muted">Hours</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-border">
-                      {workdays.slice(0, 15).map((r) => (
-                        <tr key={r.date} className="hover:bg-surface-alt/30 transition-colors">
-                          <td className="px-4 py-3 text-text font-medium">{r.date}</td>
-                          <td className="px-4 py-3">
-                            <Badge variant={
-                              r.status === 'present' ? 'success' :
-                              r.status === 'absent' ? 'danger' :
-                              r.status === 'late' ? 'warning' : 'default'
-                            }>
-                              {capitalize(r.status)}
-                            </Badge>
-                          </td>
-                          <td className="px-4 py-3 text-text-muted">{r.clockIn || '—'}</td>
-                          <td className="px-4 py-3 text-text-muted">{r.clockOut || '—'}</td>
-                          <td className="px-4 py-3 text-right text-text font-medium">{r.hours > 0 ? `${r.hours}h` : '—'}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                <Table
+                  columns={[
+                    { key: 'date', label: 'Date' },
+                    { key: 'status', label: 'Status' },
+                    { key: 'clockIn', label: 'Clock In' },
+                    { key: 'clockOut', label: 'Clock Out' },
+                    { key: 'hours', label: 'Hours', className: 'text-right' },
+                  ]}
+                  data={filteredWorkdays.slice(0, 15)}
+                  emptyMessage="No attendance records found matching filters."
+                  renderRow={(r) => (
+                    <tr key={r.date} className="hover:bg-surface-alt/30 transition-colors">
+                      <TableCell className="font-medium">{r.date}</TableCell>
+                      <TableCell>
+                        <Badge variant={
+                          r.status === 'present' ? 'success' :
+                          r.status === 'absent' ? 'danger' :
+                          r.status === 'late' ? 'warning' :
+                          r.status === 'half-day' ? 'accent' : 'default'
+                        }>
+                          {capitalize(r.status)}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-text-muted">{r.clockIn || '—'}</TableCell>
+                      <TableCell className="text-text-muted">{r.clockOut || '—'}</TableCell>
+                      <TableCell className="text-right font-medium">{r.hours > 0 ? `${r.hours}h` : '—'}</TableCell>
+                    </tr>
+                  )}
+                />
               </CardContent>
             </Card>
           </div>
         )}
 
-        {/* ── LEAVE TAB ── */}
+        {/* ── LEAVE TAB PANEL ── */}
         {activeTab === 'leave' && (
           <div className="space-y-6" role="tabpanel" id="leave-panel" aria-labelledby="leave-tab">
             {/* Stat cards */}
@@ -293,25 +431,31 @@ export default function ReportsPage() {
                 <CardHeader title="Requests by Status" />
                 <CardContent>
                   <div className="h-52 flex items-center">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
-                        <Pie
-                          data={statusPieData}
-                          cx="50%"
-                          cy="50%"
-                          innerRadius={55}
-                          outerRadius={85}
-                          paddingAngle={3}
-                          dataKey="value"
-                        >
-                          {statusPieData.map((entry) => (
-                            <Cell key={entry.name} fill={CHART_COLORS[entry.name] || '#6b7280'} />
-                          ))}
-                        </Pie>
-                        <Tooltip content={<CustomTooltip />} />
-                        <Legend formatter={(v) => <span className="text-body-sm text-text capitalize">{v}</span>} />
-                      </PieChart>
-                    </ResponsiveContainer>
+                    {filteredLeaves.length === 0 ? (
+                      <div className="w-full flex justify-center text-text-muted text-body-sm">
+                        No requests to map.
+                      </div>
+                    ) : (
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie
+                            data={statusPieData}
+                            cx="50%"
+                            cy="50%"
+                            innerRadius={55}
+                            outerRadius={85}
+                            paddingAngle={3}
+                            dataKey="value"
+                          >
+                            {statusPieData.map((entry) => (
+                              <Cell key={entry.name} fill={CHART_COLORS[entry.name] || '#6b7280'} />
+                            ))}
+                          </Pie>
+                          <Tooltip content={<CustomTooltip />} />
+                          <Legend formatter={(v) => <span className="text-body-sm text-text capitalize">{v}</span>} />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    )}
                   </div>
                 </CardContent>
               </Card>
@@ -321,25 +465,31 @@ export default function ReportsPage() {
                 <CardHeader title="Approved Days by Type" subtitle="Days taken per leave type" />
                 <CardContent>
                   <div className="h-52 flex items-center">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
-                        <Pie
-                          data={leaveByType}
-                          cx="50%"
-                          cy="50%"
-                          innerRadius={55}
-                          outerRadius={85}
-                          paddingAngle={3}
-                          dataKey="value"
-                        >
-                          {leaveByType.map((entry) => (
-                            <Cell key={entry.name} fill={CHART_COLORS[entry.name] || '#6b7280'} />
-                          ))}
-                        </Pie>
-                        <Tooltip content={<CustomTooltip />} />
-                        <Legend formatter={(v) => <span className="text-body-sm text-text capitalize">{v}</span>} />
-                      </PieChart>
-                    </ResponsiveContainer>
+                    {leaveByType.length === 0 ? (
+                      <div className="w-full flex justify-center text-text-muted text-body-sm">
+                        No approved leave days to map.
+                      </div>
+                    ) : (
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie
+                            data={leaveByType}
+                            cx="50%"
+                            cy="50%"
+                            innerRadius={55}
+                            outerRadius={85}
+                            paddingAngle={3}
+                            dataKey="value"
+                          >
+                            {leaveByType.map((entry) => (
+                              <Cell key={entry.name} fill={CHART_COLORS[entry.name] || '#6b7280'} />
+                            ))}
+                          </Pie>
+                          <Tooltip content={<CustomTooltip />} />
+                          <Legend formatter={(v) => <span className="text-body-sm text-text capitalize">{v}</span>} />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    )}
                   </div>
                 </CardContent>
               </Card>
@@ -347,44 +497,40 @@ export default function ReportsPage() {
 
             {/* Leave table */}
             <Card>
-              <CardHeader title="All Leave Requests" subtitle={`${LEAVE_REQUESTS.length} total requests`} />
+              <CardHeader title="Leave Requests" subtitle={`${filteredLeaves.length} requests filtered`} />
               <CardContent className="p-0">
-                <div className="overflow-x-auto">
-                  <table className="w-full text-body-sm">
-                    <thead>
-                      <tr className="border-b border-border bg-surface-alt/40">
-                        <th className="text-left px-4 py-3 font-semibold text-text-muted">Employee</th>
-                        <th className="text-left px-4 py-3 font-semibold text-text-muted">Type</th>
-                        <th className="text-left px-4 py-3 font-semibold text-text-muted">Dates</th>
-                        <th className="text-left px-4 py-3 font-semibold text-text-muted">Days</th>
-                        <th className="text-left px-4 py-3 font-semibold text-text-muted">Status</th>
-                        <th className="text-left px-4 py-3 font-semibold text-text-muted">Applied</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-border">
-                      {LEAVE_REQUESTS.map((l) => (
-                        <tr key={l.id} className="hover:bg-surface-alt/30 transition-colors">
-                          <td className="px-4 py-3 font-medium text-text">{l.employeeName}</td>
-                          <td className="px-4 py-3 text-text-muted capitalize">{l.type}</td>
-                          <td className="px-4 py-3 text-text-muted">
-                            {l.startDate === l.endDate ? l.startDate : `${l.startDate} → ${l.endDate}`}
-                          </td>
-                          <td className="px-4 py-3 text-text">{l.days}</td>
-                          <td className="px-4 py-3">
-                            <Badge variant={
-                              l.status === 'approved' ? 'success' :
-                              l.status === 'rejected' ? 'danger' :
-                              l.status === 'pending' ? 'warning' : 'default'
-                            }>
-                              {capitalize(l.status)}
-                            </Badge>
-                          </td>
-                          <td className="px-4 py-3 text-text-muted">{l.appliedOn}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                <Table
+                  columns={[
+                    { key: 'employeeName', label: 'Employee' },
+                    { key: 'type', label: 'Type' },
+                    { key: 'dates', label: 'Dates' },
+                    { key: 'days', label: 'Days', className: 'text-center' },
+                    { key: 'status', label: 'Status' },
+                    { key: 'appliedOn', label: 'Applied' },
+                  ]}
+                  data={filteredLeaves}
+                  emptyMessage="No leave requests found matching filters."
+                  renderRow={(l) => (
+                    <tr key={l.id} className="hover:bg-surface-alt/30 transition-colors">
+                      <TableCell className="font-medium text-text">{l.employeeName}</TableCell>
+                      <TableCell className="text-text-muted capitalize">{l.type}</TableCell>
+                      <TableCell className="text-text-muted">
+                        {l.startDate === l.endDate ? l.startDate : `${l.startDate} → ${l.endDate}`}
+                      </TableCell>
+                      <TableCell className="text-center">{l.days}</TableCell>
+                      <TableCell>
+                        <Badge variant={
+                          l.status === 'approved' ? 'success' :
+                          l.status === 'rejected' ? 'danger' :
+                          l.status === 'pending' ? 'warning' : 'default'
+                        }>
+                          {capitalize(l.status)}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-text-muted">{l.appliedOn}</TableCell>
+                    </tr>
+                  )}
+                />
               </CardContent>
             </Card>
           </div>

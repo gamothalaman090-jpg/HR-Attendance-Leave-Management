@@ -42,6 +42,12 @@ const SettingsPage = lazy(() => import('@/pages/app/SettingsPage'));
 const ProfilePage = lazy(() => import('@/pages/app/ProfilePage'));
 const ReportsPage = lazy(() => import('@/pages/app/ReportsPage'));
 
+/* ── Custom Lazy Loaded HR Modules ── */
+const DepartmentsPage = lazy(() => import('@/pages/app/DepartmentsPage'));
+const PayrollPage = lazy(() => import('@/pages/app/PayrollPage'));
+const PayslipsPage = lazy(() => import('@/pages/app/PayslipsPage'));
+const SuperadminPage = lazy(() => import('@/pages/app/SuperadminPage'));
+
 /**
  * Application Router
  * 
@@ -208,6 +214,16 @@ const router = createBrowserRouter([
           </ProtectedRoute>
         ),
       },
+      {
+        path: '/app/payslips',
+        element: (
+          <ProtectedRoute>
+            <Suspense fallback={<PageLoader />}>
+              <PayslipsPage />
+            </Suspense>
+          </ProtectedRoute>
+        ),
+      },
 
       /* ── HR & Admin Only Routes ── */
       {
@@ -221,11 +237,43 @@ const router = createBrowserRouter([
         ),
       },
       {
+        path: '/app/departments',
+        element: (
+          <ProtectedRoute allowedRoles={['admin', 'manager', 'hr']}>
+            <Suspense fallback={<PageLoader />}>
+              <DepartmentsPage />
+            </Suspense>
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: '/app/payroll',
+        element: (
+          <ProtectedRoute allowedRoles={['admin', 'manager', 'hr']}>
+            <Suspense fallback={<PageLoader />}>
+              <PayrollPage />
+            </Suspense>
+          </ProtectedRoute>
+        ),
+      },
+      {
         path: '/app/reports',
         element: (
           <ProtectedRoute allowedRoles={['admin', 'manager', 'hr']}>
             <Suspense fallback={<PageLoader />}>
               <ReportsPage />
+            </Suspense>
+          </ProtectedRoute>
+        ),
+      },
+
+      /* ── Superadmin Diagnostic Routes ── */
+      {
+        path: '/app/superadmin',
+        element: (
+          <ProtectedRoute allowedRoles={['superadmin']}>
+            <Suspense fallback={<PageLoader />}>
+              <SuperadminPage />
             </Suspense>
           </ProtectedRoute>
         ),
