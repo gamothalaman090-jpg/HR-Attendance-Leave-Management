@@ -5,7 +5,7 @@ A modern, high-fidelity, and feature-rich HR Management Platform designed to str
 Nini HR is built as a **fully standalone, client-persisted web application** featuring a bespoke glassmorphism aesthetic, robust Role-Based Access Control (RBAC), and a simulated backend engine powered by `localStorage` and React Query.
 
 ---
-a
+
 ## ✨ Features & Architecture
 
 ### 🔐 Simulated Authentication & Dynamic RBAC
