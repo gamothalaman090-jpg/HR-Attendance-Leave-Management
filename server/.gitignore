@@ -24,7 +24,6 @@ yarn-error.log*
 *.njsproj
 *.sln
 *.sw?
-
 # Operating System files
 .DS_Store
 Thumbs.db
