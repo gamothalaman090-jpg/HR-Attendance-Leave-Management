@@ -1,12 +1,14 @@
+
 /**
  * Name: adminController.js
- * Purpose: Contains controller functions for admin-specific operations, including announcement and leave management.
- * Dependencies: Announcement model, Leave model, User model, Logger Utility
+ * Purpose: Contains controller functions for admin-specific operations, including announcement, attendance, and leave management.
+ * Dependencies: Announcement model, Leave model, User model, Attendance model, Logger Utility
  * Author: Ian
  * Location: server/controllers/adminController.js
  * Created: 2026-05-15
- * Last Updated: 2026-05-18
- */
+ * Last Updated: 2026-05-21
+ * 
+ *  */
 
 /**
  * Note:
@@ -22,11 +24,15 @@ setLateCount(response.data.summary.late);
 setLeaveCount(response.data.summary.onLeave);
  * 
  */
+ */
 
 const Announcement = require('../models/Announcement');
 const Leave = require('../models/Leave');
 const User = require('../models/User');
+const Attendance = require('../models/Attendance');
 const { createAuditLog } = require('../utils/logger');
+
+
 
 exports.getAdminAnnouncements = async (req, res) => {
     try {
@@ -135,6 +141,8 @@ exports.deleteAnnouncement = async (req, res) => {
     }
 };
 
+// --- LEAVE MANAGEMENT ---
+
 exports.getAllLeaveRequests = async (req, res, next) => {
     try {
         const today = new Date();
@@ -150,7 +158,7 @@ exports.getAllLeaveRequests = async (req, res, next) => {
         );
 
         const requests = await Leave.find()
-            .populate('user', 'fullname email role')
+            .populate('user', 'fullname email role department position')
             .sort({ createdAt: -1 });
 
         return res.status(200).json({
@@ -228,19 +236,22 @@ exports.reviewLeaveRequest = async (req, res, next) => {
     }
 };
 
+// --- EMPLOYEE USER DIRECTORY & REAL-TIME SUMMARY ---
+
 exports.getAllEmployees = async (req, res, next) => {
     try {
-        // 1. Fetch ONLY users whose role is explicitly 'user'
-       const employees = await User.find({ role: 'user', employmentStatus: 'active' }).select('-password').lean();
+        // Fetch users who are 'user' role and NOT permanently terminated
+        const employees = await User.find({ 
+            role: 'user', 
+            employmentStatus: { $ne: 'terminated' } 
+        }).select('-password').lean();
 
-        // 2. Establish boundaries for the current calendar day
         const startOfToday = new Date();
         startOfToday.setHours(0, 0, 0, 0);
 
         const endOfToday = new Date();
         endOfToday.setHours(23, 59, 59, 999);
 
-        // 3. Collect active databases records for the current date block
         const todayAttendance = await Attendance.find({
             timestamp: { $gte: startOfToday, $lte: endOfToday }
         }).lean();
@@ -251,24 +262,20 @@ exports.getAllEmployees = async (req, res, next) => {
             endDate: { $gte: startOfToday }
         }).lean();
 
-        // 4. Map and determine status state for each employee
         const employeeDataWithStatus = employees.map(employee => {
             const empIdStr = employee._id.toString();
 
-            // Check A: Is the employee on approved leave today?
             const isOnLeave = todayLeaves.some(leave => leave.user.toString() === empIdStr);
             if (isOnLeave) {
                 return { ...employee, todayStatus: 'On Leave' };
             }
 
-            // Check B: Find all attendance actions for this individual today
             const employeeLogs = todayAttendance.filter(log => log.user.toString() === empIdStr);
 
             if (employeeLogs.length === 0) {
                 return { ...employee, todayStatus: 'Absent' };
             }
 
-            // Inspect the earliest 'in' log to determine presence/tardiness
             const sortedInLogs = employeeLogs
                 .filter(log => log.type === 'in')
                 .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
@@ -278,9 +285,6 @@ exports.getAllEmployees = async (req, res, next) => {
             }
 
             const firstClockIn = sortedInLogs[0];
-
-            // --- LATE BREAKPOINT RULE ---
-            // Evaluated against a default target shift arrival line of 9:00 AM
             const shiftThreshold = new Date(firstClockIn.timestamp);
             shiftThreshold.setHours(9, 0, 0, 0); 
 
@@ -291,7 +295,6 @@ exports.getAllEmployees = async (req, res, next) => {
             return { ...employee, todayStatus: 'Present' };
         });
 
-        // 5. Structure summary widgets total metrics object
         const summaryMetrics = {
             totalUsersCount: employeeDataWithStatus.length,
             present: employeeDataWithStatus.filter(e => e.todayStatus === 'Present').length,
@@ -311,6 +314,7 @@ exports.getAllEmployees = async (req, res, next) => {
         next(error);
     }
 };
+
 
 exports.overrideAttendance = async (req, res, next) => {
     try {
@@ -468,3 +472,4 @@ exports.getEmployeeAnalytics = async (req, res, next) => {
         next(error);
     }
 };
+

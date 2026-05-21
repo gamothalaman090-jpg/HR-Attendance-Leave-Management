@@ -38,7 +38,20 @@ const userSchema = new mongoose.Schema({
         enum: ['user', 'admin', 'superadmin'],
         default: 'user'
     },
-    
+    // ADDED: Department tracking matching your dashboard filter tabs
+    department: {
+        type: String,
+        required: [true, 'Please provide a department'],
+        trim: true,
+        default: 'Unassigned'
+    },
+    // ADDED: Professional corporate title/role position
+    position: {
+        type: String,
+        required: [true, 'Please provide a position title'],
+        trim: true,
+        default: 'Staff Employee'
+    },
     employmentStatus: {
         type: String,
         enum: ['active', 'inactive', 'suspended', 'terminated'],
