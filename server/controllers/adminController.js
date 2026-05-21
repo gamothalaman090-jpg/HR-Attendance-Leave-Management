@@ -24,7 +24,7 @@ setLateCount(response.data.summary.late);
 setLeaveCount(response.data.summary.onLeave);
  * 
  */
- */
+
 
 const Announcement = require('../models/Announcement');
 const Leave = require('../models/Leave');
