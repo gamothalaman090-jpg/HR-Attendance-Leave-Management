@@ -1,11 +1,11 @@
 /**
  * Name: userController.js
- * Purpose: Handles user-related logic, including attendance management and leave requests.
+ * Purpose: Handles user-related logic, including attendance management, announcements, and leave requests.
  * Dependencies: User Model, Attendance Model, Announcement Model, Leave Model, Logger Utility
  * Author: Ian
  * Location: server/controllers/userController.js
  * Created: 2026-05-15
- * Last Updated: 2026-05-18
+ * Last Updated: 2026-05-21
  */
 const User = require('../models/User'); 
 const Attendance = require('../models/Attendance');
@@ -17,6 +17,10 @@ exports.getUserProfile = async (req, res, next) => {
     try {
         const user = await User.findById(req.user.id);
 
+        if (!user) {
+            return res.status(404).json({ success: false, message: 'User not found' });
+        }
+
         res.status(200).json({
             success: true,
             data: {
@@ -24,6 +28,7 @@ exports.getUserProfile = async (req, res, next) => {
                 fullname: user.fullname,
                 email: user.email,
                 role: user.role,
+                employmentStatus: user.employmentStatus || 'active', // FIXED: Included field addition
                 leaveBalances: user.leaveBalances 
             }
         });
@@ -33,7 +38,7 @@ exports.getUserProfile = async (req, res, next) => {
 };
 
 // Clock-In (Time In)
-exports.clockIn = async (req, res) => {
+exports.clockIn = async (req, res, next) => {
     try {
         const userId = req.user.id;
         const lastEntry = await Attendance.findOne({ user: userId }).sort({ timestamp: -1 });
@@ -47,7 +52,8 @@ exports.clockIn = async (req, res) => {
 
         const entry = await Attendance.create({
             user: userId,
-            type: 'in'
+            type: 'in',
+            timestamp: new Date()
         });
 
         await createAuditLog(
@@ -57,14 +63,18 @@ exports.clockIn = async (req, res) => {
             req
         );
 
-        res.status(201).json({ success: true, message: 'Clock-In successful', data: entry });
+        return res.status(201).json({ 
+            success: true, 
+            message: 'Clock-In successful. Countdown initiated.', 
+            data: entry 
+        });
     } catch (err) {
-        res.status(500).json({ success: false, message: err.message });
+        next(err);
     }
 };
 
 // Clock-Out (Time Out)
-exports.clockOut = async (req, res) => {
+exports.clockOut = async (req, res, next) => {
     try {
         const userId = req.user.id;
         const lastEntry = await Attendance.findOne({ user: userId }).sort({ timestamp: -1 });
@@ -76,46 +86,59 @@ exports.clockOut = async (req, res) => {
             });
         }
 
+        const clockInTime = new Date(lastEntry.timestamp);
+        const clockOutTime = new Date();
+        
+        const diffMs = clockOutTime - clockInTime;
+        const durationMinutes = Math.max(0, Math.ceil(diffMs / (1000 * 60)));
+
         const entry = await Attendance.create({
             user: userId,
-            type: 'out'
+            type: 'out',
+            timestamp: clockOutTime,
+            workDuration: durationMinutes 
         });
 
         await createAuditLog(
             userId, 
             'attendance_out', 
-            `${req.user.fullname || 'Employee'} successfully clocked out (Time Out).`, 
+            `${req.user.fullname || 'Employee'} successfully clocked out. Duration: ${durationMinutes} mins.`, 
             req
         );
 
-        res.status(201).json({ success: true, message: 'Clock-Out successful', data: entry });
+        return res.status(201).json({ 
+            success: true, 
+            message: 'Clock-Out successful. Countdown stopped.', 
+            data: entry 
+        });
     } catch (err) {
-        res.status(500).json({ success: false, message: err.message });
+        next(err);
     }
 };
 
 // Get Attendance History (Last 10 entries)
-exports.getAttendanceHistory = async (req, res) => {
+exports.getAttendanceHistory = async (req, res, next) => {
     try {
         const userId = req.user.id;
         const history = await Attendance.find({ user: userId })
             .sort({ timestamp: -1 })
             .limit(10);
 
-        res.status(200).json({ 
+        return res.status(200).json({ 
             success: true, 
             count: history.length, 
             data: history 
         });
     } catch (err) {
-        res.status(500).json({ success: false, message: err.message });
+        next(err);
     }
 };
 
-exports.getAnnouncements = async (req, res) => {
+exports.getAnnouncements = async (req, res, next) => {
     try {
+        // FIXED: Selected 'fullname' instead of 'name' to align with User model fields
         const announcements = await Announcement.find()
-            .populate('author', 'name') 
+            .populate('author', 'fullname profilePicture') 
             .sort({ createdAt: -1 });
 
         return res.status(200).json({
@@ -125,10 +148,7 @@ exports.getAnnouncements = async (req, res) => {
         });
     } catch (error) {
         console.error('Error fetching announcements for feed:', error);
-        return res.status(500).json({
-            success: false,
-            message: 'Server error while fetching announcement feed'
-        });
+        next(error);
     }
 };
 
@@ -169,7 +189,7 @@ exports.requestLeave = async (req, res, next) => {
             
             return res.status(400).json({ 
                 success: false, 
-                message: `Leave conflict: You already have a ${overlappingLeave.status} ${overlappingLeave.leaveType} from ${existingStart} to ${existingEnd}. Please choose different dates.` 
+                message: `Leave conflict: You already have a ${overlappingLeave.status} ${overlappingLeave.leaveType} from ${existingStart} to ${existingEnd}.` 
             });
         }
 
@@ -179,7 +199,7 @@ exports.requestLeave = async (req, res, next) => {
         if (projectedBalance < maxDeficit) {
             return res.status(400).json({ 
                 success: false, 
-                message: `Request denied. This would put your balance at ${projectedBalance} days, exceeding the maximum allowed deficit of ${maxDeficit} days.` 
+                message: `Request denied. Balance deficit would exceed the maximum allowed limit.` 
             });
         }
 
@@ -191,14 +211,15 @@ exports.requestLeave = async (req, res, next) => {
             reason,
             status: 'pending'
         });
+        
         await createAuditLog(
             req.user.id, 
             'leave_request', 
-            `${user.fullname} submitted a pending ${leaveType} leave request for ${totalDaysRequested} day(s) (${startDate} to ${endDate}).`, 
+            `${user.fullname} submitted a pending ${leaveType} leave request for ${totalDaysRequested} day(s).`, 
             req
         );
 
-        res.status(201).json({
+        return res.status(201).json({
             success: true,
             message: 'Leave request submitted for review',
             data: leave
@@ -213,7 +234,7 @@ exports.getMyLeaves = async (req, res, next) => {
         const userId = req.user.id;
         const leaves = await Leave.find({ user: userId }).sort({ createdAt: -1 });
 
-        res.status(200).json({
+        return res.status(200).json({
             success: true,
             count: leaves.length,
             data: leaves

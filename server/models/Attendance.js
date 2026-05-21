@@ -5,7 +5,7 @@
  * Author: Ian
  * Location: server/models/Attendance.js
  * Created: 2026-05-15
- * Last Updated: 2026-05-15
+ * Last Updated: 2026-05-21
  */
 
 const mongoose = require('mongoose');
@@ -25,7 +25,11 @@ const attendanceSchema = new mongoose.Schema({
         enum: ['in', 'out'],
         required: true
     },
-        // location: String Optional: can be used for geotagging attendance
+    
+    workDuration: {
+        type: Number,
+        default: null
+    }
 }, {
     timestamps: true
 });
