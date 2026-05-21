@@ -13,8 +13,6 @@ build/
 *.tsbuildinfo
 
 # --- Environment (never commit secrets; keep examples) ---
-.env
-.env.*
 !.env.example
 
 # --- Logs ---

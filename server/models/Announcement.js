@@ -5,7 +5,7 @@
  * Author: Ian
  * Location: server/models/Announcement.js
  * Created: 2026-05-15
- * Last Updated: 2026-05-16
+ * Last Updated: 2026-05-21
  */
 
 
@@ -23,6 +23,17 @@ const AnnouncementSchema = new mongoose.Schema(
             type: String,
             required: [true, 'Please add the announcement content'],
             trim: true
+        },
+        category: {
+            type: String,
+            required: [true, 'Please provide a category'],
+            enum: ['general', 'event', 'operations', 'urgent'],
+            default: 'general',
+            lowercase: true
+        },
+        eventDate: {
+            type: Date,
+            default: null
         },
         author: {
             type: mongoose.Schema.Types.ObjectId,

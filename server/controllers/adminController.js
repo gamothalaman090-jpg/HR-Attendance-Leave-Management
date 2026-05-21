@@ -32,9 +32,9 @@ exports.getAdminAnnouncements = async (req, res) => {
     }
 };
 
-exports.createAnnouncement = async (req, res) => {
+exports.createAnnouncement = async (req, res, next) => {
     try {
-        const { title, content } = req.body;
+        const { title, content, category, eventDate } = req.body;
         const adminId = req.user.id;
 
         if (!title || !content) {
@@ -44,15 +44,25 @@ exports.createAnnouncement = async (req, res) => {
             });
         }
 
+        if (category && !['general', 'event', 'operations', 'urgent'].includes(category.toLowerCase())) {
+            return res.status(400).json({
+                success: false,
+                message: "Invalid category. Must be 'general', 'event', 'operations', or 'urgent'"
+            });
+        }
+
         const newAnnouncement = await Announcement.create({
             title,
             content,
+            category: category ? category.toLowerCase() : 'general',
+            eventDate: eventDate || null, 
             author: adminId 
         });
+
         await createAuditLog(
             adminId,
-            'profile_update',
-            `Admin created a new announcement titled: "${title}".`,
+            'announcement_create',
+            `Admin created a new announcement titled: "${title}" under category: "${category || 'general'}".`,
             req
         );
 
@@ -63,10 +73,7 @@ exports.createAnnouncement = async (req, res) => {
         });
     } catch (error) {
         console.error('Error creating announcement:', error);
-        return res.status(500).json({
-            success: false,
-            message: 'Server error while creating announcement'
-        });
+        next(error);
     }
 };
 
