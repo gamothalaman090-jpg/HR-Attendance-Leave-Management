@@ -46,7 +46,7 @@ const ReportsPage = lazy(() => import('@/pages/app/ReportsPage'));
 const DepartmentsPage = lazy(() => import('@/pages/app/DepartmentsPage'));
 const PayrollPage = lazy(() => import('@/pages/app/PayrollPage'));
 const PayslipsPage = lazy(() => import('@/pages/app/PayslipsPage'));
-const SuperadminPage = lazy(() => import('@/pages/app/SuperadminPage'));
+
 
 /**
  * Application Router
@@ -267,17 +267,7 @@ const router = createBrowserRouter([
         ),
       },
 
-      /* ── Superadmin Diagnostic Routes ── */
-      {
-        path: '/app/superadmin',
-        element: (
-          <ProtectedRoute allowedRoles={['superadmin']}>
-            <Suspense fallback={<PageLoader />}>
-              <SuperadminPage />
-            </Suspense>
-          </ProtectedRoute>
-        ),
-      },
+
     ],
   },
 ]);

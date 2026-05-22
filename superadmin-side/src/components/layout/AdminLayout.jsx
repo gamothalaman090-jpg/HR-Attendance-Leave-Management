@@ -1,70 +1,42 @@
 import { useState, useEffect } from 'react';
-import { Outlet, NavLink, useNavigate, useLocation, Link } from 'react-router-dom';
+import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import PageTransition from '@/components/common/PageTransition';
 import {
-  LayoutDashboard,
-  CalendarOff,
-  Clock,
+  Shield,
+  Terminal,
   Users,
-  Calendar,
-  Settings,
+  ScrollText,
   LogOut,
   Menu,
   X,
   ChevronLeft,
   User,
-  BarChart3,
-  Megaphone,
-  Building,
-  DollarSign,
-  FileText,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useTheme } from '@/hooks/useTheme';
 import { cn } from '@/utils/helpers';
-import { BRAND } from '@/utils/constants';
-import NotificationCenter from '@/components/layout/NotificationCenter';
-import CommandPalette from '@/components/ui/CommandPalette';
-import Breadcrumbs from '@/components/ui/Breadcrumbs';
-import Schema from '@/components/common/Schema';
 
 const SIDEBAR_ITEMS = [
-  { label: 'Dashboard', href: '/app', icon: LayoutDashboard },
-  { label: 'Announcements', href: '/app/announcements', icon: Megaphone },
-  { label: 'Leave', href: '/app/leave', icon: CalendarOff },
-  { label: 'Attendance', href: '/app/attendance', icon: Clock },
-  { label: 'Employees', href: '/app/employees', icon: Users, roles: ['admin', 'manager', 'hr'] },
-  { label: 'Departments', href: '/app/departments', icon: Building, roles: ['admin', 'manager', 'hr'] },
-  { label: 'Payroll', href: '/app/payroll', icon: DollarSign, roles: ['admin', 'manager', 'hr'] },
-  { label: 'Payslips', href: '/app/payslips', icon: FileText },
-  { label: 'Calendar', href: '/app/calendar', icon: Calendar },
-  { label: 'Reports', href: '/app/reports', icon: BarChart3, roles: ['admin', 'manager', 'hr'] },
-  { label: 'Settings', href: '/app/settings', icon: Settings },
+  { label: 'Console', href: '/console', icon: Terminal },
+  { label: 'User Management', href: '/console/users', icon: Users },
+  { label: 'System Logs', href: '/console/logs', icon: ScrollText },
 ];
 
 /**
- * DashboardLayout — Sidebar + topbar + content for authenticated app pages.
+ * AdminLayout — Sidebar + topbar + content for the superadmin console.
  */
-export default function DashboardLayout() {
+export default function AdminLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { user, logout } = useAuth();
   const { isDark, toggleTheme } = useTheme();
   const navigate = useNavigate();
 
-  const visibleSidebarItems = SIDEBAR_ITEMS.filter(item => {
-    if (!item.roles) return true;
-    const userRole = user?.role?.toLowerCase();
-    if (userRole === 'superadmin') return true;
-    return item.roles.some(r => userRole?.includes(r));
-  });
-
   const handleLogout = () => {
     logout();
-    navigate('/');
+    navigate('/login');
   };
 
-  // Close mobile menu on route change
   const location = useLocation();
   useEffect(() => {
     setMobileMenuOpen(false);
@@ -72,7 +44,6 @@ export default function DashboardLayout() {
 
   return (
     <div className="min-h-screen flex bg-bg transition-colors duration-base">
-      <Schema />
       {/* ── Desktop Sidebar ── */}
       <aside
         className={cn(
@@ -80,17 +51,18 @@ export default function DashboardLayout() {
           sidebarOpen ? 'w-64' : 'w-20'
         )}
       >
-        {/* Logo */}
+        {/* Logo / Branding */}
         <div className="flex items-center justify-between h-16 px-4 border-b border-border">
-          <div className="flex items-center">
-            <img 
-              src={BRAND.logo} 
-              alt={BRAND.name} 
-              className={cn(
-                "object-contain transition-all duration-base",
-                sidebarOpen ? "h-10 w-auto" : "h-8 w-auto"
-              )} 
-            />
+          <div className="flex items-center gap-2">
+            <div className="w-9 h-9 rounded-[10px] bg-primary/10 flex items-center justify-center">
+              <Shield size={20} className="text-primary" />
+            </div>
+            {sidebarOpen && (
+              <div className="flex flex-col">
+                <span className="font-heading text-body-sm font-bold text-text leading-tight">Nini Admin</span>
+                <span className="text-caption text-text-muted leading-tight">Superadmin Console</span>
+              </div>
+            )}
           </div>
           <button
             onClick={() => setSidebarOpen(!sidebarOpen)}
@@ -106,11 +78,11 @@ export default function DashboardLayout() {
 
         {/* Nav Items */}
         <nav className="flex-1 py-4 px-3 space-y-1">
-          {visibleSidebarItems.map(({ label, href, icon: Icon }) => (
+          {SIDEBAR_ITEMS.map(({ label, href, icon: Icon }) => (
             <NavLink
               key={href}
               to={href}
-              end={href === '/app'}
+              end={href === '/console'}
               className={({ isActive }) =>
                 cn(
                   'flex items-center gap-3 px-3 py-2.5 rounded-[10px] text-body-sm font-medium transition-all duration-fast cursor-pointer',
@@ -142,16 +114,17 @@ export default function DashboardLayout() {
       {/* ── Mobile Sidebar Overlay ── */}
       {mobileMenuOpen && (
         <div className="lg:hidden fixed inset-0 z-[1500]">
-          {/* Backdrop */}
           <div
             className="absolute inset-0 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200"
             onClick={() => setMobileMenuOpen(false)}
           />
-          {/* Drawer */}
           <aside className="absolute left-0 top-0 h-full w-72 bg-surface border-r border-border flex flex-col shadow-elevated animate-in slide-in-from-left duration-300 ease-out">
             <div className="flex items-center justify-between h-16 px-4 border-b border-border">
-              <div className="flex items-center">
-                <img src={BRAND.logo} alt={BRAND.name} className="h-10 w-auto object-contain" />
+              <div className="flex items-center gap-2">
+                <div className="w-9 h-9 rounded-[10px] bg-primary/10 flex items-center justify-center">
+                  <Shield size={20} className="text-primary" />
+                </div>
+                <span className="font-heading text-body-sm font-bold text-text">Nini Admin</span>
               </div>
               <button
                 onClick={() => setMobileMenuOpen(false)}
@@ -162,11 +135,11 @@ export default function DashboardLayout() {
               </button>
             </div>
             <nav className="flex-1 py-4 px-3 space-y-1">
-              {visibleSidebarItems.map(({ label, href, icon: Icon }) => (
+              {SIDEBAR_ITEMS.map(({ label, href, icon: Icon }) => (
                 <NavLink
                   key={href}
                   to={href}
-                  end={href === '/app'}
+                  end={href === '/console'}
                   onClick={() => setMobileMenuOpen(false)}
                   className={({ isActive }) =>
                     cn(
@@ -208,22 +181,8 @@ export default function DashboardLayout() {
             <Menu size={20} />
           </button>
 
-          {/* Search placeholder */}
-          <div className="hidden sm:block flex-1 max-w-md mx-4">
-            <div className="relative">
-              <input
-                type="text"
-                placeholder="Search... (Ctrl+K)"
-                readOnly
-                onClick={() => document.dispatchEvent(new KeyboardEvent('keydown', { ctrlKey: true, key: 'k' }))}
-                className="w-full pl-4 pr-4 py-2 bg-surface-alt border border-border rounded-[8px] text-body-sm text-text placeholder:text-text-muted hover:bg-surface-alt/80 cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all"
-              />
-              <div className="absolute right-3 top-1/2 -translate-y-1/2 flex gap-1">
-                <kbd className="px-1.5 py-0.5 bg-surface rounded-[4px] border border-border text-[10px] font-medium text-text-muted uppercase">Ctrl</kbd>
-                <kbd className="px-1.5 py-0.5 bg-surface rounded-[4px] border border-border text-[10px] font-medium text-text-muted uppercase">K</kbd>
-              </div>
-            </div>
-          </div>
+          {/* Spacer */}
+          <div className="hidden sm:block flex-1" />
 
           {/* Right actions */}
           <div className="flex items-center gap-3">
@@ -244,36 +203,25 @@ export default function DashboardLayout() {
               )}
             </button>
 
-            {/* Notifications */}
-            <NotificationCenter />
-
             {/* User avatar */}
-            <Link 
-              to="/app/profile"
-              className="flex items-center gap-2 p-1.5 rounded-[10px] hover:bg-surface-alt transition-colors cursor-pointer" 
-              aria-label="Profile"
-            >
+            <div className="flex items-center gap-2 p-1.5 rounded-[10px]">
               <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-white text-body-sm font-bold">
                 {user?.name?.charAt(0) || <User size={16} />}
               </div>
               <span className="hidden sm:block text-body-sm font-medium text-text">
-                {user?.name || 'User'}
+                {user?.name || 'Superadmin'}
               </span>
-            </Link>
+            </div>
           </div>
         </header>
 
         {/* Page content */}
         <main className="flex-1 p-4 sm:p-6">
-          <Breadcrumbs />
           <PageTransition>
             <Outlet />
           </PageTransition>
         </main>
       </div>
-
-      {/* Global Command Palette */}
-      <CommandPalette />
     </div>
   );
 }
