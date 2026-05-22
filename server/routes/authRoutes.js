@@ -19,7 +19,7 @@ const {
     logout,
     changePassword,
     updateProfile,
-    googleAuth
+    googleOAuth
 
 } = require('../controllers/authController');
 
@@ -28,7 +28,7 @@ router.post('/register', register);
 router.post('/login', login);
 router.post('/forgotpassword', forgotPassword);
 router.post('/logout', logout);
-router.post('/google', googleAuth);
+router.post('/google', googleOAuth);
 
 
 router.put('/profile/change-password', protect, changePassword);

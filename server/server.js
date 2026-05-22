@@ -1,11 +1,11 @@
 /**
  * Name: server.js
  * Purpose: Initializes the Express app and sets up middleware and routes.
- * Dependencies: express, dotenv, cors, morgan, connectDB, routes
+ * Dependencies: express, dotenv, cors, morgan, connectDB, routes, express-rate-limit
  * Author: Ian
  * Location: server/server.js
  * Created: 2026-05-15
- * Last Updated: 2026-05-15
+ * Last Updated: 2026-05-22
  */
 
 const express = require('express');
@@ -17,8 +17,9 @@ const connectDB = require('./config/db');
 const routes = require('./routes/index');
 const { cloudinary } = require('./config/cloudinary');
 
+// Import rate limiting middlewares
+const { globalLimiter, authLimiter } = require('./middlewares/rateLimiter');
 
- 
 // Connect to Database
 connectDB();
 
@@ -32,10 +33,14 @@ cloudinary.api.ping()
     console.error(`-> ${err.message}`);
   });
 
-
 const app = express();
 
-// --- MIDDLEWARE ---
+// --- REVERSE PROXY CONFIGURATION ---
+// Tells Express to trust forwarding headers (like X-Forwarded-For) from proxies like Nginx/Render/Heroku.
+// Crucial so the rate limiter tracks the REAL user's IP instead of the proxy server's internal loopback IP.
+app.set('trust proxy', 1);
+
+// --- GLOBAL MIDDLEWARES ---
 app.use(cors()); 
 app.use(express.json()); 
 app.use(express.urlencoded({ extended: true })); 
@@ -43,6 +48,13 @@ app.use(express.urlencoded({ extended: true }));
 if (process.env.NODE_ENV === 'development') {
   app.use(morgan('dev'));
 }
+
+// --- RATE LIMITING INTERCEPTORS ---
+// 1. Protect all endpoints globally (Max 100 requests every 15 minutes)
+app.use('/api', globalLimiter);
+
+// 2. Add extra protection layer to authentication routes to stop brute-force attacks
+app.use('/api/auth', authLimiter);
 
 // --- HEALTH CHECK ---
 app.get('/health', (req, res) => {

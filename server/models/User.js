@@ -29,7 +29,6 @@ const userSchema = new mongoose.Schema({
     },
     password: {
         type: String,
-        required: [true, 'Please add a password'],
         minlength: 6,
         select: false
     },
@@ -38,14 +37,14 @@ const userSchema = new mongoose.Schema({
         enum: ['user', 'admin', 'superadmin'],
         default: 'user'
     },
-    // ADDED: Department tracking matching your dashboard filter tabs
+    
     department: {
         type: String,
         required: [true, 'Please provide a department'],
         trim: true,
         default: 'Unassigned'
     },
-    // ADDED: Professional corporate title/role position
+    
     position: {
         type: String,
         required: [true, 'Please provide a position title'],

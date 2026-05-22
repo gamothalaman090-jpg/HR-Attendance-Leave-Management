@@ -22,16 +22,25 @@ const generateToken = (id) => {
 
 exports.register = async (req, res, next) => {
     try {
-        const { fullname, email, password } = req.body;
+        const { fullname, email, password, department, position } = req.body;
+        
+        if (!password) {
+            return res.status(400).json({ success: false, message: 'Please add a password for traditional registration' });
+        }
+        
         const userExists = await User.findOne({ email });
         if (userExists) {
             return res.status(400).json({ success: false, message: 'Email already registered' });
         }     
+        
+        // Creates the user record with input values or applies organizational fallbacks automatically
         const user = await User.create({
             fullname,
             email,
             password,
-            role: 'user' 
+            role: 'user', // Hardcoded safety constraint to prevent privilege escalation during registration
+            department: department || 'Unassigned',
+            position: position || 'Staff Employee'
         });
 
         const token = generateToken(user._id);
@@ -51,7 +60,9 @@ exports.register = async (req, res, next) => {
                 id: user._id, 
                 fullname: user.fullname, 
                 email: user.email, 
-                role: user.role 
+                role: user.role,
+                department: user.department,
+                position: user.position
             }
         });
     } catch (error) {
