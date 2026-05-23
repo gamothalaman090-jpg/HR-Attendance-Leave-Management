@@ -28,10 +28,10 @@ const MONTHS = ['January','February','March','April','May','June','July','August
 
 export default function AttendancePage() {
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState('personal'); // 'personal' or 'staff'
+  const [activeTab, setActiveTab] = useState('personal');
   const isHighRanking = user?.role?.toLowerCase().match(/(admin|manager|hr)/) || user?.role?.toLowerCase() === 'superadmin';
 
-  /* ── Personal View State ── */
+  /* ── State ── */
   const [records, setRecords] = useState([]);
   const [summary, setSummary] = useState(null);
   const [clockStatus, setClockStatus] = useState({ isClockedIn: false, clockInTime: null, clockOutTime: null });
@@ -42,19 +42,13 @@ export default function AttendancePage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const timerRef = useRef(null);
 
-  /* ── Staff View State ── */
   const [staffList, setStaffList] = useState([]);
   const [staffSearch, setStaffSearch] = useState('');
   const [selectedStaffId, setSelectedStaffId] = useState('');
   const [staffRecords, setStaffRecords] = useState([]);
   const [allAttendance, setAllAttendance] = useState({});
-  const [adjustTarget, setAdjustTarget] = useState(null); // { employeeId, record }
-  const [adjustForm, setAdjustForm] = useState({
-    status: 'present',
-    clockIn: '09:00',
-    clockOut: '17:00',
-    hours: 8
-  });
+  const [adjustTarget, setAdjustTarget] = useState(null);
+  const [adjustForm, setAdjustForm] = useState({ status: 'present', clockIn: '09:00', clockOut: '17:00', hours: 8 });
 
   const today = new Date();
 
@@ -66,7 +60,6 @@ export default function AttendancePage() {
     }
   }, [searchParams, setSearchParams]);
 
-  // Load personal data
   const loadPersonalData = async () => {
     setLoading(true);
     try {
@@ -75,7 +68,7 @@ export default function AttendancePage() {
         attendanceService.getSummary(),
         attendanceService.getClockStatus(),
       ]);
-      setRecords(recs);
+      setRecords(recs || []);
       setSummary(sum);
       setClockStatus(status);
     } catch (err) {
@@ -85,7 +78,6 @@ export default function AttendancePage() {
     }
   };
 
-  // Load staff data
   const loadStaffData = async () => {
     setLoading(true);
     try {
@@ -97,7 +89,6 @@ export default function AttendancePage() {
       setStaffList(actives);
       setAllAttendance(allAtt);
       
-      // Auto select first staff member if none selected
       if (actives.length > 0 && !selectedStaffId) {
         setSelectedStaffId(actives[0].id);
       }
@@ -124,7 +115,6 @@ export default function AttendancePage() {
     }
   }, [selectedStaffId, allAttendance]);
 
-  /* ── Timer for clocked-in duration ── */
   useEffect(() => {
     if (clockStatus.isClockedIn) {
       timerRef.current = setInterval(() => {
@@ -187,7 +177,6 @@ export default function AttendancePage() {
   const handleAdjustSubmit = async (e) => {
     e.preventDefault();
     if (!adjustTarget) return;
-
     try {
       await attendanceService.adjustAttendance({
         employeeId: selectedStaffId,
@@ -201,16 +190,51 @@ export default function AttendancePage() {
     }
   };
 
-  // Filter staff by search box
+  // FIX: Build fallback local array when user has 0 database items
+  const getRenderableRecords = () => {
+    if (records && records.length > 0) {
+      return records;
+    }
+    
+    // Generate static array matching current month dimensions if API data is missing
+    const totalDays = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
+    const fallbackList = [];
+    for (let d = 1; d <= totalDays; d++) {
+      const loopDate = new Date(today.getFullYear(), today.getMonth(), d);
+      const dayOfWeek = loopDate.getDay();
+      const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+      
+      fallbackList.push({
+        day: d,
+        date: `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`,
+        status: isWeekend ? 'weekend' : 'upcoming',
+        clockIn: null,
+        clockOut: null,
+        hours: 0
+      });
+    }
+    return fallbackList;
+  };
+
+  const renderableRecords = getRenderableRecords();
+
+  const getCalendarPadding = () => {
+    if (renderableRecords && renderableRecords.length > 0 && renderableRecords[0].date) {
+      const parts = renderableRecords[0].date.split('-');
+      if (parts.length === 3) {
+        return new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, 1).getDay();
+      }
+    }
+    return new Date(today.getFullYear(), today.getMonth(), 1).getDay();
+  };
+
+  const firstDayOfMonthPadding = getCalendarPadding();
   const filteredStaff = staffList.filter(s =>
     s.name.toLowerCase().includes(staffSearch.toLowerCase()) ||
     s.id.toLowerCase().includes(staffSearch.toLowerCase()) ||
     s.department.toLowerCase().includes(staffSearch.toLowerCase())
   );
-
   const selectedStaffMember = staffList.find(s => s.id === selectedStaffId);
-
-  const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1).getDay();
 
   return (
     <div>
@@ -239,9 +263,7 @@ export default function AttendancePage() {
             onClick={() => setActiveTab('personal')}
             className={cn(
               'px-5 py-3 text-body-sm font-semibold border-b-2 transition-all cursor-pointer flex items-center gap-2',
-              activeTab === 'personal'
-                ? 'border-primary text-primary'
-                : 'border-transparent text-text-muted hover:text-text'
+              activeTab === 'personal' ? 'border-primary text-primary' : 'border-transparent text-text-muted hover:text-text'
             )}
           >
             <Clock size={16} />
@@ -251,9 +273,7 @@ export default function AttendancePage() {
             onClick={() => setActiveTab('staff')}
             className={cn(
               'px-5 py-3 text-body-sm font-semibold border-b-2 transition-all cursor-pointer flex items-center gap-2',
-              activeTab === 'staff'
-                ? 'border-primary text-primary'
-                : 'border-transparent text-text-muted hover:text-text'
+              activeTab === 'staff' ? 'border-primary text-primary' : 'border-transparent text-text-muted hover:text-text'
             )}
           >
             <Users size={16} />
@@ -262,10 +282,9 @@ export default function AttendancePage() {
         </div>
       )}
 
-      {/* Content Rendering */}
+      {/* View Matrix */}
       {activeTab === 'personal' ? (
         <>
-          {/* Clock In/Out + Summary Row */}
           <div className="grid lg:grid-cols-3 gap-6 mb-8">
             {/* Clock Widget */}
             <div className="p-6 rounded-[16px] bg-surface border border-border text-center flex flex-col justify-between shadow-card">
@@ -287,9 +306,7 @@ export default function AttendancePage() {
                 onClick={() => setShowConfirmModal(true)}
                 className={cn(
                   'w-full py-3 rounded-[10px] text-body font-semibold transition-all duration-base cursor-pointer',
-                  clockStatus.isClockedIn
-                    ? 'bg-danger text-white hover:bg-danger-light shadow-glow-accent'
-                    : 'bg-primary text-white hover:bg-primary-light shadow-glow-primary'
+                  clockStatus.isClockedIn ? 'bg-danger text-white hover:bg-danger-light shadow-glow-accent' : 'bg-primary text-white hover:bg-primary-light shadow-glow-primary'
                 )}
               >
                 {clockStatus.isClockedIn ? (
@@ -300,7 +317,7 @@ export default function AttendancePage() {
               </button>
             </div>
 
-            {/* Summary Cards */}
+            {/* Summary Row */}
             {summary && (
               <>
                 <div className="grid grid-cols-2 gap-3">
@@ -345,28 +362,25 @@ export default function AttendancePage() {
             )}
           </div>
 
-          {/* Monthly Calendar Grid */}
+          {/* Calendar Display Grid */}
           <div className="bg-surface border border-border rounded-[16px] p-6 shadow-card">
             <h2 className="font-heading text-h4 font-bold mb-4">
               {MONTHS[today.getMonth()]} {today.getFullYear()}
             </h2>
 
-            {/* Day headers */}
             <div className="grid grid-cols-7 gap-1 mb-2">
               {DAYS.map((d) => (
                 <div key={d} className="text-center text-caption font-semibold text-text-muted py-1">{d}</div>
               ))}
             </div>
 
-            {/* Calendar cells */}
             <div className="grid grid-cols-7 gap-1">
-              {/* Empty cells before first day */}
-              {Array.from({ length: firstDayOfMonth }).map((_, i) => (
+              {Array.from({ length: firstDayOfMonthPadding }).map((_, i) => (
                 <div key={`empty-${i}`} className="aspect-square" />
               ))}
 
-              {/* Day cells */}
-              {records.map((rec) => {
+              {/* FIX: Map over renderableRecords variable to draw boxes even when logs array is empty */}
+              {renderableRecords.map((rec) => {
                 const style = STATUS_STYLES[rec.status] || STATUS_STYLES.upcoming;
                 const isToday = rec.day === today.getDate();
                 return (
@@ -390,7 +404,6 @@ export default function AttendancePage() {
               })}
             </div>
 
-            {/* Legend */}
             <div className="flex flex-wrap gap-3 mt-4 pt-4 border-t border-border">
               {Object.entries(STATUS_STYLES)
                 .filter(([key]) => !['weekend', 'upcoming'].includes(key))
@@ -404,9 +417,8 @@ export default function AttendancePage() {
           </div>
         </>
       ) : (
-        /* ── Staff Timesheets View ── */
+        /* ── Staff Panel Directory ── */
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-          {/* Left panel: Employee Directory selector */}
           <div className="lg:col-span-1 bg-surface border border-border rounded-[16px] p-4 flex flex-col max-h-[80vh] shadow-card">
             <div className="relative mb-4">
               <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
@@ -429,25 +441,20 @@ export default function AttendancePage() {
                     onClick={() => setSelectedStaffId(emp.id)}
                     className={cn(
                       'p-3 rounded-[10px] border cursor-pointer transition-all flex items-center justify-between',
-                      selectedStaffId === emp.id
-                        ? 'border-primary/30 bg-primary/5 text-primary'
-                        : 'border-transparent hover:bg-surface-alt text-text'
+                      selectedStaffId === emp.id ? 'border-primary/30 bg-primary/5 text-primary' : 'border-transparent hover:bg-surface-alt text-text'
                     )}
                   >
                     <div className="min-w-0">
                       <div className="text-body-sm font-semibold truncate">{emp.name}</div>
                       <div className="text-caption text-text-muted truncate">{emp.role}</div>
                     </div>
-                    {selectedStaffId === emp.id && (
-                      <Check size={14} className="shrink-0 text-primary" />
-                    )}
+                    {selectedStaffId === emp.id && <Check size={14} className="shrink-0 text-primary" />}
                   </div>
                 ))
               )}
             </div>
           </div>
 
-          {/* Right panel: Calendar override grid */}
           <div className="lg:col-span-3 bg-surface border border-border rounded-[16px] p-6 shadow-card">
             {selectedStaffMember ? (
               <div>
@@ -456,9 +463,7 @@ export default function AttendancePage() {
                     <h2 className="text-h3 font-heading font-bold text-text mb-0.5">{selectedStaffMember.name}</h2>
                     <p className="text-body-sm text-text-muted">{selectedStaffMember.role} • {selectedStaffMember.department}</p>
                   </div>
-                  <Badge variant="default" className="font-mono">
-                    ID: {selectedStaffMember.id}
-                  </Badge>
+                  <Badge variant="default" className="font-mono">ID: {selectedStaffMember.id}</Badge>
                 </div>
 
                 <div className="overflow-x-auto">
@@ -474,32 +479,38 @@ export default function AttendancePage() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border/40 text-body-sm">
-                      {staffRecords
-                        .filter(r => r.status !== 'weekend' && r.status !== 'upcoming')
-                        .map(rec => {
-                          const style = STATUS_STYLES[rec.status] || STATUS_STYLES.upcoming;
-                          return (
-                            <tr key={rec.date} className="hover:bg-surface-alt/20 transition-colors">
-                              <td className="px-4 py-3 font-medium text-text">{rec.date}</td>
-                              <td className="px-4 py-3">
-                                <span className={cn('px-2.5 py-0.5 rounded-full text-caption font-bold border border-transparent', style.bg, style.text)}>
-                                  {style.label}
-                                </span>
-                              </td>
-                              <td className="px-4 py-3 font-mono text-text-muted">{rec.clockIn || '—'}</td>
-                              <td className="px-4 py-3 font-mono text-text-muted">{rec.clockOut || '—'}</td>
-                              <td className="px-4 py-3 font-semibold text-text">{rec.hours || 0} hrs</td>
-                              <td className="px-4 py-3 text-right">
-                                <button
-                                  onClick={() => handleOpenAdjust(rec)}
-                                  className="p-1.5 rounded-full border border-border hover:bg-primary/10 hover:border-primary/20 hover:text-primary text-text-muted transition-all cursor-pointer inline-flex items-center gap-1 text-caption font-medium px-3"
-                                >
-                                  <Edit size={12} /> Override
-                                </button>
-                              </td>
-                            </tr>
-                          );
-                        })}
+                      {staffRecords && staffRecords.filter(r => r.status !== 'weekend' && r.status !== 'upcoming').length === 0 ? (
+                        <tr>
+                          <td colSpan="6" className="text-center py-8 text-text-muted">No attendance history recorded yet for this month.</td>
+                        </tr>
+                      ) : (
+                        staffRecords
+                          .filter(r => r.status !== 'weekend' && r.status !== 'upcoming')
+                          .map(rec => {
+                            const style = STATUS_STYLES[rec.status] || STATUS_STYLES.upcoming;
+                            return (
+                              <tr key={rec.date} className="hover:bg-surface-alt/20 transition-colors">
+                                <td className="px-4 py-3 font-medium text-text">{rec.date}</td>
+                                <td className="px-4 py-3">
+                                  <span className={cn('px-2.5 py-0.5 rounded-full text-caption font-bold border border-transparent', style.bg, style.text)}>
+                                    {style.label}
+                                  </span>
+                                </td>
+                                <td className="px-4 py-3 font-mono text-text-muted">{rec.clockIn || '—'}</td>
+                                <td className="px-4 py-3 font-mono text-text-muted">{rec.clockOut || '—'}</td>
+                                <td className="px-4 py-3 font-semibold text-text">{rec.hours || 0} hrs</td>
+                                <td className="px-4 py-3 text-right">
+                                  <button
+                                    onClick={() => handleOpenAdjust(rec)}
+                                    className="p-1.5 rounded-full border border-border hover:bg-primary/10 hover:border-primary/20 hover:text-primary text-text-muted transition-all cursor-pointer inline-flex items-center gap-1 text-caption font-medium px-3"
+                                  >
+                                    <Edit size={12} /> Override
+                                  </button>
+                                </td>
+                              </tr>
+                            );
+                          })
+                      )}
                     </tbody>
                   </table>
                 </div>
@@ -514,7 +525,7 @@ export default function AttendancePage() {
         </div>
       )}
 
-      {/* Personal Clock Confirmation Modal */}
+      {/* Confirmation Modal */}
       <Modal
         isOpen={showConfirmModal}
         onClose={() => setShowConfirmModal(false)}
@@ -522,14 +533,8 @@ export default function AttendancePage() {
         size="md"
         footer={
           <>
-            <Button variant="secondary" onClick={() => setShowConfirmModal(false)}>
-              Cancel
-            </Button>
-            <Button
-              variant={clockStatus.isClockedIn ? "danger" : "primary"}
-              onClick={handleClock}
-              loading={clocking}
-            >
+            <Button variant="secondary" onClick={() => setShowConfirmModal(false)}>Cancel</Button>
+            <Button variant={clockStatus.isClockedIn ? "danger" : "primary"} onClick={handleClock} loading={clocking}>
               {clockStatus.isClockedIn ? "Yes, Clock Out" : "Yes, Clock In"}
             </Button>
           </>
@@ -541,20 +546,13 @@ export default function AttendancePage() {
               ? `You are about to clock out. Your elapsed time is ${formatElapsed(elapsed)}.`
               : `You are about to clock in for ${today.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}.`}
           </p>
-          <p className="text-body font-medium text-text">
-            Are you sure you want to proceed?
-          </p>
+          <p className="text-body font-medium text-text">Are you sure you want to proceed?</p>
         </div>
       </Modal>
 
-      {/* Staff Override Adjust Modal */}
+      {/* Adjust Modal */}
       {adjustTarget && (
-        <Modal
-          isOpen={!!adjustTarget}
-          onClose={() => setAdjustTarget(null)}
-          title={`Override Attendance for ${adjustTarget.date}`}
-          size="md"
-        >
+        <Modal isOpen={!!adjustTarget} onClose={() => setAdjustTarget(null)} title={`Override Attendance for ${adjustTarget.date}`} size="md">
           <form onSubmit={handleAdjustSubmit} className="space-y-4">
             <div>
               <label className="block text-body-sm font-medium text-text mb-1.5">Adjustment Status</label>
@@ -595,14 +593,10 @@ export default function AttendancePage() {
                     />
                   </div>
                 </div>
-
                 <div>
                   <label className="block text-body-sm font-medium text-text mb-1.5">Total Hours Worked</label>
                   <input
-                    type="number"
-                    min="0"
-                    max="24"
-                    step="0.5"
+                    type="number" min="0" max="24" step="0.5"
                     value={adjustForm.hours}
                     onChange={e => setAdjustForm({ ...adjustForm, hours: e.target.value })}
                     className="w-full px-4 py-2 bg-background border border-border rounded-[10px] text-body-sm text-text focus:outline-none focus:border-primary"
@@ -612,19 +606,8 @@ export default function AttendancePage() {
             )}
 
             <div className="flex justify-end gap-3 pt-4 border-t border-border mt-6">
-              <button
-                type="button"
-                onClick={() => setAdjustTarget(null)}
-                className="px-4 py-2 rounded-[10px] font-medium text-text hover:bg-border/50 transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                className="px-5 py-2.5 rounded-[10px] font-semibold text-white bg-primary hover:bg-primary-light transition-all cursor-pointer"
-              >
-                Apply Correction
-              </button>
+              <button type="button" onClick={() => setAdjustTarget(null)} className="px-4 py-2 rounded-[10px] font-medium text-text hover:bg-border/50 transition-colors">Cancel</button>
+              <button type="submit" className="px-5 py-2.5 rounded-[10px] font-semibold text-white bg-primary hover:bg-primary-light transition-all cursor-pointer">Apply Correction</button>
             </div>
           </form>
         </Modal>

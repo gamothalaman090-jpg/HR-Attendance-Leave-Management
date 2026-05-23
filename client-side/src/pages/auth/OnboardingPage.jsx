@@ -3,8 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import { Check, Lock, Plus, Trash2, ArrowRight, ArrowLeft, Building2, Users, Megaphone, Sparkles, Send, AlertTriangle } from 'lucide-react';
 import { useGsap } from '@/hooks/useGsap';
 import { useAuth } from '@/context/AuthContext';
-import { employeeService } from '@/services/employeeService';
+//import { employeeService } from '@/services/employeeService';
 import { announcementService } from '@/services/announcementService';
+import api from '@/services/api';
 import { cn } from '@/utils/helpers';
 
 const PLANS = [
@@ -45,6 +46,9 @@ export default function OnboardingPage() {
   // Step 2 State
   const [team, setTeam] = useState([
     { id: '1', name: '', email: '', role: '' },
+    /* { id: '1', name: 'Sarah Chen', email: 'sarah@example.com', role: 'Senior Engineer' },
+    { id: '2', name: 'James Kim', email: 'james@example.com', role: 'Product Designer' },
+    { id: '3', name: 'Maria Lopez', email: 'maria@example.com', role: 'Marketing Lead' },*/
   ]);
 
   const [errors, setErrors] = useState({});
@@ -114,7 +118,7 @@ export default function OnboardingPage() {
     if (isSubmitting) return;
     setIsSubmitting(true);
     try {
-      for (const member of team) {
+      /*   for (const member of team) {
         if (member.name && member.email) {
           let dept = 'Engineering';
           const roleLower = (member.role || '').toLowerCase();
@@ -140,6 +144,17 @@ export default function OnboardingPage() {
             department: dept
           });
         }
+      }*/
+
+      const validMembers = team.filter(m => m.name.trim() && m.email.trim());
+      if (validMembers.length > 0) {
+        await api.post('/admin/onboarding/teamcreate', {
+          employees: validMembers.map(m => ({
+            fullname: m.name,
+            email: m.email,
+            position: m.role,
+          })),
+        });
       }
       
       await announcementService.create({

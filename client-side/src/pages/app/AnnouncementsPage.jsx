@@ -70,15 +70,40 @@ export default function AnnouncementsPage() {
     }
   };
 
+const getAuthorName = (authorData) => {
+  if (typeof authorData === 'string' && authorData.trim() !== '') {
+    return authorData;
+  }
+  
+  if (typeof authorData === 'object' && authorData !== null) {
+    // 1. Check 'fullname' first since your backend query now explicitly selects it
+    if (typeof authorData.fullname === 'string' && authorData.fullname.trim() !== '') {
+      return authorData.fullname;
+    }
+    // 2. Check 'name' explicitly next
+    if (typeof authorData.name === 'string' && authorData.name.trim() !== '') {
+      return authorData.name;
+    }
+    // 3. Check 'username' fallback
+    if (typeof authorData.username === 'string' && authorData.username.trim() !== '') {
+      return authorData.username;
+    }
+  }
+  
+  return 'System Admin';
+};
+
   // Filter logic
   const filteredAnnouncements = announcements.filter((item) => {
     if (categoryFilter !== 'All' && item.category !== categoryFilter) return false;
     if (search) {
       const q = search.toLowerCase();
+      const authorString = getAuthorName(item.author);
+
       return (
         item.title.toLowerCase().includes(q) ||
         item.content.toLowerCase().includes(q) ||
-        item.author.toLowerCase().includes(q)
+        authorString.toLowerCase().includes(q)
       );
     }
     return true;
@@ -149,51 +174,56 @@ export default function AnnouncementsPage() {
         </div>
       ) : (
         <div className="space-y-6">
-          {filteredAnnouncements.map((item) => (
-            <div key={item.id} className="announcement-card bg-surface border border-border rounded-[20px] p-6 hover:shadow-card hover:border-border-hover transition-all duration-300 relative group overflow-hidden">
-              {item.priority === 'high' && (
-                <div className="absolute top-0 right-0 w-16 h-16 bg-danger/10 rotate-45 translate-x-8 -translate-y-8 flex items-end justify-center pb-1">
-                  <span className="text-[10px] font-bold text-danger uppercase">Priority</span>
-                </div>
-              )}
-              
-              <div className="flex items-start justify-between gap-4">
-                <div className="flex-1">
-                  <div className="flex items-center gap-3 mb-3">
-                    <span className={`px-3 py-1 rounded-full text-xs font-bold border ${getCategoryColor(item.category)}`}>
-                      {item.category}
-                    </span>
-                    <span className="text-caption text-text-muted flex items-center gap-1">
-                      <Calendar size={14} />
-                      {new Date(item.date).toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
-                    </span>
-                  </div>
-                  
-                  <h3 className="text-h3 font-heading font-bold text-text mb-3">{item.title}</h3>
-                  <p className="text-body text-text-muted whitespace-pre-wrap leading-relaxed">{item.content}</p>
-                  
-                  <div className="mt-6 flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-sm">
-                      {item.author.charAt(0)}
-                    </div>
-                    <div>
-                      <p className="text-sm font-semibold text-text">{item.author}</p>
-                    </div>
-                  </div>
-                </div>
+          {filteredAnnouncements.map((item) => {
+            const displayAuthor = getAuthorName(item.author);
+            const initial = displayAuthor.length > 0 ? displayAuthor.charAt(0).toUpperCase() : '?';
 
-                {isHighRanking && (
-                  <button 
-                    onClick={() => handleDelete(item.id)}
-                    className="opacity-0 group-hover:opacity-100 p-2 text-text-muted hover:text-danger hover:bg-danger/10 rounded-full transition-all duration-200 cursor-pointer"
-                    title="Delete Announcement"
-                  >
-                    <Trash2 size={20} />
-                  </button>
+            return (
+              <div key={item.id} className="announcement-card bg-surface border border-border rounded-[20px] p-6 hover:shadow-card hover:border-border-hover transition-all duration-300 relative group overflow-hidden">
+                {item.priority === 'high' && (
+                  <div className="absolute top-0 right-0 w-16 h-16 bg-danger/10 rotate-45 translate-x-8 -translate-y-8 flex items-end justify-center pb-1">
+                    <span className="text-[10px] font-bold text-danger uppercase">Priority</span>
+                  </div>
                 )}
+                
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-3 mb-3">
+                      <span className={`px-3 py-1 rounded-full text-xs font-bold border ${getCategoryColor(item.category)}`}>
+                        {item.category}
+                      </span>
+                      <span className="text-caption text-text-muted flex items-center gap-1">
+                        <Calendar size={14} />
+                        {new Date(item.date).toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                      </span>
+                    </div>
+                    
+                    <h3 className="text-h3 font-heading font-bold text-text mb-3">{item.title}</h3>
+                    <p className="text-body text-text-muted whitespace-pre-wrap leading-relaxed">{item.content}</p>
+                    
+                    <div className="mt-6 flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-sm">
+                        {initial}
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold text-text">{displayAuthor}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {isHighRanking && (
+                    <button 
+                      onClick={() => handleDelete(item.id)}
+                      className="opacity-0 group-hover:opacity-100 p-2 text-text-muted hover:text-danger hover:bg-danger/10 rounded-full transition-all duration-200 cursor-pointer"
+                      title="Delete Announcement"
+                    >
+                      <Trash2 size={20} />
+                    </button>
+                  )}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 

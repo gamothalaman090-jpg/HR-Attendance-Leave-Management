@@ -34,6 +34,7 @@ export const employeeService = {
   /** Get all employees */
   async getAll() {
     const res = await api.get('/admin/users');
+    // The server returns: { success: true, count: X, data: [...], summary: {...} }
     const { data } = res.data;
     return (data || []).map(mapEmployee);
   },

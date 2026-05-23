@@ -152,18 +152,119 @@ exports.clockOut = async (req, res, next) => {
     }
 };
 
-// Get Attendance History (Last 10 entries)
+
+// Get Attendance History calculated dynamically by Month and Year
 exports.getAttendanceHistory = async (req, res, next) => {
     try {
         const userId = req.user.id;
-        const history = await Attendance.find({ user: userId })
-            .sort({ timestamp: -1 })
-            .limit(10);
+        
+        // 1. Find the user's VERY FIRST attendance record (oldest timestamp)
+        const firstLog = await Attendance.findOne({ user: userId })
+            .sort({ timestamp: 1 });
+
+        let firstTimeInDate; 
+        if (firstLog) {
+            firstTimeInDate = new Date(firstLog.timestamp);
+            firstTimeInDate.setHours(0, 0, 0, 0); // Clear time for accurate comparison
+        } else {
+            // FIX: If they have absolutely NO records, set it to null
+            // This prevents "today" from blocking the calendar generation loop
+            firstTimeInDate = null;
+        }
+
+        // 2. Get year and month from query parameters, fallback to current date
+        const now = new Date();
+        const year = req.query.year ? parseInt(req.query.year) : now.getFullYear();
+        const month = req.query.month ? parseInt(req.query.month) : now.getMonth();
+
+        // 3. Get the total number of days for the requested month/year
+        const totalDaysInMonth = new Date(year, month + 1, 0).getDate();
+
+        // 4. Set precise date boundaries for the query range
+        const startOfMonth = new Date(year, month, 1, 0, 0, 0, 0);
+        const endOfMonth = new Date(year, month, totalDaysInMonth, 23, 59, 59, 999);
+
+        // 5. Fetch all attendance logs within that month's range
+        const logs = await Attendance.find({
+            user: userId,
+            timestamp: { $gte: startOfMonth, $lte: endOfMonth }
+        }).sort({ timestamp: 1 });
+
+        // 6. Group logs by clean date string keys ("YYYY-MM-DD")
+        const logsByDate = {};
+        logs.forEach(log => {
+            if (!logsByDate[log.date]) {
+                logsByDate[log.date] = [];
+            }
+            logsByDate[log.date].push(log);
+        });
+
+        const calendarRecords = [];
+
+        // 7. Generate the exact grid layout expected by the frontend calendar
+        for (let day = 1; day <= totalDaysInMonth; day++) {
+            const currentDayDate = new Date(year, month, day);
+            const dateStr = currentDayDate.toISOString().split('T')[0];
+
+            // Normalize current loop date to midnight for comparison accuracy
+            const normalizedLoopDate = new Date(currentDayDate);
+            normalizedLoopDate.setHours(0, 0, 0, 0);
+
+            const dayOfWeek = currentDayDate.getDay();
+            const isWeekend = (dayOfWeek === 0 || dayOfWeek === 6);
+            const isFuture = currentDayDate > now;
+
+            // FIX: If firstTimeInDate is null, every historic day before today is 'upcoming' 
+            // instead of breaking the grid generator.
+            let isBeforeFirstWorkDay = false;
+            if (firstTimeInDate !== null) {
+                isBeforeFirstWorkDay = normalizedLoopDate < firstTimeInDate;
+            } else {
+                // If they have never clocked in ever, anything before today is treated as neutral/upcoming
+                isBeforeFirstWorkDay = normalizedLoopDate < now.setHours(0,0,0,0);
+            }
+
+            const dayLogs = logsByDate[dateStr] || [];
+            const hasInLog = dayLogs.some(l => l.type === 'in');
+
+            let status = 'absent';
+            let clockIn = '—';
+            let clockOut = '—';
+            let hours = 0;
+
+            if (isFuture || isBeforeFirstWorkDay) {
+                status = 'upcoming';
+            } else if (hasInLog) {
+                const inLog = dayLogs.find(l => l.type === 'in');
+                const outLog = dayLogs.find(l => l.type === 'out');
+
+                const checkInTime = new Date(inLog.timestamp);
+                status = checkInTime.getHours() >= 9 ? 'late' : 'present';
+                clockIn = checkInTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                
+                if (outLog) {
+                    const checkOutTime = new Date(outLog.timestamp);
+                    clockOut = checkOutTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                    hours = outLog.workDuration ? parseFloat((outLog.workDuration / 60).toFixed(1)) : 0;
+                }
+            } else if (isWeekend) {
+                status = 'weekend';
+            }
+
+            calendarRecords.push({
+                day,
+                date: dateStr,
+                status,
+                clockIn: clockIn !== '—' ? clockIn : null,
+                clockOut: clockOut !== '—' ? clockOut : null,
+                hours
+            });
+        }
 
         return res.status(200).json({ 
             success: true, 
-            count: history.length, 
-            data: history 
+            count: calendarRecords.length, 
+            data: calendarRecords 
         });
     } catch (err) {
         next(err);
@@ -172,9 +273,15 @@ exports.getAttendanceHistory = async (req, res, next) => {
 
 exports.getAnnouncements = async (req, res, next) => {
     try {
-        // FIXED: Selected 'fullname' instead of 'name' to align with User model fields, and filtered by company
-        const announcements = await Announcement.find({ company: req.user.company })
-            .populate('author', 'fullname profilePicture') 
+        // Look up models explicitly through the mongoose instance to force cross-reference resolution
+        const AnnouncementModel = mongoose.model('Announcement');
+        
+        const announcements = await AnnouncementModel.find({ company: req.user.company })
+            .populate({
+                path: 'author',
+                model: 'User', // <-- Forcefully tell Mongoose exactly which collection model to join
+                select: 'fullname profilePicture'
+            })
             .sort({ createdAt: -1 });
 
         return res.status(200).json({

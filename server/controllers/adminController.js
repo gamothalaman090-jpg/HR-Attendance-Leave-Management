@@ -36,9 +36,10 @@ const { createAuditLog } = require('../utils/logger');
 exports.getAdminAnnouncements = async (req, res) => {
     try {
         const adminId = req.user.id; 
-        // FIX: Added .populate to automatically resolve author details instead of a raw ID string
+        
+        // FIX: Swapped 'name' for 'fullname' to match the actual User schema property
         const announcements = await Announcement.find({ author: adminId, company: req.user.company })
-            .populate('author', 'name') 
+            .populate('author', 'fullname profilePicture') 
             .sort({ createdAt: -1 });
 
         return res.status(200).json({
@@ -82,6 +83,9 @@ exports.createAnnouncement = async (req, res, next) => {
             author: adminId,
             company: req.user.company
         });
+
+        // FIX: Populate the author data before returning the document to prevent a breaking state on immediate UI updates
+        await newAnnouncement.populate('author', 'fullname profilePicture');
 
         await createAuditLog(
             adminId,
