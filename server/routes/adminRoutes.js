@@ -33,7 +33,8 @@ const {
     getDepartments,
     createDepartment,
     updateDepartment,
-    deleteDepartment
+    deleteDepartment,
+    teamCreate // Incorporated new endpoint
 } = require('../controllers/adminController');
 
 const { protect, authorize } = require('../middlewares/authMiddleware'); 
@@ -41,6 +42,10 @@ const { protect, authorize } = require('../middlewares/authMiddleware');
 // --- ROUTE PROTECTION MIDDLEWARES ---
 router.use(protect);
 router.use(authorize('admin'));
+
+// --- ONBOARDING ENDPOINTS ---
+router.route('/onboarding/teamcreate')
+    .post(teamCreate);
 
 // --- ANNOUNCEMENT ENDPOINTS ---
 router.route('/announcements')
@@ -104,5 +109,6 @@ router.route('/departments/:oldName')
 
 router.route('/departments/:name')
     .delete(deleteDepartment);
+
 
 module.exports = router;

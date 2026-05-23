@@ -958,3 +958,76 @@ exports.deleteDepartment = async (req, res, next) => {
         next(error);
     }
 };
+
+exports.teamCreate = async (req, res, next) => {
+    try {
+        const { employees } = req.body; // Incoming array of members from Step 2
+        const companyId = req.user.company;
+        const adminId = req.user.id;
+
+        if (!employees || !Array.isArray(employees) || employees.length === 0) {
+            return res.status(400).json({ success: false, message: 'No team members provided.' });
+        }
+
+        // 1. Verify Starter Tier constraints (Max 10 active records)
+        const currentEmployeeCount = await User.countDocuments({
+            role: 'user',
+            employmentStatus: { $ne: 'terminated' },
+            company: companyId
+        });
+
+        if (currentEmployeeCount + employees.length > 10) {
+            return res.status(400).json({
+                success: false,
+                message: 'Tier Limit Reached: Starter tier supports a maximum of 10 employees.'
+            });
+        }
+
+        // 2. Format raw input elements with operational platform settings
+        const preparedEmployees = employees.map(emp => ({
+            fullname: emp.fullname.trim(),
+            email: emp.email.toLowerCase().trim(),
+            password: 'TEMP_UNSET_PASSWORD_123!', // Unset stub password configuration
+            role: 'user',
+            company: companyId,
+            department: emp.department?.trim() || 'Unassigned',
+            position: emp.position?.trim() || 'Staff Employee',
+            employmentStatus: 'active', 
+            
+            // Flags to handle granular setups later in the Management Tab
+            isProfileConfigured: false, 
+            mustChangePassword: true    
+        }));
+
+        // 3. Prevent duplicate collisions across the system
+        const emailsToImport = preparedEmployees.map(e => e.email);
+        const duplicateChecks = await User.find({ email: { $in: emailsToImport } }).select('email');
+        if (duplicateChecks.length > 0) {
+            const list = duplicateChecks.map(u => u.email).join(', ');
+            return res.status(400).json({
+                success: false,
+                message: `Registration blocked. The following emails are already registered: ${list}`
+            });
+        }
+
+        // 4. Batch Document Creation
+        const onboardedTeam = await User.insertMany(preparedEmployees);
+
+        // Telemetry Audit Log
+        await createAuditLog(
+            adminId,
+            'profile_update',
+            `Admin initialized teamCreate engine: provisioned ${onboardedTeam.length} initial profiles.`,
+            req, 'INFO', 'SYSTEM'
+        );
+
+        return res.status(201).json({
+            success: true,
+            message: 'Initial team placeholder profiles provisioned successfully.',
+            count: onboardedTeam.length
+        });
+
+    } catch (error) {
+        next(error);
+    }
+};

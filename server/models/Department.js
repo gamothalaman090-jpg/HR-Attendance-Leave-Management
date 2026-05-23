@@ -10,23 +10,16 @@
 
 const mongoose = require('mongoose');
 
-const departmentSchema = new mongoose.Schema({
-    name: {
-        type: String,
-        required: [true, 'Please provide a department name'],
-        trim: true
-    },
-    company: {
-        type: String,
-        required: [true, 'Please provide a company name'],
-        default: 'Default Company',
-        trim: true
-    }
-}, {
-    timestamps: true
+const TeamSchema = new mongoose.Schema({
+    name: { type: String, required: true, trim: true },
+    members: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }]
 });
 
-// Unique department name per company
-departmentSchema.index({ name: 1, company: 1 }, { unique: true });
+const DepartmentSchema = new mongoose.Schema({
+    name: { type: String, required: true, unique: true, trim: true },
+    description: { type: String, trim: true },
+    // Nested array of teams belonging strictly to this department
+    teams: [TeamSchema] 
+}, { timestamps: true });
 
-module.exports = mongoose.model('Department', departmentSchema);
+module.exports = mongoose.model('Department', DepartmentSchema);
