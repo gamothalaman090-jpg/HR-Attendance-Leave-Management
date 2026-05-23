@@ -876,7 +876,7 @@ exports.createDepartment = async (req, res, next) => {
     }
 };
 
-xports.updateDepartment = async (req, res, next) => {
+exports.updateDepartment = async (req, res, next) => {
     try {
         const { oldName } = req.params;
         const { name: newName } = req.body;
