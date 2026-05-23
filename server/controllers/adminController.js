@@ -1,7 +1,7 @@
 /**
  * Name: adminController.js
  * Purpose: Contains controller functions for admin-specific operations, including announcement, attendance, leave, and payroll management.
- * Dependencies: Announcement model, Leave model, User model, Attendance model, Payroll model, Logger Utility, Notification model
+ * Dependencies: Announcement model, Leave model, User model, Attendance model, Payroll model, Logger Utility, Notification model, Department model
  * Author: Ian
  * Location: server/controllers/adminController.js
  * Created: 2026-05-15
@@ -36,7 +36,10 @@ const { createAuditLog } = require('../utils/logger');
 exports.getAdminAnnouncements = async (req, res) => {
     try {
         const adminId = req.user.id; 
-        const announcements = await Announcement.find({ author: adminId, company: req.user.company }).sort({ createdAt: -1 });
+        // FIX: Added .populate to automatically resolve author details instead of a raw ID string
+        const announcements = await Announcement.find({ author: adminId, company: req.user.company })
+            .populate('author', 'name') 
+            .sort({ createdAt: -1 });
 
         return res.status(200).json({
             success: true,
@@ -80,17 +83,15 @@ exports.createAnnouncement = async (req, res, next) => {
             company: req.user.company
         });
 
-        // 📝 Telemetry Log: Tagged explicitly as SYSTEM under INFO level
         await createAuditLog(
             adminId,
-            'profile_update', // Kept for schema alignment
+            'profile_update',
             `Admin created a new announcement titled: "${title}" under category: "${category || 'general'}".`,
             req,
             'INFO',
             'SYSTEM'
         );
 
-        // 🔔 Notification: Log general announcement to the feed
         await exports.handleNotifications(
             'announcement',
             'New Announcement Published',
@@ -134,7 +135,6 @@ exports.deleteAnnouncement = async (req, res) => {
         const exactTitle = announcement.title;
         await announcement.deleteOne();
 
-        // 📝 Telemetry Log: Admin manual remediation deletion log
         await createAuditLog(
             adminId,
             'profile_update',
@@ -206,7 +206,6 @@ exports.reviewLeaveRequest = async (req, res, next) => {
             return res.status(404).json({ success: false, message: 'Leave request not found' });
         }
 
-        // Enforce hard tenant isolation: Ensure the leave request user belongs to the same company
         const targetUser = await User.findOne({ _id: leave.user, company: req.user.company });
         if (!targetUser) {
             return res.status(403).json({ success: false, message: 'Unauthorized: Employee record does not belong to your organization' });
@@ -241,7 +240,6 @@ exports.reviewLeaveRequest = async (req, res, next) => {
         leave.status = action;
         await leave.save();
 
-        // 📝 Telemetry Log: Explicitly mapped directly into the SECURITY module stream under INFO
         await createAuditLog(
             adminId,
             'leave_review',
@@ -251,7 +249,6 @@ exports.reviewLeaveRequest = async (req, res, next) => {
             'SECURITY'
         );
 
-        // 🔔 Notification: Log leave status changes specifically targeted to the relevant user
         const statusHeader = action === 'approved' ? 'Leave Request Approved' : 'Leave Request Rejected';
         const statusMsg = action === 'approved' 
             ? `Your request for ${leave.leaveType} Leave starting ${new Date(leave.startDate).toLocaleDateString()} has been approved.`
@@ -293,8 +290,10 @@ exports.getAllEmployees = async (req, res, next) => {
         const endOfToday = new Date();
         endOfToday.setHours(23, 59, 59, 999);
 
+        const currentDateString = new Date().toISOString().split('T')[0];
+
         const todayAttendance = await Attendance.find({
-            timestamp: { $gte: startOfToday, $lte: endOfToday },
+            date: currentDateString,
             user: { $in: employeeIds }
         }).lean();
 
@@ -382,22 +381,18 @@ exports.overrideAttendance = async (req, res, next) => {
             return res.status(404).json({ success: false, message: 'Employee record not found in your organization' });
         }
 
-        const startOfTargetDay = new Date(targetDate);
-        startOfTargetDay.setHours(0, 0, 0, 0);
-
-        const endOfTargetDay = new Date(targetDate);
-        endOfTargetDay.setHours(23, 59, 59, 999);
+        const isoDateString = new Date(targetDate).toISOString().split('T')[0];
 
         if (type === 'delete') {
             await Attendance.deleteMany({
                 user: employeeId,
-                timestamp: { $gte: startOfTargetDay, $lte: endOfTargetDay }
+                date: isoDateString
             });
 
             await createAuditLog(
                 adminId,
                 'attendance_override',
-                `Admin deleted all attendance logs for ${employee.fullname} on ${startOfTargetDay.toLocaleDateString()}.`,
+                `Admin deleted all attendance logs for ${employee.fullname} on ${isoDateString}.`,
                 req,
                 'WARN',
                 'SECURITY'
@@ -413,7 +408,7 @@ exports.overrideAttendance = async (req, res, next) => {
         let logEntry = await Attendance.findOne({
             user: employeeId,
             type: type,
-            timestamp: { $gte: startOfTargetDay, $lte: endOfTargetDay }
+            date: isoDateString
         });
 
         const updatedTimestamp = timestamp ? new Date(timestamp) : new Date(targetDate);
@@ -428,16 +423,16 @@ exports.overrideAttendance = async (req, res, next) => {
             logEntry = await Attendance.create({
                 user: employeeId,
                 type: type,
+                date: isoDateString,
                 timestamp: updatedTimestamp,
                 workDuration: type === 'out' ? (workDuration || 0) : null
             });
         }
 
-        // 📝 Telemetry Log: Since overrides modify core operational data records, we escalate this to WARN under SECURITY tracking
         await createAuditLog(
             adminId,
             'attendance_override',
-            `Admin overridden ${type.toUpperCase()} log for ${employee.fullname} on ${startOfTargetDay.toLocaleDateString()}.`,
+            `Admin overridden ${type.toUpperCase()} log for ${employee.fullname} on ${isoDateString}.`,
             req,
             'WARN',
             'SECURITY'
@@ -476,7 +471,7 @@ exports.getEmployeeAnalytics = async (req, res, next) => {
         const uniqueDaysPresent = new Set();
 
         monthlyLogs.forEach(log => {
-            const dateKey = new Date(log.timestamp).toDateString();
+            const dateKey = log.date || new Date(log.timestamp).toISOString().split('T')[0];
             uniqueDaysPresent.add(dateKey);
 
             if (log.type === 'out' && log.workDuration) {
@@ -602,7 +597,6 @@ exports.generatePayrollRun = async (req, res, next) => {
 
         await payroll.populate('employee', 'fullname email position');
 
-        // 📝 Telemetry Log: Direct matching structure for your [INFO] [PAYROLL] terminal tags
         await createAuditLog(
             req.user.id,
             'profile_update',
@@ -612,7 +606,6 @@ exports.generatePayrollRun = async (req, res, next) => {
             'PAYROLL'
         );
 
-        // 🔔 Notification: Inform the user that their payslip has been generated and is awaiting verification
         await exports.handleNotifications(
             'payroll_generated',
             'Payslip Generated',
@@ -647,11 +640,11 @@ exports.releaseSalary = async (req, res, next) => {
             return res.status(400).json({ success: false, message: 'This payroll calculation run has already been fully settled and paid.' });
         }
 
+        options.status = 'Paid';
         payroll.status = 'Paid';
         payroll.paymentDate = new Date();
         await payroll.save();
 
-        // 📝 Telemetry Log: Direct matching structure for financial release events
         await createAuditLog(
             req.user.id,
             'profile_update',
@@ -661,7 +654,6 @@ exports.releaseSalary = async (req, res, next) => {
             'PAYROLL'
         );
 
-        // 🔔 Notification: Inform the targeted user that funds have been officially sent out
         await exports.handleNotifications(
             'payroll_released',
             'Salary Disbursed 🎉',
@@ -702,7 +694,6 @@ exports.deletePayrollEntry = async (req, res, next) => {
         const cachedId = payroll.payrollId;
         await payroll.deleteOne();
 
-        // 📝 Telemetry Log: Explicit warning label indicating manual data deletion
         await createAuditLog(
             req.user.id,
             'profile_update',
@@ -724,7 +715,6 @@ exports.deletePayrollEntry = async (req, res, next) => {
 // --- SINGLE CONSOLIDATED NOTIFICATION CONTROLLER PIPELINE ---
 
 exports.handleNotifications = async (req, res, next) => {
-    // Scenario A: Internal backend trigger (Saving a new targeted/global notification entry)
     if (typeof req === 'string') {
         const [type, title, message, recipientId, company] = [req, res, next, arguments[3], arguments[4]];
         try {
@@ -732,7 +722,7 @@ exports.handleNotifications = async (req, res, next) => {
                 type, 
                 title, 
                 message,
-                recipient: recipientId || null, // Optional: Null handles general broadcasts to all managers
+                recipient: recipientId || null, 
                 company: company || 'Default Company'
             });
             return;
@@ -741,7 +731,6 @@ exports.handleNotifications = async (req, res, next) => {
         }
     }
 
-    // Scenario B: Normal Express GET route request
     try {
         const feed = await Notification.find({ company: req.user.company }).sort({ createdAt: -1 }).limit(20);
         return res.status(200).json({ 
@@ -842,14 +831,11 @@ exports.getDepartments = async (req, res, next) => {
     try {
         const company = req.user.company;
 
-        // Get departments from dedicated collection
         const deptDocs = await Department.find({ company }).sort({ name: 1 });
         const deptNames = deptDocs.map(d => d.name);
 
-        // Also pull distinct departments from User records (covers legacy data)
         const userDepts = await User.distinct('department', { company, department: { $ne: 'Unassigned' } });
 
-        // Merge and deduplicate (case-insensitive)
         const seen = new Set();
         const merged = [];
         for (const name of [...deptNames, ...userDepts]) {
@@ -890,7 +876,7 @@ exports.createDepartment = async (req, res, next) => {
     }
 };
 
-exports.updateDepartment = async (req, res, next) => {
+xports.updateDepartment = async (req, res, next) => {
     try {
         const { oldName } = req.params;
         const { name: newName } = req.body;
@@ -929,6 +915,7 @@ exports.updateDepartment = async (req, res, next) => {
         next(error);
     }
 };
+
 
 exports.deleteDepartment = async (req, res, next) => {
     try {
