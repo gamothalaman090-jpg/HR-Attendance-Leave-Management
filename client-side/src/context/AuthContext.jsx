@@ -42,7 +42,6 @@ export function AuthProvider({ children }) {
   }, []);
 
   const login = useCallback(async (email, password) => {
-    setIsLoading(true);
     try {
       const userData = await authService.login(email, password);
       setUser(userData);
@@ -50,13 +49,10 @@ export function AuthProvider({ children }) {
       return { success: true };
     } catch (error) {
       throw error;
-    } finally {
-      setIsLoading(false);
     }
   }, []);
 
   const signup = useCallback(async (userData) => {
-    setIsLoading(true);
     try {
       const result = await authService.signup(userData);
       setUser(result);
@@ -64,13 +60,10 @@ export function AuthProvider({ children }) {
       return { success: true };
     } catch (error) {
       throw error;
-    } finally {
-      setIsLoading(false);
     }
   }, []);
 
   const googleLogin = useCallback(async (payload) => {
-    setIsLoading(true);
     try {
       const userData = await authService.googleLogin(payload);
       setUser(userData);
@@ -78,8 +71,6 @@ export function AuthProvider({ children }) {
       return { success: true };
     } catch (error) {
       throw error;
-    } finally {
-      setIsLoading(false);
     }
   }, []);
 

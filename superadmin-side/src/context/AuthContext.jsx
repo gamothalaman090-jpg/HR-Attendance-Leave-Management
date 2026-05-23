@@ -47,7 +47,6 @@ export function AuthProvider({ children }) {
   }, []);
 
   const login = useCallback(async (email, password) => {
-    setIsLoading(true);
     try {
       const userData = await authService.login(email, password);
       
@@ -61,8 +60,6 @@ export function AuthProvider({ children }) {
       return { success: true };
     } catch (error) {
       throw error;
-    } finally {
-      setIsLoading(false);
     }
   }, []);
 

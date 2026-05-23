@@ -24,7 +24,7 @@ export const authService = {
         token,
       };
     } catch (err) {
-      const errorMsg = err.response?.data?.message || 'Invalid credentials or connection error';
+      const errorMsg = err.response?.data?.message || err.message || 'Invalid credentials or connection error';
       throw new Error(errorMsg);
     }
   },

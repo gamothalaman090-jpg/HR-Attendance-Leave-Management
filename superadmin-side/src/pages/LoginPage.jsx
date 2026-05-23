@@ -16,6 +16,7 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [shake, setShake] = useState(false);
 
   // ── GSAP entrance animations ──
   const pageRef = useGsap((gsap, container) => {
@@ -49,6 +50,7 @@ export default function LoginPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    setShake(false);
     setLoading(true);
 
     try {
@@ -56,6 +58,7 @@ export default function LoginPage() {
       // AuthContext handles navigation via ProtectedRoute
     } catch (err) {
       setError(err.message || 'Authentication failed. Please check your credentials.');
+      setShake(true);
     } finally {
       setLoading(false);
     }
@@ -64,12 +67,37 @@ export default function LoginPage() {
   return (
     <div ref={pageRef} className="min-h-screen flex items-center justify-center bg-bg p-4">
       <Meta title="Login" />
+      <style dangerouslySetInnerHTML={{__html: `
+        @keyframes shake {
+          0%, 100% { transform: translateX(0); }
+          15%, 45%, 75% { transform: translateX(-6px); }
+          30%, 60%, 90% { transform: translateX(6px); }
+        }
+        .animate-shake {
+          animation: shake 0.4s cubic-bezier(.36,.07,.19,.97) both;
+        }
+        .shadow-glow-danger {
+          box-shadow: 0 0 20px rgba(239, 68, 68, 0.18);
+        }
+      `}} />
 
       <div className="w-full max-w-md">
         {/* Header */}
         <div className="text-center mb-8">
-          <div data-icon className="w-16 h-16 rounded-[16px] bg-primary/10 flex items-center justify-center mx-auto mb-4">
-            <Shield size={32} className="text-primary" />
+          <div 
+            data-icon 
+            className={cn(
+              "w-16 h-16 rounded-[16px] flex items-center justify-center mx-auto mb-4 transition-all duration-300",
+              error ? "bg-danger/10 scale-105" : "bg-primary/10"
+            )}
+          >
+            <Shield 
+              size={32} 
+              className={cn(
+                "transition-colors duration-300", 
+                error ? "text-danger animate-pulse" : "text-primary"
+              )} 
+            />
           </div>
           <div data-header>
             <h1 className="font-heading text-h3 font-bold text-text mb-1">Superadmin Console</h1>
@@ -80,11 +108,18 @@ export default function LoginPage() {
         </div>
 
         {/* Login Card */}
-        <div data-card className="bg-surface border border-border rounded-[20px] shadow-elevated p-6 sm:p-8">
+        <div 
+          data-card 
+          onAnimationEnd={() => setShake(false)}
+          className={cn(
+            "bg-surface border border-border rounded-[20px] shadow-elevated p-6 sm:p-8 transition-all duration-300",
+            shake && "animate-shake border-danger/40 shadow-glow-danger"
+          )}
+        >
           <form onSubmit={handleSubmit} className="space-y-5">
             {/* Error Alert */}
             {error && (
-              <div className="flex items-start gap-3 p-4 rounded-[12px] bg-danger/5 border border-danger/20">
+              <div className="flex items-start gap-3 p-4 rounded-[12px] bg-danger/5 border border-danger/20 animate-fade-in">
                 <AlertCircle size={18} className="text-danger shrink-0 mt-0.5" />
                 <p className="text-body-sm text-danger font-medium">{error}</p>
               </div>
@@ -155,13 +190,6 @@ export default function LoginPage() {
               )}
             </button>
           </form>
-
-          {/* Hint */}
-          <div className="mt-6 pt-5 border-t border-border">
-            <p className="text-caption text-text-muted text-center">
-              Use <span className="font-mono font-semibold text-primary">superadmin@nini.io</span> with any password (6+ characters).
-            </p>
-          </div>
         </div>
 
         {/* Footer */}

@@ -23,9 +23,11 @@ const {
 
 
 router.use(protect);
-router.use(authorize('user', 'admin'));
-//User Info
+
+//User Info (Accessible by all roles: user, admin, superadmin)
 router.get('/profile', getUserProfile);
+
+router.use(authorize('user', 'admin'));
 
 // Attendance routes
 router.post('/time-in', clockIn);
