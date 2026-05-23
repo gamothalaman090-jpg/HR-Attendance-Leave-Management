@@ -1,15 +1,16 @@
 /**
  * Name: adminRoutes.js
- * Purpose: Defines the routes for admin-specific endpoints, such as managing announcements.
+ * Purpose: Defines the routes for admin-specific endpoints, including announcements, attendance, leaves, and payroll management.
  * Dependencies: express, adminController, authMiddleware
  * Author: Ian
  * Location: server/routes/adminRoutes.js
  * Created: 2026-05-16
- * Last Updated: 2026-05-16
+ * Last Updated: 2026-05-23
  */
 
 const express = require('express');
 const router = express.Router();
+
 
 const { 
     getAdminAnnouncements, 
@@ -19,7 +20,11 @@ const {
     getAllLeaveRequests,
     overrideAttendance,
     reviewLeaveRequest,
-    getEmployeeAnalytics
+    getEmployeeAnalytics,
+    getPayrollDashboard,  
+    generatePayrollRun,  
+    releaseSalary,        
+    deletePayrollEntry    
 } = require('../controllers/adminController');
 
 const { protect, authorize } = require('../middlewares/authMiddleware'); 
@@ -49,10 +54,21 @@ router.route('/leaves/:id/review')
 
 // --- USER/EMPLOYEE DIRECTORY ENDPOINTS ---
 router.route('/users')
-    .get(getAllEmployees); // FIXED: Swapped out broken inline route reference
+    .get(getAllEmployees); 
 
 // --- EMPLOYEE ANALYTICS ENDPOINTS ---
 router.route('/users/:employeeId/analytics')
     .get(getEmployeeAnalytics);
+
+// --- PAYROLL MANAGEMENT ENDPOINTS ---
+router.route('/payroll')
+    .get(getPayrollDashboard)  
+    .post(generatePayrollRun);    
+
+router.route('/payroll/:id')
+    .delete(deletePayrollEntry);  
+
+router.route('/payroll/:id/release')
+    .put(releaseSalary);          
 
 module.exports = router;

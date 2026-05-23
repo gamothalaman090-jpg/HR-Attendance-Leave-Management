@@ -25,7 +25,7 @@ exports.register = async (req, res, next) => {
         const { fullname, email, password, department, position } = req.body;
         
         if (!password) {
-            return res.status(400).json({ success: false, message: 'Please add a password for traditional registration' });
+            return res.status(400).json({ success: false, message: 'Please add a password' });
         }
         
         const userExists = await User.findOne({ email });

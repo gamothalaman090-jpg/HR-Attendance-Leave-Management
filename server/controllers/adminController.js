@@ -13,6 +13,7 @@
 /**
  * Note:
  * // Response formatting
+ * 
 const response = await axios.get('/api/admin/employees-directory');
 // 1. Set the raw rows list for the big dashboard data table
 setEmployees(response.data.data);
@@ -29,6 +30,7 @@ setLeaveCount(response.data.summary.onLeave);
 const Announcement = require('../models/Announcement');
 const Leave = require('../models/Leave');
 const User = require('../models/User');
+const Payroll = require('../models/Payroll');
 const Attendance = require('../models/Attendance');
 const { createAuditLog } = require('../utils/logger');
 
@@ -473,3 +475,166 @@ exports.getEmployeeAnalytics = async (req, res, next) => {
     }
 };
 
+exports.getPayrollDashboard = async (req, res, next) => {
+    try {
+        // 1. Fetch the complete ledger table rows, populating human-readable user details
+        const ledger = await Payroll.find()
+            .populate('employee', 'fullname email position profilePicture')
+            .sort({ createdAt: -1 });
+
+        // 2. Aggregate financial calculations to dynamically drive the top analytical summary dashboard cards
+        const stats = await Payroll.aggregate([
+            {
+                $group: {
+                    _id: null,
+                    totalBudget: { $sum: '$basicSalary' },
+                    releasedPayments: {
+                        $sum: { $cond: [{ $eq: ['$status', 'Paid'] }, '$basicSalary', 0] }
+                    },
+                    pendingReleases: {
+                        $sum: { $cond: [{ $eq: ['$status', 'Pending'] }, '$basicSalary', 0] }
+                    }
+                }
+            }
+        ]);
+
+        // Fallback metrics format if the database ledger collection is completely fresh and unseeded
+        const cardMetrics = stats[0] || {
+            totalBudget: 0,
+            releasedPayments: 0,
+            pendingReleases: 0
+        };
+
+        return res.status(200).json({
+            success: true,
+            metrics: {
+                totalBudget: cardMetrics.totalBudget,
+                releasedPayments: cardMetrics.releasedPayments,
+                pendingReleases: cardMetrics.pendingReleases
+            },
+            data: ledger
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+
+exports.generatePayrollRun = async (req, res, next) => {
+    try {
+        const { employeeId, basicSalary, periodStart, periodEnd } = req.body;
+
+        // Validation guardrail: check parameter existence
+        if (!employeeId || !basicSalary || !periodStart || !periodEnd) {
+            return res.status(400).json({
+                success: false,
+                message: 'Please provide all necessary payload coordinates including Employee ID, basic salary, and cycle dates.'
+            });
+        }
+
+        // Validate target employee profile existence in DB
+        const employeeExists = await User.findById(employeeId);
+        if (!employeeExists) {
+            return res.status(404).json({ success: false, message: 'Target employee record not found' });
+        }
+
+        // Provision the new ledger row document
+        const payroll = await Payroll.create({
+            employee: employeeId,
+            basicSalary: Number(basicSalary),
+            periodStart: new Date(periodStart),
+            periodEnd: new Date(periodEnd),
+            status: 'Pending'
+        });
+
+        // Populate employee properties for the immediate server callback response context
+        await payroll.populate('employee', 'fullname email position');
+
+        // Capture generation execution transaction event context
+        await createAuditLog(
+            req.user.id, // ID of the HR manager executing this operation
+            'profile_update', // Reusing matching schema tracking enum flags
+            `Generated pending payroll sheet run reference: ${payroll.payrollId} for ${payroll.employee.fullname}`,
+            req
+        );
+
+        return res.status(201).json({
+            success: true,
+            message: 'Payroll entry provisioned securely',
+            data: payroll
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+
+exports.releaseSalary = async (req, res, next) => {
+    try {
+        const payroll = await Payroll.findById(req.params.id).populate('employee', 'fullname');
+
+        if (!payroll) {
+            return res.status(404).json({ success: false, message: 'Payroll ledger target row not found' });
+        }
+
+        if (payroll.status === 'Paid') {
+            return res.status(400).json({ success: false, message: 'This payroll calculation run has already been fully settled and paid.' });
+        }
+
+        // Transition status rules and log timestamp coordinates
+        payroll.status = 'Paid';
+        payroll.paymentDate = new Date();
+        await payroll.save();
+
+        // Trace structural distribution workflow activity execution
+        await createAuditLog(
+            req.user.id,
+            'profile_update',
+            `Approved and released budget payout for calculation worksheet profile ID: ${payroll.payrollId} tracking to ${payroll.employee.fullname}`,
+            req
+        );
+
+        return res.status(200).json({
+            success: true,
+            message: 'Salary package successfully released and marked as settled.',
+            data: payroll
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+
+exports.deletePayrollEntry = async (req, res, next) => {
+    try {
+        const payroll = await Payroll.findById(req.params.id);
+
+        if (!payroll) {
+            return res.status(404).json({ success: false, message: 'Target ledger entity row calculation sheet not found' });
+        }
+
+        // Protection guardrail: Deny drop requests on settled records to preserve historic auditing tables consistency
+        if (payroll.status === 'Paid') {
+            return res.status(400).json({
+                success: false,
+                message: 'Restricted action. Settled ledger rows cannot be dropped from the database.'
+            });
+        }
+
+        await payroll.deleteOne();
+
+        await createAuditLog(
+            req.user.id,
+            'profile_update',
+            `Dropped raw data entry log out of payroll worksheets tracking code: ${payroll.payrollId}`,
+            req
+        );
+
+        return res.status(200).json({
+            success: true,
+            message: 'Ledger table entry row removed successfully'
+        });
+    } catch (error) {
+        next(error);
+    }
+};
