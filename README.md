@@ -124,17 +124,6 @@ HR-Attendance-Leave-Management/
 | **`morgan`** | High-performance console HTTP request logger middleware. |
 | **`nodemon`** (dev) | File watcher for live server auto-reloading during development. |
 
-## 🔑 Login Simulation Credentials
-
-To experience both sides of the platform, use the credentials below. Pre-seeded credentials use the password `password123`:
-
-| User Identity | Email Address | Assigned Role | Access Level |
-| :--- | :--- | :--- | :--- |
-| **System Superadmin** | `superadmin@nini.com` | Superadmin | **Workspace Superadmin** (Console & Logs) |
-| **Workspace Admin** | `admin@nini.com` | Admin | **Administrative** (Full Access) |
-| **Regular Employee** | `user@nini.com` | User | **Employee** (Restricted Personal View) |
-| **Alice Henderson** | `alice@nini.com` | User | **Employee** (Restricted Personal View) |
-
 ---
 
 ## 🚀 Quick Start & Installation
