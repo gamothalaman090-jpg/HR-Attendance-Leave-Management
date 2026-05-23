@@ -5,7 +5,7 @@
  * Author: Ian
  * Location: server/controllers/userController.js
  * Created: 2026-05-15
- * Last Updated: 2026-05-21
+ * Last Updated: 2026-05-23
  */
 const User = require('../models/User'); 
 const Attendance = require('../models/Attendance');
@@ -56,11 +56,14 @@ exports.clockIn = async (req, res, next) => {
             timestamp: new Date()
         });
 
+        // 📝 Telemetry Log: Route clock-ins to INFO level under ATTENDANCE module
         await createAuditLog(
             userId, 
             'attendance_in', 
             `${req.user.fullname || 'Employee'} successfully clocked in (Time In).`, 
-            req
+            req,
+            'INFO',
+            'ATTENDANCE'
         );
 
         return res.status(201).json({ 
@@ -99,11 +102,14 @@ exports.clockOut = async (req, res, next) => {
             workDuration: durationMinutes 
         });
 
+        // 📝 Telemetry Log: Route clock-outs to INFO level under ATTENDANCE module
         await createAuditLog(
             userId, 
             'attendance_out', 
             `${req.user.fullname || 'Employee'} successfully clocked out. Duration: ${durationMinutes} mins.`, 
-            req
+            req,
+            'INFO',
+            'ATTENDANCE'
         );
 
         return res.status(201).json({ 
@@ -212,11 +218,14 @@ exports.requestLeave = async (req, res, next) => {
             status: 'pending'
         });
         
+        // 📝 Telemetry Log: Submitting leave requests creates a trackable record under INFO level in LEAVE module
         await createAuditLog(
             req.user.id, 
             'leave_request', 
             `${user.fullname} submitted a pending ${leaveType} leave request for ${totalDaysRequested} day(s).`, 
-            req
+            req,
+            'INFO',
+            'LEAVE'
         );
 
         return res.status(201).json({

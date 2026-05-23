@@ -13,16 +13,34 @@ const User = require('../models/User');
 const Log = require('../models/Log');
 
 //Global System Logging
+// Global System Logging - Formatted directly for the Superadmin Live Terminal Terminal
 exports.getSystemLogs = async (req, res) => {
     try {
         const logs = await Log.find({})
             .populate('user', 'fullname email role')
-            .sort({ createdAt: -1 });
+            .sort({ createdAt: -1 })
+            .limit(100); // Guardrail to prevent pulling thousands of logs at once
+
+        // Map and format the array elements to match your exact console UI string layouts
+        const formattedLogs = logs.map(log => {
+            const timestamp = new Date(log.createdAt).toLocaleString();
+            const level = log.level ? log.level.toUpperCase() : 'INFO';
+            const moduleName = log.module ? log.module.toUpperCase() : 'SYSTEM';
+            
+            // Build the exact string line: "[5/22/2026, 10:04:34 AM] [INFO] [AUTH] User admin@nini.io..."
+            return {
+                _id: log._id,
+                timestamp,
+                level,
+                module: moduleName,
+                rawLine: `[${timestamp}] [${level}] [${moduleName}] ${log.message}`
+            };
+        });
 
         res.status(200).json({
             success: true,
             count: logs.length,
-            data: logs
+            data: formattedLogs // Handing your React component a ready-to-render array
         });
     } catch (err) {
         res.status(500).json({ success: false, message: err.message });

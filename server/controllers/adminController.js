@@ -1,14 +1,13 @@
-
 /**
  * Name: adminController.js
- * Purpose: Contains controller functions for admin-specific operations, including announcement, attendance, and leave management.
- * Dependencies: Announcement model, Leave model, User model, Attendance model, Logger Utility
+ * Purpose: Contains controller functions for admin-specific operations, including announcement, attendance, leave, and payroll management.
+ * Dependencies: Announcement model, Leave model, User model, Attendance model, Payroll model, Logger Utility
  * Author: Ian
  * Location: server/controllers/adminController.js
  * Created: 2026-05-15
- * Last Updated: 2026-05-21
- * 
- *  */
+ * Last Updated: 2026-05-23
+ * */
+
 
 /**
  * Note:
@@ -34,7 +33,7 @@ const Payroll = require('../models/Payroll');
 const Attendance = require('../models/Attendance');
 const { createAuditLog } = require('../utils/logger');
 
-
+// --- ANNOUNCEMENT MANAGEMENT ---
 
 exports.getAdminAnnouncements = async (req, res) => {
     try {
@@ -82,11 +81,14 @@ exports.createAnnouncement = async (req, res, next) => {
             author: adminId 
         });
 
+        // 📝 Telemetry Log: Tagged explicitly as SYSTEM under INFO level
         await createAuditLog(
             adminId,
-            'announcement_create',
+            'profile_update', // Kept for schema alignment
             `Admin created a new announcement titled: "${title}" under category: "${category || 'general'}".`,
-            req
+            req,
+            'INFO',
+            'SYSTEM'
         );
 
         return res.status(201).json({
@@ -123,11 +125,15 @@ exports.deleteAnnouncement = async (req, res) => {
 
         const exactTitle = announcement.title;
         await announcement.deleteOne();
+
+        // 📝 Telemetry Log: Admin manual remediation deletion log
         await createAuditLog(
             adminId,
             'profile_update',
             `Admin deleted an announcement titled: "${exactTitle}".`,
-            req
+            req,
+            'INFO',
+            'SYSTEM'
         );
 
         return res.status(200).json({
@@ -221,11 +227,15 @@ exports.reviewLeaveRequest = async (req, res, next) => {
 
         leave.status = action;
         await leave.save();
+
+        // 📝 Telemetry Log: Explicitly mapped directly into the SECURITY module stream under INFO
         await createAuditLog(
             adminId,
             'leave_review',
             `Admin processed leave request ${leaveId} for employee ${leave.user}. Decision set to: ${action.toUpperCase()}.`,
-            req
+            req,
+            'INFO',
+            'SECURITY'
         );
 
         return res.status(200).json({
@@ -242,7 +252,6 @@ exports.reviewLeaveRequest = async (req, res, next) => {
 
 exports.getAllEmployees = async (req, res, next) => {
     try {
-        // Fetch users who are 'user' role and NOT permanently terminated
         const employees = await User.find({ 
             role: 'user', 
             employmentStatus: { $ne: 'terminated' } 
@@ -317,13 +326,11 @@ exports.getAllEmployees = async (req, res, next) => {
     }
 };
 
-
 exports.overrideAttendance = async (req, res, next) => {
     try {
         const adminId = req.user.id;
         const { employeeId, targetDate, type, timestamp, workDuration } = req.body;
 
-        // 1. Basic validation
         if (!employeeId || !targetDate || !type) {
             return res.status(400).json({
                 success: false,
@@ -338,20 +345,17 @@ exports.overrideAttendance = async (req, res, next) => {
             });
         }
 
-        // 2. Verify target employee exists
         const employee = await User.findById(employeeId);
         if (!employee) {
             return res.status(404).json({ success: false, message: 'Employee record not found' });
         }
 
-        // 3. Parse date boundaries for that specific log day
         const startOfTargetDay = new Date(targetDate);
         startOfTargetDay.setHours(0, 0, 0, 0);
 
         const endOfTargetDay = new Date(targetDate);
         endOfTargetDay.setHours(23, 59, 59, 999);
 
-        // 4. Find if an entry already exists for that type on that day
         let logEntry = await Attendance.findOne({
             user: employeeId,
             type: type,
@@ -361,14 +365,12 @@ exports.overrideAttendance = async (req, res, next) => {
         const updatedTimestamp = timestamp ? new Date(timestamp) : new Date(targetDate);
 
         if (logEntry) {
-            // Scenario A: Log exists -> Update it with the admin's changes
             logEntry.timestamp = updatedTimestamp;
             if (type === 'out' && workDuration !== undefined) {
                 logEntry.workDuration = Number(workDuration);
             }
             await logEntry.save();
         } else {
-            // Scenario B: No log exists (e.g., overriding an Absent state) -> Create a new record
             logEntry = await Attendance.create({
                 user: employeeId,
                 type: type,
@@ -377,12 +379,14 @@ exports.overrideAttendance = async (req, res, next) => {
             });
         }
 
-        // 5. Fire off an audit log trace for transparency
+        // 📝 Telemetry Log: Since overrides modify core operational data records, we escalate this to WARN under SECURITY tracking
         await createAuditLog(
             adminId,
             'attendance_override',
             `Admin overridden ${type.toUpperCase()} log for ${employee.fullname} on ${startOfTargetDay.toLocaleDateString()}.`,
-            req
+            req,
+            'WARN',
+            'SECURITY'
         );
 
         return res.status(200).json({
@@ -401,28 +405,24 @@ exports.getEmployeeAnalytics = async (req, res, next) => {
     try {
         const { employeeId } = req.params;
         
-        // Find employee
         const employee = await User.findById(employeeId).select('-password').lean();
         if (!employee) {
             return res.status(404).json({ success: false, message: 'Employee not found' });
         }
 
-        // Define time window: Start of current month to now
         const now = new Date();
         const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
 
-        // 1. Fetch all attendance logs for this employee this month
         const monthlyLogs = await Attendance.find({
             user: employeeId,
             timestamp: { $gte: startOfMonth, $lte: now }
         }).lean();
 
-        // 2. Calculate Total Minutes & Unique Days Present
         let totalMinutesWorked = 0;
         const uniqueDaysPresent = new Set();
 
         monthlyLogs.forEach(log => {
-            const dateKey = new Date(log.timestamp).toDateString(); // e.g., "Thu May 21 2026"
+            const dateKey = new Date(log.timestamp).toDateString();
             uniqueDaysPresent.add(dateKey);
 
             if (log.type === 'out' && log.workDuration) {
@@ -430,29 +430,26 @@ exports.getEmployeeAnalytics = async (req, res, next) => {
             }
         });
 
-        const totalHoursWorked = Number((totalMinutesWorked / 60).toFixed(1)); // e.g., 95.4
+        const totalHoursWorked = Number((totalMinutesWorked / 60).toFixed(1));
         const daysPresentCount = uniqueDaysPresent.size;
 
-        // 3. Calculate Daily Average Hours Worked
         const avgHoursPerDay = daysPresentCount > 0 
             ? Number((totalHoursWorked / daysPresentCount).toFixed(1)) 
-            : 0; // e.g., 8.7
+            : 0;
 
-        // 4. Calculate Expected Work Days (Mon-Fri) from start of month until today
         let expectedWorkDays = 0;
         let loopDate = new Date(startOfMonth);
         while (loopDate <= now) {
             const dayOfWeek = loopDate.getDay();
-            if (dayOfWeek !== 0 && dayOfWeek !== 6) { // Skip Sunday (0) and Saturday (6)
+            if (dayOfWeek !== 0 && dayOfWeek !== 6) {
                 expectedWorkDays++;
             }
             loopDate.setDate(loopDate.getDate() + 1);
         }
 
-        // 5. Calculate Attendance Rate Percentage
         const attendanceRate = expectedWorkDays > 0 
             ? Math.min(100, Math.round((daysPresentCount / expectedWorkDays) * 100)) 
-            : 100; // e.g., 100%
+            : 100;
 
         return res.status(200).json({
             success: true,
@@ -460,9 +457,9 @@ exports.getEmployeeAnalytics = async (req, res, next) => {
                 employeeId: employee._id,
                 fullname: employee.fullname,
                 metrics: {
-                    attendanceRate: `${attendanceRate}%`, // Matches "100%"
-                    totalHours: totalHoursWorked,         // Matches "95.4"
-                    avgHoursPerDay: avgHoursPerDay,       // Matches "8.7"
+                    attendanceRate: `${attendanceRate}%`,
+                    totalHours: totalHoursWorked,
+                    avgHoursPerDay: avgHoursPerDay,
                     daysPresent: daysPresentCount,
                     expectedDays: expectedWorkDays
                 }
@@ -475,14 +472,14 @@ exports.getEmployeeAnalytics = async (req, res, next) => {
     }
 };
 
+// --- PAYROLL MANAGEMENT ---
+
 exports.getPayrollDashboard = async (req, res, next) => {
     try {
-        // 1. Fetch the complete ledger table rows, populating human-readable user details
         const ledger = await Payroll.find()
             .populate('employee', 'fullname email position profilePicture')
             .sort({ createdAt: -1 });
 
-        // 2. Aggregate financial calculations to dynamically drive the top analytical summary dashboard cards
         const stats = await Payroll.aggregate([
             {
                 $group: {
@@ -498,7 +495,6 @@ exports.getPayrollDashboard = async (req, res, next) => {
             }
         ]);
 
-        // Fallback metrics format if the database ledger collection is completely fresh and unseeded
         const cardMetrics = stats[0] || {
             totalBudget: 0,
             releasedPayments: 0,
@@ -519,12 +515,10 @@ exports.getPayrollDashboard = async (req, res, next) => {
     }
 };
 
-
 exports.generatePayrollRun = async (req, res, next) => {
     try {
         const { employeeId, basicSalary, periodStart, periodEnd } = req.body;
 
-        // Validation guardrail: check parameter existence
         if (!employeeId || !basicSalary || !periodStart || !periodEnd) {
             return res.status(400).json({
                 success: false,
@@ -532,13 +526,11 @@ exports.generatePayrollRun = async (req, res, next) => {
             });
         }
 
-        // Validate target employee profile existence in DB
         const employeeExists = await User.findById(employeeId);
         if (!employeeExists) {
             return res.status(404).json({ success: false, message: 'Target employee record not found' });
         }
 
-        // Provision the new ledger row document
         const payroll = await Payroll.create({
             employee: employeeId,
             basicSalary: Number(basicSalary),
@@ -547,15 +539,16 @@ exports.generatePayrollRun = async (req, res, next) => {
             status: 'Pending'
         });
 
-        // Populate employee properties for the immediate server callback response context
         await payroll.populate('employee', 'fullname email position');
 
-        // Capture generation execution transaction event context
+        // 📝 Telemetry Log: Direct matching structure for your [INFO] [PAYROLL] terminal tags
         await createAuditLog(
-            req.user.id, // ID of the HR manager executing this operation
-            'profile_update', // Reusing matching schema tracking enum flags
+            req.user.id,
+            'profile_update',
             `Generated pending payroll sheet run reference: ${payroll.payrollId} for ${payroll.employee.fullname}`,
-            req
+            req,
+            'INFO',
+            'PAYROLL'
         );
 
         return res.status(201).json({
@@ -567,7 +560,6 @@ exports.generatePayrollRun = async (req, res, next) => {
         next(error);
     }
 };
-
 
 exports.releaseSalary = async (req, res, next) => {
     try {
@@ -581,17 +573,18 @@ exports.releaseSalary = async (req, res, next) => {
             return res.status(400).json({ success: false, message: 'This payroll calculation run has already been fully settled and paid.' });
         }
 
-        // Transition status rules and log timestamp coordinates
         payroll.status = 'Paid';
         payroll.paymentDate = new Date();
         await payroll.save();
 
-        // Trace structural distribution workflow activity execution
+        // 📝 Telemetry Log: Direct matching structure for financial release events
         await createAuditLog(
             req.user.id,
             'profile_update',
             `Approved and released budget payout for calculation worksheet profile ID: ${payroll.payrollId} tracking to ${payroll.employee.fullname}`,
-            req
+            req,
+            'INFO',
+            'PAYROLL'
         );
 
         return res.status(200).json({
@@ -604,7 +597,6 @@ exports.releaseSalary = async (req, res, next) => {
     }
 };
 
-
 exports.deletePayrollEntry = async (req, res, next) => {
     try {
         const payroll = await Payroll.findById(req.params.id);
@@ -613,7 +605,6 @@ exports.deletePayrollEntry = async (req, res, next) => {
             return res.status(404).json({ success: false, message: 'Target ledger entity row calculation sheet not found' });
         }
 
-        // Protection guardrail: Deny drop requests on settled records to preserve historic auditing tables consistency
         if (payroll.status === 'Paid') {
             return res.status(400).json({
                 success: false,
@@ -621,13 +612,17 @@ exports.deletePayrollEntry = async (req, res, next) => {
             });
         }
 
+        const cachedId = payroll.payrollId;
         await payroll.deleteOne();
 
+        // 📝 Telemetry Log: Explicit warning label indicating manual data deletion
         await createAuditLog(
             req.user.id,
             'profile_update',
-            `Dropped raw data entry log out of payroll worksheets tracking code: ${payroll.payrollId}`,
-            req
+            `Dropped raw data entry log out of payroll worksheets tracking code: ${cachedId}`,
+            req,
+            'WARN',
+            'PAYROLL'
         );
 
         return res.status(200).json({

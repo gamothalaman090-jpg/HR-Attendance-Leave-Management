@@ -5,7 +5,7 @@
  * Author: Ian
  * Location: server/controllers/authController.js
  * Created: 2026-05-15
- * Last Updated: 2026-05-22
+ * Last Updated: 2026-05-23
  */
 
 const User = require('../models/User');
@@ -45,11 +45,14 @@ exports.register = async (req, res, next) => {
 
         const token = generateToken(user._id);
 
+        // 📝 Telemetry Log: New registrations mapped to INFO level under AUTH module
         await createAuditLog(
             user._id,
             'profile_update',
             `New user registered account: ${user.fullname} (${user.email})`,
-            req
+            req,
+            'INFO',
+            'AUTH'
         );
 
         res.status(201).json({
@@ -81,15 +84,20 @@ exports.login = async (req, res, next) => {
         const user = await User.findOne({ email }).select('+password');
 
         if (!user || !(await user.matchPassword(password))) {
+            // 📝 Optional/Future update: If you want to track malicious attempts, you could call createAuditLog here with 'WARN' / 'SECURITY'
             return res.status(401).json({ success: false, message: 'Invalid credentials' });
         }
 
         const token = generateToken(user._id);
+        
+        // 📝 Telemetry Log: Successful logins sent directly to AUTH stream
         await createAuditLog(
             user._id,
             'profile_update',
             `User logged in successfully. Role: ${user.role.toUpperCase()}`,
-            req
+            req,
+            'INFO',
+            'AUTH'
         );
 
         res.status(200).json({
@@ -107,7 +115,6 @@ exports.googleOAuth = async (req, res, next) => {
     try {
         const { email, fullname, providerId, profilePicture } = req.body;
 
-        // 1. Basic validation guardrail checking incoming provider parameters
         if (!email || !providerId || !fullname) {
             return res.status(400).json({
                 success: false,
@@ -115,13 +122,10 @@ exports.googleOAuth = async (req, res, next) => {
             });
         }
 
-        // 2. Query against existing records inside database
         let user = await User.findOne({ email });
         let isNewRegistration = false;
 
         if (user) {
-            // Scenario A: User profile exists but is currently configured as a password account.
-            // Dynamically link provider coordinates on the fly to support future unified login options!
             if (user.authProvider === 'local') {
                 user.authProvider = 'google';
                 user.providerId = providerId;
@@ -131,7 +135,6 @@ exports.googleOAuth = async (req, res, next) => {
                 await user.save();
             }
         } else {
-            // Scenario B: Brand new user registration via OAuth workflow interface
             isNewRegistration = true;
             user = await User.create({
                 fullname,
@@ -142,21 +145,21 @@ exports.googleOAuth = async (req, res, next) => {
                 role: 'user',
                 department: 'Unassigned',
                 position: 'Staff Employee'
-                // password property stays completely undefined, skipping model salting hooks cleanly!
             });
         }
 
-        // 3. Issue native platform server authentication bearer token
         const token = generateToken(user._id);
 
-        // 4. Generate specific audit log entries matching state activity
+        // 📝 Telemetry Log: Routes OAuth registrations or authorizations into the AUTH engine module cleanly
         await createAuditLog(
             user._id,
             'profile_update',
             isNewRegistration 
                 ? `New user registered and provisioned via Google OAuth: ${user.fullname} (${user.email})`
                 : `User logged in using Google OAuth token validation. Account id: ${user._id}`,
-            req
+            req,
+            'INFO',
+            'AUTH'
         );
 
         return res.status(isNewRegistration ? 201 : 200).json({
@@ -204,11 +207,15 @@ exports.forgotPassword = async (req, res, next) => {
         };
 
         await transporter.sendMail(mailOptions);
+
+        // 📝 Telemetry Log: Escallated to WARN under SECURITY tracking because password resets change security parameters
         await createAuditLog(
             user._id,
             'profile_update',
             `Password reset token requested and dispatched via email to: ${user.email}`,
-            req
+            req,
+            'WARN',
+            'SECURITY'
         );
 
         res.status(200).json({ success: true, message: 'Email sent' });
@@ -221,11 +228,14 @@ exports.forgotPassword = async (req, res, next) => {
 exports.logout = async (req, res, next) => {
     try {
         if (req.user && req.user.id) {
+            // 📝 Telemetry Log: Basic session close tagged under AUTH module
             await createAuditLog(
                 req.user.id,
                 'profile_update',
                 `User session closed (Logged Out).`,
-                req
+                req,
+                'INFO',
+                'AUTH'
             );
         }
 
@@ -252,11 +262,14 @@ exports.updateProfile = async (req, res, next) => {
 
         await user.save();
 
+        // 📝 Telemetry Log: Personal account data change recorded cleanly
         await createAuditLog(
             req.user.id,
             'profile_update',
             `${user.fullname} updated their profile info${req.file ? ' including avatar picture' : ''}.`,
-            req
+            req,
+            'INFO',
+            'AUTH'
         );
 
         res.status(200).json({
@@ -298,11 +311,15 @@ exports.changePassword = async (req, res, next) => {
         }
         user.password = newPassword;
         await user.save();
+
+        // 📝 Telemetry Log: Password alterations recorded under WARN level in SECURITY stream
         await createAuditLog(
             req.user.id,
             'profile_update',
             `${user.fullname} changed their account security password.`,
-            req
+            req,
+            'WARN',
+            'SECURITY'
         );
 
         res.status(200).json({ success: true, message: 'Password updated successfully' });
