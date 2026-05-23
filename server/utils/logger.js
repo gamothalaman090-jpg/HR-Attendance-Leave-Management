@@ -16,13 +16,25 @@ exports.createAuditLog = async (userId, actionType, description, req = null, lev
             ipAddress = req.headers['x-forwarded-for']?.split(',')[0].trim() || req.socket.remoteAddress || 'Unknown';
         }
 
+        let company = 'Default Company';
+        if (req && req.user && req.user.company) {
+            company = req.user.company;
+        } else if (userId) {
+            const User = require('../models/User');
+            const u = await User.findById(userId);
+            if (u && u.company) {
+                company = u.company;
+            }
+        }
+
         await Log.create({
             user: userId || null, // Handles system operations seamlessly
             actionType,
             description,
             ipAddress,
             level: level.toUpperCase(),
-            module: moduleName.toUpperCase()
+            module: moduleName.toUpperCase(),
+            company
         });
     } catch (err) {
         console.error('💥 Audit Logger Engine Error:', err.message);

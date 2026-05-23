@@ -74,7 +74,9 @@ exports.clockIn = async (req, res, next) => {
             await handleNotifications(
                 'attendance_late',
                 'Late Clock-In',
-                `${req.user.fullname || 'Employee'} clocked in late at ${timeString} today.`
+                `${req.user.fullname || 'Employee'} clocked in late at ${timeString} today.`,
+                null,
+                req.user.company
             );
         }
 
@@ -154,8 +156,8 @@ exports.getAttendanceHistory = async (req, res, next) => {
 
 exports.getAnnouncements = async (req, res, next) => {
     try {
-        // FIXED: Selected 'fullname' instead of 'name' to align with User model fields
-        const announcements = await Announcement.find()
+        // FIXED: Selected 'fullname' instead of 'name' to align with User model fields, and filtered by company
+        const announcements = await Announcement.find({ company: req.user.company })
             .populate('author', 'fullname profilePicture') 
             .sort({ createdAt: -1 });
 
@@ -246,7 +248,9 @@ exports.requestLeave = async (req, res, next) => {
         await handleNotifications(
             'leave_request',
             'New Leave Request',
-            `${user.fullname} requested ${leaveType} Leave for ${formattedStart}-${formattedEnd}.`
+            `${user.fullname} requested ${leaveType} Leave for ${formattedStart}-${formattedEnd}.`,
+            null,
+            req.user.company
         );
 
         return res.status(201).json({

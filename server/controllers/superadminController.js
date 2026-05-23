@@ -26,14 +26,16 @@ exports.getSystemLogs = async (req, res) => {
             const timestamp = new Date(log.createdAt).toLocaleString();
             const level = log.level ? log.level.toUpperCase() : 'INFO';
             const moduleName = log.module ? log.module.toUpperCase() : 'SYSTEM';
+            const companyName = log.company || 'Default Company';
             
-            // Build the exact string line: "[5/22/2026, 10:04:34 AM] [INFO] [AUTH] User admin@nini.io..."
+            // Build the exact string line: "[5/22/2026, 10:04:34 AM] [INFO] [AUTH] [Default Company] User admin@nini.io..."
             return {
                 _id: log._id,
                 timestamp,
                 level,
                 module: moduleName,
-                rawLine: `[${timestamp}] [${level}] [${moduleName}] ${log.message}`
+                company: companyName,
+                rawLine: `[${timestamp}] [${level}] [${moduleName}] [${companyName}] ${log.message}`
             };
         });
 
@@ -49,7 +51,7 @@ exports.getSystemLogs = async (req, res) => {
 
 exports.createUser = async (req, res) => {
     try {
-        const { fullname, email, password, role } = req.body;
+        const { fullname, email, password, role, company } = req.body;
         const userExists = await User.findOne({ email });
         if (userExists) {
             return res.status(400).json({ success: false, message: 'Email already registered' });
@@ -59,7 +61,8 @@ exports.createUser = async (req, res) => {
             fullname,
             email,
             password,
-            role
+            role,
+            company: company || 'Default Company'
         });
 
         res.status(201).json({ success: true, data: user });

@@ -22,7 +22,7 @@ const generateToken = (id) => {
 
 exports.register = async (req, res, next) => {
     try {
-        const { fullname, email, password, department, position } = req.body;
+        const { fullname, email, password, department, position, company, role } = req.body;
         
         if (!password) {
             return res.status(400).json({ success: false, message: 'Please add a password' });
@@ -38,7 +38,8 @@ exports.register = async (req, res, next) => {
             fullname,
             email,
             password,
-            role: 'user', // Hardcoded safety constraint to prevent privilege escalation during registration
+            role: role || 'user', // Accept dynamic registration roles to cleanly provision admins and employees
+            company: company || 'Default Company',
             department: department || 'Unassigned',
             position: position || 'Staff Employee'
         });
@@ -49,7 +50,7 @@ exports.register = async (req, res, next) => {
         await createAuditLog(
             user._id,
             'profile_update',
-            `New user registered account: ${user.fullname} (${user.email})`,
+            `New user registered account: ${user.fullname} (${user.email}) under company: ${user.company}`,
             req,
             'INFO',
             'AUTH'
@@ -64,6 +65,7 @@ exports.register = async (req, res, next) => {
                 fullname: user.fullname, 
                 email: user.email, 
                 role: user.role,
+                company: user.company,
                 department: user.department,
                 position: user.position
             }
@@ -103,7 +105,7 @@ exports.login = async (req, res, next) => {
         res.status(200).json({
             success: true,
             token,
-            data: { id: user._id, fullname: user.fullname, role: user.role },
+            data: { id: user._id, fullname: user.fullname, role: user.role, company: user.company },
             message: 'Login successful'
         });
     } catch (error) {
@@ -143,6 +145,7 @@ exports.googleOAuth = async (req, res, next) => {
                 providerId: providerId,
                 profilePicture: profilePicture || '',
                 role: 'user',
+                company: req.body.company || 'Default Company',
                 department: 'Unassigned',
                 position: 'Staff Employee'
             });
@@ -155,7 +158,7 @@ exports.googleOAuth = async (req, res, next) => {
             user._id,
             'profile_update',
             isNewRegistration 
-                ? `New user registered and provisioned via Google OAuth: ${user.fullname} (${user.email})`
+                ? `New user registered and provisioned via Google OAuth: ${user.fullname} (${user.email}) under company: ${user.company}`
                 : `User logged in using Google OAuth token validation. Account id: ${user._id}`,
             req,
             'INFO',
@@ -171,6 +174,7 @@ exports.googleOAuth = async (req, res, next) => {
                 fullname: user.fullname,
                 email: user.email,
                 role: user.role,
+                company: user.company,
                 department: user.department,
                 position: user.position
             }

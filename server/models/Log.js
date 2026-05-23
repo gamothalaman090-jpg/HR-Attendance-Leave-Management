@@ -50,6 +50,11 @@ const logSchema = new mongoose.Schema({
     ipAddress: {
         type: String,
         default: 'Unknown'
+    },
+    company: {
+        type: String,
+        required: true,
+        default: 'Default Company'
     }
 }, {
     timestamps: true

@@ -39,6 +39,11 @@ const AnnouncementSchema = new mongoose.Schema(
             type: mongoose.Schema.Types.ObjectId,
             ref: 'User', 
             required: true
+        },
+        company: {
+            type: String,
+            required: true,
+            default: 'Default Company'
         }
     },
     {

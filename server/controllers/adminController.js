@@ -35,7 +35,7 @@ const { createAuditLog } = require('../utils/logger');
 exports.getAdminAnnouncements = async (req, res) => {
     try {
         const adminId = req.user.id; 
-        const announcements = await Announcement.find({ author: adminId }).sort({ createdAt: -1 });
+        const announcements = await Announcement.find({ author: adminId, company: req.user.company }).sort({ createdAt: -1 });
 
         return res.status(200).json({
             success: true,
@@ -75,7 +75,8 @@ exports.createAnnouncement = async (req, res, next) => {
             content,
             category: category ? category.toLowerCase() : 'general',
             eventDate: eventDate || null, 
-            author: adminId 
+            author: adminId,
+            company: req.user.company
         });
 
         // 📝 Telemetry Log: Tagged explicitly as SYSTEM under INFO level
@@ -92,7 +93,9 @@ exports.createAnnouncement = async (req, res, next) => {
         await exports.handleNotifications(
             'announcement',
             'New Announcement Published',
-            `A new bulletin titled "${title}" has been posted to your dashboard.`
+            `A new bulletin titled "${title}" has been posted to your dashboard.`,
+            null,
+            req.user.company
         );
 
         return res.status(201).json({
@@ -111,7 +114,7 @@ exports.deleteAnnouncement = async (req, res) => {
         const announcementId = req.params.id;
         const adminId = req.user.id;
 
-        const announcement = await Announcement.findById(announcementId);
+        const announcement = await Announcement.findOne({ _id: announcementId, company: req.user.company });
 
         if (!announcement) {
             return res.status(404).json({
@@ -159,17 +162,21 @@ exports.getAllLeaveRequests = async (req, res, next) => {
     try {
         const today = new Date();
 
+        const users = await User.find({ company: req.user.company }).select('_id');
+        const userIds = users.map(u => u._id);
+
         await Leave.updateMany(
             {
                 status: 'pending',
-                startDate: { $lt: today }
+                startDate: { $lt: today },
+                user: { $in: userIds }
             },
             {
                 $set: { status: 'declined' }
             }
         );
 
-        const requests = await Leave.find()
+        const requests = await Leave.find({ user: { $in: userIds } })
             .populate('user', 'fullname email role department position')
             .sort({ createdAt: -1 });
 
@@ -198,6 +205,12 @@ exports.reviewLeaveRequest = async (req, res, next) => {
             return res.status(404).json({ success: false, message: 'Leave request not found' });
         }
 
+        // Enforce hard tenant isolation: Ensure the leave request user belongs to the same company
+        const targetUser = await User.findOne({ _id: leave.user, company: req.user.company });
+        if (!targetUser) {
+            return res.status(403).json({ success: false, message: 'Unauthorized: Employee record does not belong to your organization' });
+        }
+
         if (leave.status !== 'pending') {
             return res.status(400).json({ 
                 success: false, 
@@ -212,20 +225,15 @@ exports.reviewLeaveRequest = async (req, res, next) => {
         }
 
         if (action === 'approved') {
-            const user = await User.findById(leave.user);
-            if (!user) {
-                return res.status(404).json({ success: false, message: 'Employee record not found' });
-            }
-
             const typeKey = leave.leaveType.toLowerCase();
             const start = new Date(leave.startDate);
             const end = new Date(leave.endDate);
             const totalDays = Math.ceil((end - start) / (1000 * 60 * 60 * 24)) + 1;
 
-            if (user.leaveBalances && user.leaveBalances[typeKey]) {
-                user.leaveBalances[typeKey].left -= totalDays;
-                user.markModified(`leaveBalances.${typeKey}`);
-                await user.save();
+            if (targetUser.leaveBalances && targetUser.leaveBalances[typeKey]) {
+                targetUser.leaveBalances[typeKey].left -= totalDays;
+                targetUser.markModified(`leaveBalances.${typeKey}`);
+                await targetUser.save();
             }
         }
 
@@ -252,7 +260,8 @@ exports.reviewLeaveRequest = async (req, res, next) => {
             'leave_status',
             statusHeader,
             statusMsg,
-            leave.user // Directly assigns to recipient user column
+            leave.user,
+            req.user.company
         );
 
         return res.status(200).json({
@@ -271,8 +280,11 @@ exports.getAllEmployees = async (req, res, next) => {
     try {
         const employees = await User.find({ 
             role: 'user', 
-            employmentStatus: { $ne: 'terminated' } 
+            employmentStatus: { $ne: 'terminated' },
+            company: req.user.company
         }).select('-password').lean();
+
+        const employeeIds = employees.map(e => e._id);
 
         const startOfToday = new Date();
         startOfToday.setHours(0, 0, 0, 0);
@@ -281,13 +293,15 @@ exports.getAllEmployees = async (req, res, next) => {
         endOfToday.setHours(23, 59, 59, 999);
 
         const todayAttendance = await Attendance.find({
-            timestamp: { $gte: startOfToday, $lte: endOfToday }
+            timestamp: { $gte: startOfToday, $lte: endOfToday },
+            user: { $in: employeeIds }
         }).lean();
 
         const todayLeaves = await Leave.find({
             status: 'approved',
             startDate: { $lte: endOfToday },
-            endDate: { $gte: startOfToday }
+            endDate: { $gte: startOfToday },
+            user: { $in: employeeIds }
         }).lean();
 
         const employeeDataWithStatus = employees.map(employee => {
@@ -362,9 +376,9 @@ exports.overrideAttendance = async (req, res, next) => {
             });
         }
 
-        const employee = await User.findById(employeeId);
+        const employee = await User.findOne({ _id: employeeId, company: req.user.company });
         if (!employee) {
-            return res.status(404).json({ success: false, message: 'Employee record not found' });
+            return res.status(404).json({ success: false, message: 'Employee record not found in your organization' });
         }
 
         const startOfTargetDay = new Date(targetDate);
@@ -422,9 +436,9 @@ exports.getEmployeeAnalytics = async (req, res, next) => {
     try {
         const { employeeId } = req.params;
         
-        const employee = await User.findById(employeeId).select('-password').lean();
+        const employee = await User.findOne({ _id: employeeId, company: req.user.company }).select('-password').lean();
         if (!employee) {
-            return res.status(404).json({ success: false, message: 'Employee not found' });
+            return res.status(404).json({ success: false, message: 'Employee not found in your organization' });
         }
 
         const now = new Date();
@@ -493,11 +507,17 @@ exports.getEmployeeAnalytics = async (req, res, next) => {
 
 exports.getPayrollDashboard = async (req, res, next) => {
     try {
-        const ledger = await Payroll.find()
+        const users = await User.find({ company: req.user.company }).select('_id');
+        const userIds = users.map(u => u._id);
+
+        const ledger = await Payroll.find({ employee: { $in: userIds } })
             .populate('employee', 'fullname email position profilePicture')
             .sort({ createdAt: -1 });
 
         const stats = await Payroll.aggregate([
+            {
+                $match: { employee: { $in: userIds } }
+            },
             {
                 $group: {
                     _id: null,
@@ -543,9 +563,9 @@ exports.generatePayrollRun = async (req, res, next) => {
             });
         }
 
-        const employeeExists = await User.findById(employeeId);
+        const employeeExists = await User.findOne({ _id: employeeId, company: req.user.company });
         if (!employeeExists) {
-            return res.status(404).json({ success: false, message: 'Target employee record not found' });
+            return res.status(404).json({ success: false, message: 'Target employee record not found in your organization' });
         }
 
         const payroll = await Payroll.create({
@@ -573,7 +593,8 @@ exports.generatePayrollRun = async (req, res, next) => {
             'payroll_generated',
             'Payslip Generated',
             `Your payslip calculations for period ${new Date(periodStart).toLocaleDateString()} to ${new Date(periodEnd).toLocaleDateString()} have been processed and are pending review.`,
-            employeeId
+            employeeId,
+            req.user.company
         );
 
         return res.status(201).json({
@@ -588,10 +609,14 @@ exports.generatePayrollRun = async (req, res, next) => {
 
 exports.releaseSalary = async (req, res, next) => {
     try {
-        const payroll = await Payroll.findById(req.params.id).populate('employee', 'fullname');
+        const payroll = await Payroll.findById(req.params.id).populate('employee', 'fullname company');
 
         if (!payroll) {
             return res.status(404).json({ success: false, message: 'Payroll ledger target row not found' });
+        }
+
+        if (!payroll.employee || payroll.employee.company !== req.user.company) {
+            return res.status(403).json({ success: false, message: 'Unauthorized: Employee does not belong to your organization' });
         }
 
         if (payroll.status === 'Paid') {
@@ -617,7 +642,8 @@ exports.releaseSalary = async (req, res, next) => {
             'payroll_released',
             'Salary Disbursed 🎉',
             `Great news! Your salary payment for cycle ending ${new Date(payroll.periodEnd).toLocaleDateString()} has been approved and released.`,
-            payroll.employee._id
+            payroll.employee._id,
+            req.user.company
         );
 
         return res.status(200).json({
@@ -632,10 +658,14 @@ exports.releaseSalary = async (req, res, next) => {
 
 exports.deletePayrollEntry = async (req, res, next) => {
     try {
-        const payroll = await Payroll.findById(req.params.id);
+        const payroll = await Payroll.findById(req.params.id).populate('employee', 'company');
 
         if (!payroll) {
             return res.status(404).json({ success: false, message: 'Target ledger entity row calculation sheet not found' });
+        }
+
+        if (!payroll.employee || payroll.employee.company !== req.user.company) {
+            return res.status(403).json({ success: false, message: 'Unauthorized: Employee does not belong to your organization' });
         }
 
         if (payroll.status === 'Paid') {
@@ -672,13 +702,14 @@ exports.deletePayrollEntry = async (req, res, next) => {
 exports.handleNotifications = async (req, res, next) => {
     // Scenario A: Internal backend trigger (Saving a new targeted/global notification entry)
     if (typeof req === 'string') {
-        const [type, title, message, recipientId] = [req, res, next, arguments[3]];
+        const [type, title, message, recipientId, company] = [req, res, next, arguments[3], arguments[4]];
         try {
             await Notification.create({ 
                 type, 
                 title, 
                 message,
-                recipient: recipientId || null // Optional: Null handles general broadcasts to all managers
+                recipient: recipientId || null, // Optional: Null handles general broadcasts to all managers
+                company: company || 'Default Company'
             });
             return;
         } catch (err) {
@@ -688,7 +719,7 @@ exports.handleNotifications = async (req, res, next) => {
 
     // Scenario B: Normal Express GET route request
     try {
-        const feed = await Notification.find().sort({ createdAt: -1 }).limit(20);
+        const feed = await Notification.find({ company: req.user.company }).sort({ createdAt: -1 }).limit(20);
         return res.status(200).json({ 
             success: true, 
             count: feed.length,

@@ -14,6 +14,7 @@ const NotificationSchema = new mongoose.Schema({
     type: { type: String, required: true },
     title: { type: String, required: true }, 
     message: { type: String, required: true },
+    company: { type: String, required: true, default: 'Default Company' },
     createdAt: { type: Date, default: Date.now }
 });
 

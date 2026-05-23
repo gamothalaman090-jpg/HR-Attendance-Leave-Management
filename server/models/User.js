@@ -37,6 +37,12 @@ const userSchema = new mongoose.Schema({
         enum: ['user', 'admin', 'superadmin'],
         default: 'user'
     },
+    company: {
+        type: String,
+        required: [true, 'Please provide a company name'],
+        default: 'Default Company',
+        trim: true
+    },
     
     department: {
         type: String,
