@@ -28,6 +28,10 @@ Nini HR features an active role-based routing engine (`ProtectedRoute`) and stri
 - Real-time read/unread status badges for team members.
 - Full company-scoped department CRUD with validation rules and cascade updates.
 
+### ⚡ Package & Tier Guardrails (Starter Tier)
+- Enforces a strict **10-employee limit** per company/workspace.
+- Validated both client-side (disables creation modal) and backend-side (blocks registrations, manual creations, and Google OAuth provision requests once capacity is reached).
+
 ---
 
 ## 🎨 Premium Design System
