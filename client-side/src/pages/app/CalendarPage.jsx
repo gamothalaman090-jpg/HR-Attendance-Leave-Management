@@ -1,7 +1,8 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import Meta from '@/components/common/Meta';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { LEAVE_REQUESTS } from '@/data/leaves';
+import { leaveService } from '@/services/leaveService';
+import { useAuth } from '@/context/AuthContext';
 import { cn } from '@/utils/helpers';
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -26,9 +27,32 @@ const HOLIDAYS = [
 ];
 
 export default function CalendarPage() {
+  const { user } = useAuth();
   const today = new Date();
   const [currentDate, setCurrentDate] = useState(new Date(today.getFullYear(), today.getMonth(), 1));
   const [selectedDay, setSelectedDay] = useState(null);
+  const [leaveRequests, setLeaveRequests] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  const isHR = ['hr', 'admin'].some(r => user?.role?.toLowerCase().includes(r)) || user?.role?.toLowerCase() === 'superadmin';
+
+  useEffect(() => {
+    let active = true;
+    const fetchLeaves = async () => {
+      try {
+        const data = await (isHR ? leaveService.getAll() : leaveService.getMyLeaves());
+        if (active) {
+          setLeaveRequests(data);
+          setLoading(false);
+        }
+      } catch (err) {
+        console.error('Failed to fetch calendar leaves', err);
+        if (active) setLoading(false);
+      }
+    };
+    fetchLeaves();
+    return () => { active = false; };
+  }, [isHR]);
 
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
@@ -45,7 +69,7 @@ export default function CalendarPage() {
     const map = {};
 
     // Leaves (approved + pending)
-    LEAVE_REQUESTS
+    leaveRequests
       .filter((l) => l.status === 'approved' || l.status === 'pending')
       .forEach((leave) => {
         const start = new Date(leave.startDate);

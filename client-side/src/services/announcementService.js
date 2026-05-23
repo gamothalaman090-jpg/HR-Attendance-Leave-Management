@@ -1,73 +1,54 @@
 /**
- * Announcement Service — Mock CRUD for company announcements with localStorage persistence.
+ * Announcement Service — Connects to Node.js/Express/MongoDB backend.
+ *
+ * User endpoint:  GET /user/announcements
+ * Admin endpoints: GET/POST /admin/announcements, DELETE /admin/announcements/:id
  */
-import { sleep } from '@/utils/helpers';
+import api from './api';
 
-const STORAGE_KEY = 'nini-announcements';
-
-const DEFAULT_ANNOUNCEMENTS = [
-  {
-    id: 'ANN-2',
-    title: 'Upcoming Team Building Event',
-    content: 'Mark your calendars! Our annual team building event is scheduled for next month. Details on venue and activities will be shared soon.',
-    date: new Date('2026-05-17T12:00:00Z').toISOString(),
-    author: 'HR Team',
-    category: 'Event',
-    priority: 'normal',
-  }
-];
-
-const getStoredAnnouncements = () => {
-  const stored = localStorage.getItem(STORAGE_KEY);
-  if (stored) {
-    const parsed = JSON.parse(stored);
-    // If it contains the old General announcement (ANN-1), reset it
-    if (parsed.some(ann => ann.id === 'ANN-1')) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(DEFAULT_ANNOUNCEMENTS));
-      return DEFAULT_ANNOUNCEMENTS;
-    }
-    return parsed;
-  }
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(DEFAULT_ANNOUNCEMENTS));
-  return DEFAULT_ANNOUNCEMENTS;
-};
-
-const saveAnnouncements = (announcements) => {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(announcements));
+const mapAnnouncement = (a) => {
+  if (!a) return null;
+  const author = a.author || {};
+  return {
+    id: a._id,
+    title: a.title,
+    content: a.content,
+    date: a.createdAt || a.date,
+    author: author.fullname || author || 'Admin',
+    category: a.category || 'General',
+    priority: a.priority || 'normal',
+  };
 };
 
 export const announcementService = {
-  /** Get all announcements */
+  /** Get all announcements (tries admin first, falls back to user) */
   async getAll() {
-    await sleep(400);
-    const announcements = getStoredAnnouncements();
-    // Sort by newest first
-    return announcements.sort((a, b) => new Date(b.date) - new Date(a.date));
+    try {
+      const { data: res } = await api.get('/admin/announcements');
+      return (res.data || []).map(mapAnnouncement);
+    } catch {
+      // Fallback for regular users
+      const { data: res } = await api.get('/user/announcements');
+      return (res.data || []).map(mapAnnouncement);
+    }
   },
 
-  /** Create a new announcement */
+  /** Create a new announcement (admin) */
   async create(announcementData) {
-    await sleep(500);
-    const announcements = getStoredAnnouncements();
-    const newAnnouncement = {
-      id: `ANN-${Math.floor(1000 + Math.random() * 9000)}`,
-      date: new Date().toISOString(),
-      ...announcementData,
-    };
-    announcements.push(newAnnouncement);
-    saveAnnouncements(announcements);
-    return newAnnouncement;
+    const { data: res } = await api.post('/admin/announcements', {
+      title: announcementData.title,
+      content: announcementData.content,
+      category: announcementData.category || 'General',
+      priority: announcementData.priority || 'normal',
+    });
+    return mapAnnouncement(res.data);
   },
 
-  /** Delete an announcement by ID */
+  /** Delete an announcement by ID (admin) */
   async delete(id) {
-    await sleep(400);
-    const announcements = getStoredAnnouncements();
-    const filtered = announcements.filter((a) => a.id !== id);
-    if (filtered.length === announcements.length) return false;
-    saveAnnouncements(filtered);
+    await api.delete(`/admin/announcements/${id}`);
     return true;
-  }
+  },
 };
 
 export default announcementService;

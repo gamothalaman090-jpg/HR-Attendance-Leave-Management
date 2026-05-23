@@ -1,22 +1,34 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Meta from '@/components/common/Meta';
 import { Users, Search } from 'lucide-react';
 import { useGsap } from '@/hooks/useGsap';
+import { userService } from '@/services/userService';
 import { cn } from '@/utils/helpers';
-
-const MOCK_USERS = [
-  { id: '1', name: 'Alex Rivera', email: 'alex.rivera@nini.io', role: 'HR Manager', department: 'Human Resources', status: 'Active' },
-  { id: '2', name: 'Sarah Chen', email: 'sarah.chen@nini.io', role: 'Lead AI Engineer', department: 'Engineering', status: 'Active' },
-  { id: '3', name: 'James Kim', email: 'james.kim@nini.io', role: 'Principal UX Designer', department: 'Design', status: 'Active' },
-  { id: '4', name: 'Alex Mercer', email: 'alex.mercer@nini.io', role: 'Security Engineer', department: 'Engineering', status: 'Active' },
-];
 
 export default function UsersPage() {
   const [search, setSearch] = useState('');
-  const [users] = useState(MOCK_USERS);
+  const [users, setUsers] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let active = true;
+    userService.getAll()
+      .then((data) => {
+        if (active) {
+          setUsers(data);
+          setLoading(false);
+        }
+      })
+      .catch((err) => {
+        console.error('Failed to fetch users', err);
+        if (active) setLoading(false);
+      });
+    return () => { active = false; };
+  }, []);
 
   // ── GSAP entrance animations ──
   const pageRef = useGsap((gsap, container) => {
+    if (loading) return;
     const header = container.querySelector('[data-header]');
     const searchBar = container.querySelector('[data-search]');
     const tableRows = container.querySelectorAll('[data-row]');
@@ -33,12 +45,12 @@ export default function UsersPage() {
         { y: 0, opacity: 1, duration: 0.35, stagger: 0.06, delay: 0.2, ease: 'power3.out', clearProps: 'all' }
       );
     }
-  }, []);
+  }, [loading]);
 
   const filtered = users.filter(u =>
-    u.name.toLowerCase().includes(search.toLowerCase()) ||
-    u.email.toLowerCase().includes(search.toLowerCase()) ||
-    u.role.toLowerCase().includes(search.toLowerCase())
+    (u.name || '').toLowerCase().includes(search.toLowerCase()) ||
+    (u.email || '').toLowerCase().includes(search.toLowerCase()) ||
+    (u.role || '').toLowerCase().includes(search.toLowerCase())
   );
 
   return (
@@ -96,7 +108,13 @@ export default function UsersPage() {
                   <td className="px-5 py-4 text-body-sm text-text">{user.role}</td>
                   <td className="px-5 py-4 text-body-sm text-text-muted">{user.department}</td>
                   <td className="px-5 py-4">
-                    <span className="inline-flex items-center px-2.5 py-1 rounded-full text-caption font-medium bg-success/10 text-success">
+                    <span className={cn(
+                      "inline-flex items-center px-2.5 py-1 rounded-full text-caption font-medium capitalize",
+                      user.status === 'active' && 'bg-success/10 text-success',
+                      user.status === 'pending' && 'bg-warning/10 text-warning',
+                      user.status === 'suspended' && 'bg-danger/10 text-danger',
+                      user.status === 'terminated' && 'bg-text-muted/15 text-text-muted'
+                    )}>
                       {user.status}
                     </span>
                   </td>

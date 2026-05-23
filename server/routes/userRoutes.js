@@ -23,7 +23,7 @@ const {
 
 
 router.use(protect);
-router.use(authorize('user'));
+router.use(authorize('user', 'admin'));
 //User Info
 router.get('/profile', getUserProfile);
 

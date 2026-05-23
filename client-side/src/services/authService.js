@@ -1,115 +1,188 @@
 import api from './api';
-import { EMPLOYEES as DEFAULT_EMPLOYEES } from '@/data/employees';
 
 /**
- * authService — Mock authentication service.
- * 
- * Simulated API calls for login, signup, and profile management.
- * In a real app, these would hit /auth/login, /auth/signup, etc.
+ * authService — Active authentication service communicating with Express/MongoDB backend.
  */
-
-const sleep = (ms = 800) => new Promise((resolve) => setTimeout(resolve, ms));
-
 export const authService = {
   /**
    * Log in user
    */
   login: async (email, password) => {
-    await sleep();
-    
-    // For mock: any valid-looking email/password works
-    if (!email || !password) {
-      throw new Error('Email and password are required');
-    }
-
-    // Lookup in localStorage dynamic employees first
-    const stored = localStorage.getItem('nini-employees');
-    let matchingEmployee = null;
-    
-    if (stored) {
-      try {
-        const parsed = JSON.parse(stored);
-        matchingEmployee = parsed.find(e => e.email.toLowerCase() === email.toLowerCase());
-      } catch (err) {
-        console.error('Failed to parse nini-employees from localStorage', err);
-      }
-    }
-
-    // Fallback to pre-seeded static employees if not found in localStorage
-    if (!matchingEmployee) {
-      matchingEmployee = DEFAULT_EMPLOYEES.find(e => e.email.toLowerCase() === email.toLowerCase());
-    }
-
-    if (matchingEmployee) {
+    try {
+      const res = await api.post('/auth/login', { email, password });
+      const { token, data } = res.data;
+      
+      // Normalize user object: map 'fullname' to 'name'
       return {
-        id: matchingEmployee.id,
-        name: matchingEmployee.name,
-        email: matchingEmployee.email,
-        role: matchingEmployee.role,
-        department: matchingEmployee.department,
-        avatar: null,
-        joinDate: matchingEmployee.joinDate || new Date().toISOString().split('T')[0],
-        token: 'mock-jwt-token-' + Math.random().toString(36).substring(7),
-        onboarded: true,
+        id: data.id || data._id,
+        name: data.fullname,
+        email: data.email || email,
+        role: data.role,
+        company: data.company,
+        department: data.department || 'Unassigned',
+        position: data.position || 'Staff Employee',
+        token,
       };
+    } catch (err) {
+      const errorMsg = err.response?.data?.message || 'Invalid credentials or connection error';
+      throw new Error(errorMsg);
     }
-
-    // Ultimate fallback to HR Manager (Alex Rivera)
-    const mockUser = {
-      id: '1',
-      name: 'Alex Rivera',
-      email: email,
-      role: 'HR Manager',
-      department: 'Human Resources',
-      avatar: null,
-      joinDate: '2024-03-15',
-      token: 'mock-jwt-token-' + Math.random().toString(36).substring(7),
-      onboarded: true,
-    };
-
-    return mockUser;
   },
 
   /**
    * Register a new user
    */
   signup: async (userData) => {
-    await sleep();
-    
-    const { name, email, password, role = 'HR Manager' } = userData;
-    if (!name || !email || !password) {
-      throw new Error('All fields are required');
+    try {
+      const { name, email, password, company, role } = userData;
+      const res = await api.post('/auth/register', {
+        fullname: name,
+        email,
+        password,
+        company: company || 'Default Company',
+        role: role || 'user',
+      });
+      
+      const { token, data } = res.data;
+      
+      return {
+        id: data.id || data._id,
+        name: data.fullname,
+        email: data.email,
+        role: data.role,
+        company: data.company,
+        department: data.department || 'Unassigned',
+        position: data.position || 'Staff Employee',
+        token,
+      };
+    } catch (err) {
+      const errorMsg = err.response?.data?.message || 'Registration failed';
+      throw new Error(errorMsg);
     }
+  },
 
-    const mockUser = {
-      id: '2',
-      name,
-      email,
-      role,
-      department: 'Unassigned',
-      avatar: null,
-      joinDate: new Date().toISOString().split('T')[0],
-      token: 'mock-jwt-token-' + Math.random().toString(36).substring(7),
-    };
-
-    return mockUser;
+  /**
+   * Google OAuth login
+   */
+  googleLogin: async (payload) => {
+    try {
+      const res = await api.post('/auth/google', payload);
+      const { token, data } = res.data;
+      
+      return {
+        id: data.id || data._id,
+        name: data.fullname,
+        email: data.email,
+        role: data.role,
+        company: data.company,
+        department: data.department || 'Unassigned',
+        position: data.position || 'Staff Employee',
+        token,
+      };
+    } catch (err) {
+      const errorMsg = err.response?.data?.message || 'Google authentication failed';
+      throw new Error(errorMsg);
+    }
   },
 
   /**
    * Get current user profile (token based)
    */
   getProfile: async () => {
-    await sleep(400);
-    // In a real app: return (await api.get('/auth/me')).data;
-    
-    const saved = localStorage.getItem('nini-user');
-    return saved ? JSON.parse(saved) : null;
+    try {
+      const res = await api.get('/user/profile');
+      const { data } = res.data;
+      if (!data) return null;
+      
+      // Get the stored user token
+      const stored = localStorage.getItem('nini-user');
+      const token = stored ? JSON.parse(stored).token : localStorage.getItem('nini-token');
+      
+      return {
+        id: data.id || data._id,
+        name: data.fullname,
+        email: data.email,
+        role: data.role,
+        company: data.company,
+        department: data.department || 'Unassigned',
+        position: data.position || 'Staff Employee',
+        token,
+      };
+    } catch (err) {
+      // If unauthorized, return null so client redirects to login
+      return null;
+    }
+  },
+
+  /**
+   * Request password reset link
+   */
+  forgotPassword: async (email) => {
+    try {
+      const res = await api.post('/auth/forgotpassword', { email });
+      return res.data;
+    } catch (err) {
+      const errorMsg = err.response?.data?.message || 'Failed to send reset link';
+      throw new Error(errorMsg);
+    }
+  },
+
+  /**
+   * Change user password
+   */
+  changePassword: async (currentPassword, newPassword) => {
+    try {
+      const res = await api.put('/profile/change-password', {
+        currentPassword,
+        newPassword,
+      });
+      return res.data;
+    } catch (err) {
+      const errorMsg = err.response?.data?.message || 'Failed to change password';
+      throw new Error(errorMsg);
+    }
+  },
+
+  /**
+   * Update user profile details
+   */
+  updateProfile: async (formData) => {
+    try {
+      const res = await api.put('/profile/update', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+      const { data } = res.data;
+      
+      const stored = localStorage.getItem('nini-user');
+      const token = stored ? JSON.parse(stored).token : localStorage.getItem('nini-token');
+      
+      return {
+        id: data.id || data._id,
+        name: data.fullname,
+        email: data.email,
+        role: data.role,
+        company: data.company,
+        department: data.department,
+        position: data.position,
+        token,
+      };
+    } catch (err) {
+      const errorMsg = err.response?.data?.message || 'Failed to update profile';
+      throw new Error(errorMsg);
+    }
   },
 
   /**
    * Logout (clearing session)
    */
-  logout: () => {
+  logout: async () => {
+    try {
+      await api.post('/auth/logout');
+    } catch (err) {
+      console.warn('Backend logout failed or session already cleared', err);
+    }
     localStorage.removeItem('nini-user');
     localStorage.removeItem('nini-token');
   },

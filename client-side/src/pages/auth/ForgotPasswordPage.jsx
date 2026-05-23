@@ -3,6 +3,7 @@ import { useForm } from 'react-hook-form';
 import { Link } from 'react-router-dom';
 import { ArrowLeft, Mail, CheckCircle } from 'lucide-react';
 import { useGsap } from '@/hooks/useGsap';
+import authService from '@/services/authService';
 
 export default function ForgotPasswordPage() {
   const [submitted, setSubmitted] = useState(false);
@@ -13,11 +14,15 @@ export default function ForgotPasswordPage() {
     });
   });
 
-  const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm();
+  const { register, handleSubmit, formState: { errors, isSubmitting }, setError } = useForm();
 
-  const onSubmit = async () => {
-    await new Promise((r) => setTimeout(r, 800));
-    setSubmitted(true);
+  const onSubmit = async (data) => {
+    try {
+      await authService.forgotPassword(data.email);
+      setSubmitted(true);
+    } catch (err) {
+      setError('root', { message: err.message || 'Failed to send reset link' });
+    }
   };
 
   return (
@@ -51,6 +56,12 @@ export default function ForgotPasswordPage() {
           </div>
 
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+            {errors.root && (
+              <div data-anim className="p-3 rounded-[8px] bg-danger/5 border border-danger/20 text-body-sm text-danger">
+                {errors.root.message}
+              </div>
+            )}
+
             <div data-anim>
               <label htmlFor="forgot-email" className="block text-body-sm font-medium text-text mb-1.5">
                 Email address

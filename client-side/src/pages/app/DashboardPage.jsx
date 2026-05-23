@@ -12,8 +12,8 @@ import {
   CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, Legend,
 } from 'recharts';
 import { Badge } from '@/components/ui';
-import { LEAVE_REQUESTS, MY_LEAVE_BALANCE } from '@/data/leaves';
-import { WEEKLY_ATTENDANCE } from '@/data/attendance';
+import { leaveService } from '@/services/leaveService';
+import { attendanceService } from '@/services/attendanceService';
 import { formatDate } from '@/utils/formatters';
 import { cn } from '@/utils/helpers';
 import gsap from 'gsap';
@@ -24,6 +24,7 @@ const PIE_COLORS = ['#4F46E5', '#8B5CF6', '#F59E0B', '#10B981', '#3B82F6', '#EF4
 const STATUS_MAP = {
   pending: { label: 'Pending', variant: 'warning' },
   approved: { label: 'Approved', variant: 'success' },
+  declined: { label: 'Declined', variant: 'danger' },
   rejected: { label: 'Rejected', variant: 'danger' },
 };
 
@@ -43,19 +44,44 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [employees, setEmployees] = useState([]);
   const [employeeStats, setEmployeeStats] = useState({ total: 0, active: 0, onLeave: 0 });
+  const [leaveRequests, setLeaveRequests] = useState([]);
+  const [leaveBalance, setLeaveBalance] = useState(null);
+  const [weeklyAttendance, setWeeklyAttendance] = useState([]);
+
+  // Check if user is HR/Admin
+  const isHR = ['hr', 'admin'].some(r => user?.role?.toLowerCase().includes(r)) || user?.role?.toLowerCase() === 'superadmin';
+
+  // Map weekly attendance records for Recharts
+  const mapWeekly = (recs) => {
+    const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    return recs.map(r => {
+      const d = new Date(r.date);
+      return {
+        day: days[d.getDay()],
+        hours: r.hours || 0,
+        target: 8
+      };
+    });
+  };
 
   // Fetch real employee data and statistics from the service
   useEffect(() => {
     let active = true;
     const fetchDashboardData = async () => {
       try {
-        const [emps, st] = await Promise.all([
-          employeeService.getAll(),
-          employeeService.getStats()
+        const [emps, st, recs, bal, weekly] = await Promise.all([
+          employeeService.getAll().catch(() => []),
+          employeeService.getStats().catch(() => ({ total: 0, active: 0, onLeave: 0 })),
+          (isHR ? leaveService.getAll() : leaveService.getMyLeaves()).catch(() => []),
+          leaveService.getBalance().catch(() => null),
+          attendanceService.getWeekly().catch(() => []),
         ]);
         if (!active) return;
         setEmployees(emps);
         setEmployeeStats(st);
+        setLeaveRequests(recs);
+        setLeaveBalance(bal);
+        setWeeklyAttendance(mapWeekly(weekly));
       } catch (err) {
         console.error('Failed to fetch dashboard data', err);
       } finally {
@@ -66,14 +92,11 @@ export default function DashboardPage() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [isHR]);
 
   // Derive stats
-  const pendingCount = LEAVE_REQUESTS.filter((l) => l.status === 'pending').length;
-  const approvedCount = LEAVE_REQUESTS.filter((l) => l.status === 'approved').length;
-
-  // Check if user is HR/Admin
-  const isHR = ['hr', 'admin'].some(r => user?.role?.toLowerCase().includes(r)) || user?.role?.toLowerCase() === 'superadmin';
+  const pendingCount = leaveRequests.filter((l) => l.status === 'pending').length;
+  const approvedCount = leaveRequests.filter((l) => l.status === 'approved').length;
 
   // Calculate dynamic changes
   const currentMonth = new Date().getMonth();
@@ -100,9 +123,9 @@ export default function DashboardPage() {
 
   /* ── Leave balance for pie chart ── */
   const leaveBalanceData = [
-    { name: 'Annual', value: MY_LEAVE_BALANCE.annual.used, remaining: MY_LEAVE_BALANCE.annual.remaining },
-    { name: 'Sick', value: MY_LEAVE_BALANCE.sick.used, remaining: MY_LEAVE_BALANCE.sick.remaining },
-    { name: 'Personal', value: MY_LEAVE_BALANCE.personal.used, remaining: MY_LEAVE_BALANCE.personal.remaining },
+    { name: 'Annual', value: leaveBalance?.annual?.used || 0, remaining: leaveBalance?.annual?.left || 20 },
+    { name: 'Sick', value: leaveBalance?.sick?.used || 0, remaining: leaveBalance?.sick?.left || 10 },
+    { name: 'Personal', value: leaveBalance?.personal?.used || 0, remaining: leaveBalance?.personal?.left || 5 },
   ];
 
   /* ── GSAP stagger ── */
@@ -213,7 +236,7 @@ export default function DashboardPage() {
           <h2 className="font-heading text-h4 font-bold mb-4">This Week's Hours</h2>
       <div className="h-64" aria-label="Bar chart showing daily hours worked vs target">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={WEEKLY_ATTENDANCE} barCategoryGap="20%">
+              <BarChart data={weeklyAttendance} barCategoryGap="20%">
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
                 <XAxis dataKey="day" tick={{ fill: 'var(--color-text-muted)', fontSize: 12 }} />
                 <YAxis tick={{ fill: 'var(--color-text-muted)', fontSize: 12 }} domain={[0, 12]} />
@@ -246,8 +269,7 @@ export default function DashboardPage() {
             </Link>
           </div>
           <div className="space-y-1">
-            {LEAVE_REQUESTS
-              .filter((req) => isHR || req.employeeName === user?.name)
+            {leaveRequests
               .slice(0, 5)
               .map((req) => (
               <div key={req.id} className="flex items-center justify-between py-3 border-b border-border last:border-0">
@@ -267,7 +289,7 @@ export default function DashboardPage() {
                 </Badge>
               </div>
             ))}
-            {LEAVE_REQUESTS.filter((req) => isHR || req.employeeName === user?.name).length === 0 && (
+            {leaveRequests.length === 0 && (
               <div className="text-center py-4 text-text-muted text-body-sm">
                 No recent requests found.
               </div>

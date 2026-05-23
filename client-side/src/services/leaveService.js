@@ -1,123 +1,99 @@
 /**
- * Leave Service — Mock CRUD for leave requests.
+ * Leave Service — Connects to Node.js/Express/MongoDB backend.
+ *
+ * User endpoints:  POST /user/leave-request, GET /user/leave-history, GET /user/leave-balance
+ * Admin endpoints: GET  /admin/leaves, PUT /admin/leaves/:id/review
  */
-import { LEAVE_REQUESTS, MY_LEAVE_BALANCE } from '@/data/leaves';
-import { sleep, generateId } from '@/utils/helpers';
-import { isDateRangeOverlapping } from '@/utils/validators';
+import api from './api';
 
-let _leaves = [...LEAVE_REQUESTS];
+/* ── Mappers ── */
+
+const mapLeave = (l) => {
+  if (!l) return null;
+  const user = l.user || {};
+  return {
+    id: l._id,
+    employeeId: typeof user === 'string' ? user : user._id,
+    employeeName: user.fullname || 'Unknown',
+    email: user.email || '',
+    department: user.department || 'Unassigned',
+    position: user.position || '',
+    type: l.leaveType,
+    startDate: l.startDate ? l.startDate.split('T')[0] : '',
+    endDate: l.endDate ? l.endDate.split('T')[0] : '',
+    reason: l.reason || '',
+    status: l.status,
+    appliedOn: l.createdAt ? l.createdAt.split('T')[0] : '',
+    approvedBy: null,
+  };
+};
 
 export const leaveService = {
-  /** Get all leave requests */
+  /** Get all leave requests (admin) */
   async getAll() {
-    await sleep(400);
-    return [..._leaves].sort((a, b) => new Date(b.appliedOn) - new Date(a.appliedOn));
+    const { data: res } = await api.get('/admin/leaves');
+    return (res.data || []).map(mapLeave);
   },
 
-  /** Get leaves for a specific employee */
+  /** Get leaves for a specific employee (admin, filtered client-side) */
   async getByEmployee(employeeId) {
-    await sleep(300);
-    return _leaves.filter((l) => l.employeeId === employeeId);
+    const all = await this.getAll();
+    return all.filter((l) => l.employeeId === employeeId);
   },
 
-  /** Get pending leave requests */
+  /** Get pending leave requests (admin) */
   async getPending() {
-    await sleep(300);
-    return _leaves.filter((l) => l.status === 'pending');
+    const all = await this.getAll();
+    return all.filter((l) => l.status === 'pending');
   },
 
-  /**
-   * Check if a proposed leave range conflicts with existing approved/pending leaves
-   * for the given employee.
-   *
-   * @param {string} employeeId
-   * @param {string} startDate  ISO date string
-   * @param {string} endDate    ISO date string
-   * @param {string} [excludeId] Leave ID to skip (for edits)
-   * @returns {{ hasOverlap: boolean, conflictingLeave?: object }}
-   */
-  checkOverlap(employeeId, startDate, endDate, excludeId = null) {
-    const activeLeaves = _leaves.filter(
-      (l) =>
-        l.employeeId === employeeId &&
-        ['pending', 'approved'].includes(l.status) &&
-        l.id !== excludeId
-    );
-
-    const conflict = activeLeaves.find((l) =>
-      isDateRangeOverlapping(startDate, endDate, l.startDate, l.endDate)
-    );
-
-    return {
-      hasOverlap: !!conflict,
-      conflictingLeave: conflict || null,
-    };
+  /** Get leave history for current logged-in user */
+  async getMyLeaves() {
+    const { data: res } = await api.get('/user/leave-history');
+    return (res.data || []).map(mapLeave);
   },
 
-  /** Create a new leave request */
+  /** Create a new leave request (user) */
   async create(leaveData) {
-    await sleep(600);
-
-    // Poka-yoke: prevent overlapping leave requests
-    const { hasOverlap, conflictingLeave } = this.checkOverlap(
-      leaveData.employeeId,
-      leaveData.startDate,
-      leaveData.endDate
-    );
-
-    if (hasOverlap) {
-      const err = new Error(
-        `Leave conflict: You already have a ${conflictingLeave.status} ` +
-        `${conflictingLeave.type} leave from ${conflictingLeave.startDate} ` +
-        `to ${conflictingLeave.endDate}. Please choose different dates.`
-      );
-      err.code = 'LEAVE_OVERLAP';
-      err.conflictingLeave = conflictingLeave;
-      throw err;
-    }
-
-    const newLeave = {
-      id: generateId('lv'),
-      ...leaveData,
-      status: 'pending',
-      appliedOn: new Date().toISOString().split('T')[0],
-      approvedBy: null,
+    const payload = {
+      leaveType: leaveData.type || leaveData.leaveType,
+      startDate: leaveData.startDate,
+      endDate: leaveData.endDate,
+      reason: leaveData.reason,
     };
-    _leaves = [newLeave, ..._leaves];
-    return newLeave;
+
+    const { data: res } = await api.post('/user/leave-request', payload);
+    return mapLeave(res.data);
   },
 
-  /** Approve a leave request */
-  async approve(leaveId, approverName = 'Alex Rivera') {
-    await sleep(400);
-    _leaves = _leaves.map((l) =>
-      l.id === leaveId ? { ...l, status: 'approved', approvedBy: approverName } : l
-    );
-    return _leaves.find((l) => l.id === leaveId);
+  /** Approve a leave request (admin) */
+  async approve(leaveId) {
+    const { data: res } = await api.put(`/admin/leaves/${leaveId}/review`, { action: 'approved' });
+    return mapLeave(res.data);
   },
 
-  /** Reject a leave request */
-  async reject(leaveId, approverName = 'Alex Rivera') {
-    await sleep(400);
-    _leaves = _leaves.map((l) =>
-      l.id === leaveId ? { ...l, status: 'rejected', approvedBy: approverName } : l
-    );
-    return _leaves.find((l) => l.id === leaveId);
+  /** Reject a leave request (admin) */
+  async reject(leaveId) {
+    const { data: res } = await api.put(`/admin/leaves/${leaveId}/review`, { action: 'declined' });
+    return mapLeave(res.data);
   },
 
-  /** Cancel a leave request */
+  /** Cancel a leave request — not supported server-side, reject instead */
   async cancel(leaveId) {
-    await sleep(300);
-    _leaves = _leaves.map((l) =>
-      l.id === leaveId ? { ...l, status: 'cancelled' } : l
-    );
-    return _leaves.find((l) => l.id === leaveId);
+    return this.reject(leaveId);
   },
 
   /** Get leave balance for the current user */
   async getBalance() {
-    await sleep(200);
-    return { ...MY_LEAVE_BALANCE };
+    const { data: res } = await api.get('/user/leave-balance');
+    const balances = res.data || {};
+
+    // Normalize to frontend expected shape
+    return {
+      annual: { total: balances.annual?.total ?? 20, used: balances.annual?.used ?? 0, left: balances.annual?.left ?? 20 },
+      sick: { total: balances.sick?.total ?? 10, used: balances.sick?.used ?? 0, left: balances.sick?.left ?? 10 },
+      personal: { total: balances.personal?.total ?? 5, used: balances.personal?.used ?? 0, left: balances.personal?.left ?? 5 },
+    };
   },
 };
 

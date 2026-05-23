@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import Meta from '@/components/common/Meta';
 import {
@@ -5,7 +6,7 @@ import {
   Briefcase, Clock, Award,
 } from 'lucide-react';
 import { Badge } from '@/components/ui';
-import { MY_LEAVE_BALANCE } from '@/data/leaves';
+import { leaveService } from '@/services/leaveService';
 import { formatDate } from '@/utils/formatters';
 import { getInitials } from '@/utils/formatters';
 import { cn } from '@/utils/helpers';
@@ -28,11 +29,20 @@ const ACTIVITY_COLORS = {
 
 export default function ProfilePage() {
   const { user } = useAuth();
+  const [leaveBalance, setLeaveBalance] = useState(null);
+
+  useEffect(() => {
+    let active = true;
+    leaveService.getBalance().then((bal) => {
+      if (active) setLeaveBalance(bal);
+    }).catch(err => console.error(err));
+    return () => { active = false; };
+  }, []);
 
   const leaveCards = [
-    { label: 'Annual', remaining: MY_LEAVE_BALANCE.annual.remaining, total: MY_LEAVE_BALANCE.annual.total, color: 'primary' },
-    { label: 'Sick', remaining: MY_LEAVE_BALANCE.sick.remaining, total: MY_LEAVE_BALANCE.sick.total, color: 'danger' },
-    { label: 'Personal', remaining: MY_LEAVE_BALANCE.personal.remaining, total: MY_LEAVE_BALANCE.personal.total, color: 'secondary' },
+    { label: 'Annual', remaining: leaveBalance?.annual?.left ?? 20, total: leaveBalance?.annual?.total ?? 20, color: 'primary' },
+    { label: 'Sick', remaining: leaveBalance?.sick?.left ?? 10, total: leaveBalance?.sick?.total ?? 10, color: 'danger' },
+    { label: 'Personal', remaining: leaveBalance?.personal?.left ?? 5, total: leaveBalance?.personal?.total ?? 5, color: 'secondary' },
   ];
 
   return (

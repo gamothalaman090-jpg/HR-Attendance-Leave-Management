@@ -1,94 +1,75 @@
-import { sleep } from '@/utils/helpers';
+/**
+ * Payroll Service — Connects to Node.js/Express/MongoDB backend.
+ *
+ * Admin endpoints: GET/POST /admin/payroll, DELETE /admin/payroll/:id,
+ *                  PUT /admin/payroll/:id/release
+ */
+import api from './api';
 
-const STORAGE_KEY = 'nini-payrolls';
-
-const getStoredPayrolls = () => {
-  const stored = localStorage.getItem(STORAGE_KEY);
-  if (stored) return JSON.parse(stored);
-  const defaultPayrolls = [
-    {
-      id: 'PAY-8921',
-      employeeId: 'EMP-1001',
-      employeeName: 'Sarah Chen',
-      salary: 12500,
-      payPeriodStart: '2026-04-01',
-      payPeriodEnd: '2026-04-30',
-      status: 'paid',
-      processedDate: '2026-04-28'
-    },
-    {
-      id: 'PAY-4310',
-      employeeId: 'EMP-1002',
-      employeeName: 'James Kim',
-      salary: 10500,
-      payPeriodStart: '2026-04-01',
-      payPeriodEnd: '2026-04-30',
-      status: 'paid',
-      processedDate: '2026-04-28'
-    },
-    {
-      id: 'PAY-1102',
-      employeeId: 'EMP-1001',
-      employeeName: 'Sarah Chen',
-      salary: 12500,
-      payPeriodStart: '2026-05-01',
-      payPeriodEnd: '2026-05-31',
-      status: 'pending',
-      processedDate: ''
-    }
-  ];
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(defaultPayrolls));
-  return defaultPayrolls;
-};
-
-const savePayrolls = (payrolls) => {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(payrolls));
+const mapPayroll = (p) => {
+  if (!p) return null;
+  const emp = p.employee || {};
+  return {
+    id: p._id,
+    payrollId: p.payrollId,
+    employeeId: typeof emp === 'string' ? emp : emp._id,
+    employeeName: emp.fullname || 'Unknown',
+    email: emp.email || '',
+    position: emp.position || '',
+    salary: p.basicSalary,
+    payPeriodStart: p.periodStart ? p.periodStart.split('T')[0] : '',
+    payPeriodEnd: p.periodEnd ? p.periodEnd.split('T')[0] : '',
+    status: (p.status || 'Pending').toLowerCase(),
+    processedDate: p.paymentDate ? p.paymentDate.split('T')[0] : '',
+  };
 };
 
 export const payrollService = {
+  /** Get all payroll records + dashboard metrics */
   async getAll() {
-    await sleep(300);
-    return getStoredPayrolls();
+    const { data: res } = await api.get('/admin/payroll');
+    return (res.data || []).map(mapPayroll);
   },
 
-  async getByEmployeeId(empId) {
-    await sleep(200);
-    const payrolls = getStoredPayrolls();
-    return payrolls.filter(p => p.employeeId === empId);
-  },
-
-  async create(payrollData) {
-    await sleep(400);
-    const payrolls = getStoredPayrolls();
-    const newPayroll = {
-      id: `PAY-${Math.floor(1000 + Math.random() * 9000)}`,
-      status: 'pending',
-      processedDate: '',
-      ...payrollData
+  /** Get dashboard metrics */
+  async getDashboard() {
+    const { data: res } = await api.get('/admin/payroll');
+    return {
+      metrics: res.metrics || { totalBudget: 0, releasedPayments: 0, pendingReleases: 0 },
+      records: (res.data || []).map(mapPayroll),
     };
-    payrolls.push(newPayroll);
-    savePayrolls(payrolls);
-    return newPayroll;
   },
 
+  /** Get payrolls for a specific employee */
+  async getByEmployeeId(empId) {
+    const all = await this.getAll();
+    return all.filter((p) => p.employeeId === empId);
+  },
+
+  /** Create a new payroll run */
+  async create(payrollData) {
+    const payload = {
+      employeeId: payrollData.employeeId,
+      basicSalary: payrollData.salary || payrollData.basicSalary,
+      periodStart: payrollData.payPeriodStart || payrollData.periodStart,
+      periodEnd: payrollData.payPeriodEnd || payrollData.periodEnd,
+    };
+
+    const { data: res } = await api.post('/admin/payroll', payload);
+    return mapPayroll(res.data);
+  },
+
+  /** Release/process a payroll payment */
   async processPayment(id) {
-    await sleep(500);
-    const payrolls = getStoredPayrolls();
-    const idx = payrolls.findIndex(p => p.id === id);
-    if (idx === -1) throw new Error('Payroll record not found');
-    payrolls[idx].status = 'paid';
-    payrolls[idx].processedDate = new Date().toISOString().split('T')[0];
-    savePayrolls(payrolls);
-    return payrolls[idx];
+    const { data: res } = await api.put(`/admin/payroll/${id}/release`);
+    return mapPayroll(res.data);
   },
 
+  /** Delete a payroll record */
   async delete(id) {
-    await sleep(300);
-    const payrolls = getStoredPayrolls();
-    const filtered = payrolls.filter(p => p.id !== id);
-    savePayrolls(filtered);
+    await api.delete(`/admin/payroll/${id}`);
     return true;
-  }
+  },
 };
 
 export default payrollService;

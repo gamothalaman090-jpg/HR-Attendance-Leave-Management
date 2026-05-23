@@ -1,56 +1,52 @@
-import { sleep } from '@/utils/helpers';
+import api from './api';
 
-const STORAGE_KEY = 'nini-system-logs';
-
-const DEFAULT_LOGS = [
-  { timestamp: new Date(Date.now() - 3600000 * 4).toISOString(), level: 'INFO', category: 'SYSTEM', message: 'Database connection established successfully. Pool size: 20.' },
-  { timestamp: new Date(Date.now() - 3600000 * 3.5).toISOString(), level: 'INFO', category: 'AUTH', message: 'User admin@nini.io successfully authenticated from 192.168.1.1.' },
-  { timestamp: new Date(Date.now() - 3600000 * 3.1).toISOString(), level: 'WARN', category: 'SECURITY', message: 'Multiple login failures detected for user guest@nini.io from IP 74.125.19.147.' },
-  { timestamp: new Date(Date.now() - 3600000 * 2.8).toISOString(), level: 'INFO', category: 'PAYROLL', message: 'Cron job: Payroll calculation engine initialized for Period: MAY-2026.' },
-  { timestamp: new Date(Date.now() - 3600000 * 2.2).toISOString(), level: 'DEBUG', category: 'DATABASE', message: 'Query optimization executed: index idx_employee_email re-indexed.' },
-  { timestamp: new Date(Date.now() - 3600000 * 1.5).toISOString(), level: 'ERROR', category: 'API', message: 'Failed to dispatch webhook to endpoint https://hooks.slack.com/services/T000/B000: Connection timeout.' },
-];
-
-const getStoredLogs = () => {
-  const stored = localStorage.getItem(STORAGE_KEY);
-  if (stored) return JSON.parse(stored);
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(DEFAULT_LOGS));
-  return DEFAULT_LOGS;
-};
-
+/**
+ * logService — Active logging service for Superadmin dashboard.
+ * Connects to /superadmin/logs.
+ */
 export const logService = {
+  /** Get system audit logs from the database */
   async getLogs() {
-    await sleep(200);
-    return getStoredLogs();
+    try {
+      const { data: res } = await api.get('/superadmin/logs');
+      return (res.data || []).map((log) => ({
+        timestamp: log.timestamp || new Date().toISOString(),
+        level: log.level || 'INFO',
+        category: log.module || 'SYSTEM',
+        message: log.rawLine || '',
+      }));
+    } catch (err) {
+      console.error('Failed to fetch system logs:', err);
+      return [];
+    }
   },
 
+  /** Log dynamic events (audit trail is automatically updated on the server) */
   async logEvent(level, category, message) {
-    const logs = getStoredLogs();
-    const newLog = {
+    console.log(`[Superadmin Event] [${level}] [${category}] ${message}`);
+    return {
       timestamp: new Date().toISOString(),
       level,
       category,
       message,
     };
-    logs.unshift(newLog);
-    if (logs.length > 500) logs.pop();
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(logs));
-    return newLog;
   },
 
+  /** Clear logs — disabled/restricted in production audit system */
   async clearLogs() {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify([]));
+    return true;
   },
 
+  /** Get system hardware status metrics (simulated/dynamic console values) */
   async getMetrics() {
     return {
-      cpu: Math.floor(Math.random() * 20) + 15,
-      memory: Math.floor(Math.random() * 10) + 52,
-      disk: 44,
-      networkLoad: Math.floor(Math.random() * 150) + 50,
-      activeUsers: Math.floor(Math.random() * 5) + 8,
+      cpu: Math.floor(Math.random() * 15) + 20,
+      memory: Math.floor(Math.random() * 8) + 55,
+      disk: 42,
+      networkLoad: Math.floor(Math.random() * 100) + 60,
+      activeUsers: Math.floor(Math.random() * 4) + 6,
     };
-  }
+  },
 };
 
 export default logService;

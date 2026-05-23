@@ -1,76 +1,53 @@
+import api from './api';
+
 /**
- * Employee Service — Mock CRUD for employee directory with localStorage persistence.
+ * Employee Service — Communicates with Node.js/Express/MongoDB backend for employee management.
  */
-import { EMPLOYEES as DEFAULT_EMPLOYEES, DEPARTMENTS } from '@/data/employees';
-import { sleep } from '@/utils/helpers';
 
-const STORAGE_KEY = 'nini-employees';
-
-const getStoredEmployees = () => {
-  const stored = localStorage.getItem(STORAGE_KEY);
-  if (stored) {
-    const parsed = JSON.parse(stored);
-    // If it has any of the old mock employee IDs, clear local storage
-    if (parsed.some(e => e.id && (e.id.startsWith('emp-') || e.id === 'emp-001'))) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify([]));
-      return [];
-    }
+const mapEmployee = (emp) => {
+  if (!emp) return null;
+  
+  // Mapping status: if todayStatus is 'On Leave', set status to 'on-leave',
+  // otherwise map employmentStatus ('active'/'inactive'/'pending' etc.)
+  let status = emp.employmentStatus || 'active';
+  if (emp.todayStatus === 'On Leave') {
+    status = 'on-leave';
   }
-  const pendingSeeded = [
-    ...DEFAULT_EMPLOYEES,
-    {
-      id: 'EMP-9001',
-      name: 'Oliver Thorne',
-      email: 'oliver.thorne@nini.io',
-      role: 'Frontend Engineer',
-      department: 'Engineering',
-      phone: '+1 (555) 601-9231',
-      status: 'pending',
-      joinDate: '2026-05-15',
-      annualBalance: 20,
-      sickBalance: 10,
-      personalBalance: 5
-    },
-    {
-      id: 'EMP-9002',
-      name: 'Claire Sinclair',
-      email: 'claire.sinclair@nini.io',
-      role: 'Growth Specialist',
-      department: 'Marketing',
-      phone: '+1 (555) 712-4491',
-      status: 'pending',
-      joinDate: '2026-05-18',
-      annualBalance: 15,
-      sickBalance: 8,
-      personalBalance: 5
-    }
-  ];
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(pendingSeeded));
-  return pendingSeeded;
-};
 
-const saveEmployees = (employees) => {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(employees));
+  return {
+    id: emp._id,
+    name: emp.fullname,
+    email: emp.email,
+    role: emp.position || 'Staff Employee',
+    department: emp.department || 'Unassigned',
+    phone: emp.phone || '',
+    status,
+    todayStatus: emp.todayStatus || 'Absent',
+    joinDate: emp.createdAt ? emp.createdAt.split('T')[0] : new Date().toISOString().split('T')[0],
+    annualBalance: emp.leaveBalances?.annual ?? 20,
+    sickBalance: emp.leaveBalances?.sick ?? 10,
+    personalBalance: emp.leaveBalances?.personal ?? 5
+  };
 };
 
 export const employeeService = {
   /** Get all employees */
   async getAll() {
-    await sleep(400);
-    return getStoredEmployees();
+    const res = await api.get('/admin/users');
+    // The server returns: { success: true, count: X, data: [...], summary: {...} }
+    const { data } = res.data;
+    return (data || []).map(mapEmployee);
   },
 
   /** Get employee by ID */
   async getById(id) {
-    await sleep(200);
-    const employees = getStoredEmployees();
+    const employees = await this.getAll();
     return employees.find((e) => e.id === id) || null;
   },
 
   /** Search employees by name or email */
   async search(query) {
-    await sleep(300);
-    const employees = getStoredEmployees();
+    const employees = await this.getAll();
     const q = query.toLowerCase();
     return employees.filter(
       (e) =>
@@ -82,22 +59,19 @@ export const employeeService = {
 
   /** Filter employees by department */
   async getByDepartment(department) {
-    await sleep(200);
-    const employees = getStoredEmployees();
+    const employees = await this.getAll();
     if (!department || department === 'all') return employees;
     return employees.filter((e) => e.department === department);
   },
 
   /** Get all department names */
   async getDepartments() {
-    await sleep(100);
     return [...DEPARTMENTS];
   },
 
   /** Get employee statistics */
   async getStats() {
-    await sleep(200);
-    const employees = getStoredEmployees();
+    const employees = await this.getAll();
     const active = employees.filter((e) => e.status === 'active').length;
     const onLeave = employees.filter((e) => e.status === 'on-leave').length;
     const inactive = employees.filter((e) => e.status === 'inactive').length;
@@ -112,46 +86,31 @@ export const employeeService = {
 
   /** Create a new employee */
   async create(employeeData) {
-    await sleep(500);
-    const employees = getStoredEmployees();
-    const newEmployee = {
-      id: `EMP-${Math.floor(1000 + Math.random() * 9000)}`,
-      status: 'active',
-      joinDate: new Date().toISOString().split('T')[0],
-      ...employeeData,
-    };
-    employees.push(newEmployee);
-    saveEmployees(employees);
-    return newEmployee;
+    const res = await api.post('/admin/users', {
+      fullname: employeeData.name,
+      email: employeeData.email,
+      department: employeeData.department,
+      position: employeeData.role,
+      phone: employeeData.phone
+    });
+    return mapEmployee(res.data.data);
   },
 
   /** Delete an employee by ID */
   async delete(id) {
-    await sleep(400);
-    const employees = getStoredEmployees();
-    const filtered = employees.filter((e) => e.id !== id);
-    if (filtered.length === employees.length) return false; // not found
-    saveEmployees(filtered);
+    await api.delete(`/admin/users/${id}`);
     return true;
   },
 
   /** Approve a pending employee registration */
   async approve(id) {
-    await sleep(300);
-    const employees = getStoredEmployees();
-    const index = employees.findIndex(e => e.id === id);
-    if (index === -1) throw new Error('Employee not found');
-    employees[index].status = 'active';
-    saveEmployees(employees);
-    return employees[index];
+    const res = await api.put(`/admin/users/${id}/approve`);
+    return mapEmployee(res.data.data);
   },
 
   /** Reject/Delete a pending employee registration */
   async reject(id) {
-    await sleep(300);
-    const employees = getStoredEmployees();
-    const filtered = employees.filter(e => e.id !== id);
-    saveEmployees(filtered);
+    await api.put(`/admin/users/${id}/reject`);
     return true;
   }
 };

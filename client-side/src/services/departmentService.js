@@ -1,72 +1,34 @@
-import { DEPARTMENTS as DEFAULT_DEPARTMENTS } from '@/data/employees';
-import { sleep } from '@/utils/helpers';
-
-const STORAGE_KEY = 'nini-departments';
-
-const getStoredDepartments = () => {
-  const stored = localStorage.getItem(STORAGE_KEY);
-  if (stored) {
-    return JSON.parse(stored);
-  }
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(DEFAULT_DEPARTMENTS));
-  return DEFAULT_DEPARTMENTS;
-};
-
-const saveDepartments = (departments) => {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(departments));
-};
+/**
+ * Department Service — Connects to Node.js/Express/MongoDB backend.
+ *
+ * Admin endpoints: GET/POST /admin/departments, PUT /admin/departments/:oldName, DELETE /admin/departments/:name
+ */
+import api from './api';
 
 export const departmentService = {
+  /** Get all departments */
   async getAll() {
-    await sleep(200);
-    return getStoredDepartments();
+    const { data: res } = await api.get('/admin/departments');
+    return res.data || [];
   },
 
+  /** Create a new department */
   async create(name) {
-    await sleep(300);
-    const depts = getStoredDepartments();
-    if (depts.includes(name)) {
-      throw new Error('Department already exists');
-    }
-    depts.push(name);
-    saveDepartments(depts);
-    return name;
+    const { data: res } = await api.post('/admin/departments', { name });
+    return res.data;
   },
 
+  /** Update department name */
   async update(oldName, newName) {
-    await sleep(300);
-    let depts = getStoredDepartments();
-    const idx = depts.indexOf(oldName);
-    if (idx === -1) throw new Error('Department not found');
-    if (depts.includes(newName) && oldName !== newName) {
-      throw new Error('New department name already exists');
-    }
-    depts[idx] = newName;
-    saveDepartments(depts);
-
-    // Also update any employees who belong to this department
-    const empStored = localStorage.getItem('nini-employees');
-    if (empStored) {
-      const emps = JSON.parse(empStored);
-      const updatedEmps = emps.map(emp => {
-        if (emp.department === oldName) {
-          return { ...emp, department: newName };
-        }
-        return emp;
-      });
-      localStorage.setItem('nini-employees', JSON.stringify(updatedEmps));
-    }
-
-    return newName;
+    const { data: res } = await api.put(`/admin/departments/${encodeURIComponent(oldName)}`, { name: newName });
+    return res.data;
   },
 
+  /** Delete department */
   async delete(name) {
-    await sleep(300);
-    let depts = getStoredDepartments();
-    const filtered = depts.filter(d => d !== name);
-    saveDepartments(filtered);
+    await api.delete(`/admin/departments/${encodeURIComponent(name)}`);
     return true;
-  }
+  },
 };
 
 export default departmentService;

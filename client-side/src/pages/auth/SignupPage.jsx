@@ -29,7 +29,7 @@ export default function SignupPage() {
 
   const onSubmit = async (data) => {
     try {
-      await signup({ name: data.name, email: data.email, password: data.password, role: 'HR Manager' });
+      await signup({ name: data.name, email: data.email, password: data.password });
       navigate('/onboarding');
     } catch (err) {
       setError('root', { message: err.message || 'Signup failed' });

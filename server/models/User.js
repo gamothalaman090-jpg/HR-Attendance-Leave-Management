@@ -59,7 +59,7 @@ const userSchema = new mongoose.Schema({
     },
     employmentStatus: {
         type: String,
-        enum: ['active', 'inactive', 'suspended', 'terminated'],
+        enum: ['pending', 'active', 'inactive', 'suspended', 'terminated'],
         default: 'active',
         lowercase: true
     },

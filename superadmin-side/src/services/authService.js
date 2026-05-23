@@ -1,61 +1,77 @@
 import api from './api';
 
 /**
- * authService — Mock authentication service for Superadmin.
- * 
- * In production, these would hit /api/auth/login.
- * The mock simulates the same behavior as client-side but only
- * recognizes superadmin credentials.
+ * authService — Production authentication service for Superadmin console.
  */
-
-const sleep = (ms = 800) => new Promise((resolve) => setTimeout(resolve, ms));
-
 export const authService = {
-  /**
-   * Log in user — returns user data.
-   * The AuthContext will reject non-superadmin roles.
-   */
+  /** Log in superadmin user */
   login: async (email, password) => {
-    await sleep();
-    
     if (!email || !password) {
       throw new Error('Email and password are required');
     }
 
-    // In production: return (await api.post('/auth/login', { email, password })).data;
+    try {
+      const res = await api.post('/auth/login', { email, password });
+      const { token, data } = res.data;
 
-    // Mock: only superadmin emails are recognized
-    if (email.toLowerCase().includes('superadmin')) {
-      return {
-        id: 'SA-9999',
-        name: 'System Superadmin',
-        email: email,
-        role: 'superadmin',
-        department: 'Operations',
+      if (data.role !== 'superadmin') {
+        throw new Error('Access denied. Only Superadmin accounts can access this console.');
+      }
+
+      const userData = {
+        id: data._id || data.id,
+        name: data.fullname,
+        email: data.email,
+        role: data.role,
+        department: data.department || 'Operations',
         avatar: null,
-        joinDate: '2024-01-01',
-        token: 'mock-jwt-token-sa-' + Math.random().toString(36).substring(7),
+        joinDate: data.createdAt ? data.createdAt.split('T')[0] : '2024-01-01',
+        token,
         onboarded: true,
       };
+
+      localStorage.setItem('nini-admin-user', JSON.stringify(userData));
+      localStorage.setItem('nini-admin-token', token);
+
+      return userData;
+    } catch (err) {
+      const errorMsg = err.response?.data?.message || err.message || 'Authentication failed';
+      throw new Error(errorMsg);
     }
-
-    // Any other email returns a non-superadmin role (will be rejected by AuthContext)
-    throw new Error('Invalid credentials. Only Superadmin accounts can access this console.');
   },
 
-  /**
-   * Get current user profile (from localStorage)
-   */
+  /** Get current user profile */
   getProfile: async () => {
-    await sleep(400);
-    const saved = localStorage.getItem('nini-admin-user');
-    return saved ? JSON.parse(saved) : null;
+    try {
+      const res = await api.get('/user/profile');
+      const { data } = res.data;
+      if (!data || data.role !== 'superadmin') return null;
+
+      const token = localStorage.getItem('nini-admin-token');
+
+      return {
+        id: data._id || data.id,
+        name: data.fullname,
+        email: data.email,
+        role: data.role,
+        department: data.department || 'Operations',
+        avatar: null,
+        joinDate: data.createdAt ? data.createdAt.split('T')[0] : '2024-01-01',
+        token,
+        onboarded: true,
+      };
+    } catch {
+      return null;
+    }
   },
 
-  /**
-   * Logout (clearing session)
-   */
-  logout: () => {
+  /** Logout superadmin */
+  logout: async () => {
+    try {
+      await api.post('/auth/logout');
+    } catch (err) {
+      console.warn('Backend logout failed or session already cleared', err);
+    }
     localStorage.removeItem('nini-admin-user');
     localStorage.removeItem('nini-admin-token');
   },

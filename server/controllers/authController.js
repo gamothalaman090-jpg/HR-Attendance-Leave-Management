@@ -33,7 +33,6 @@ exports.register = async (req, res, next) => {
             return res.status(400).json({ success: false, message: 'Email already registered' });
         }     
         
-        // Creates the user record with input values or applies organizational fallbacks automatically
         const user = await User.create({
             fullname,
             email,
@@ -41,7 +40,8 @@ exports.register = async (req, res, next) => {
             role: role || 'user', // Accept dynamic registration roles to cleanly provision admins and employees
             company: company || 'Default Company',
             department: department || 'Unassigned',
-            position: position || 'Staff Employee'
+            position: position || 'Staff Employee',
+            employmentStatus: (role === 'admin' || role === 'superadmin') ? 'active' : 'pending'
         });
 
         const token = generateToken(user._id);
@@ -88,6 +88,14 @@ exports.login = async (req, res, next) => {
         if (!user || !(await user.matchPassword(password))) {
             // 📝 Optional/Future update: If you want to track malicious attempts, you could call createAuditLog here with 'WARN' / 'SECURITY'
             return res.status(401).json({ success: false, message: 'Invalid credentials' });
+        }
+
+        if (user.employmentStatus === 'pending') {
+            return res.status(403).json({ success: false, message: 'Your registration is pending admin approval' });
+        }
+
+        if (user.employmentStatus === 'suspended' || user.employmentStatus === 'terminated') {
+            return res.status(403).json({ success: false, message: 'Your account has been deactivated' });
         }
 
         const token = generateToken(user._id);
@@ -147,8 +155,17 @@ exports.googleOAuth = async (req, res, next) => {
                 role: 'user',
                 company: req.body.company || 'Default Company',
                 department: 'Unassigned',
-                position: 'Staff Employee'
+                position: 'Staff Employee',
+                employmentStatus: 'pending'
             });
+        }
+
+        if (user.employmentStatus === 'pending') {
+            return res.status(403).json({ success: false, message: 'Your registration is pending admin approval' });
+        }
+
+        if (user.employmentStatus === 'suspended' || user.employmentStatus === 'terminated') {
+            return res.status(403).json({ success: false, message: 'Your account has been deactivated' });
         }
 
         const token = generateToken(user._id);

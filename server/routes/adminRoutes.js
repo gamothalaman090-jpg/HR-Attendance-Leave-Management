@@ -25,7 +25,15 @@ const {
     generatePayrollRun,  
     releaseSalary,        
     deletePayrollEntry ,
-    handleNotifications
+    handleNotifications,
+    createEmployee,
+    deleteEmployee,
+    approveEmployee,
+    rejectEmployee,
+    getDepartments,
+    createDepartment,
+    updateDepartment,
+    deleteDepartment
 } = require('../controllers/adminController');
 
 const { protect, authorize } = require('../middlewares/authMiddleware'); 
@@ -55,7 +63,17 @@ router.route('/leaves/:id/review')
 
 // --- USER/EMPLOYEE DIRECTORY ENDPOINTS ---
 router.route('/users')
-    .get(getAllEmployees); 
+    .get(getAllEmployees)
+    .post(createEmployee); 
+
+router.route('/users/:id')
+    .delete(deleteEmployee);
+
+router.route('/users/:id/approve')
+    .put(approveEmployee);
+
+router.route('/users/:id/reject')
+    .put(rejectEmployee); 
 
 // --- EMPLOYEE ANALYTICS ENDPOINTS ---
 router.route('/users/:employeeId/analytics')
@@ -75,5 +93,16 @@ router.route('/payroll/:id/release')
 // --- NOTIFICATIONS ENDPOINTS ---    
 router.route('/notifications')
     .get(handleNotifications); 
+
+// --- DEPARTMENT ENDPOINTS ---
+router.route('/departments')
+    .get(getDepartments)
+    .post(createDepartment);
+
+router.route('/departments/:oldName')
+    .put(updateDepartment);
+
+router.route('/departments/:name')
+    .delete(deleteDepartment);
 
 module.exports = router;

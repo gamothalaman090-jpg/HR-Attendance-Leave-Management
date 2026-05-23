@@ -3,13 +3,6 @@ import authService from '@/services/authService';
 
 const AuthContext = createContext(null);
 
-// ----------------------------------------------------------------------
-// SECURITY NOTICE:
-// Currently using localStorage for JWT storage to support frontend dev.
-// BEFORE PRODUCTION BACKEND INTEGRATION:
-// Tokens must be migrated to HttpOnly cookies to prevent XSS attacks.
-// Do NOT use these wrappers once the backend sets cookies automatically.
-// ----------------------------------------------------------------------
 const setAuthSession = (userData) => {
   if (!userData) return;
   localStorage.setItem('nini-user', JSON.stringify(userData));
@@ -31,10 +24,16 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     const initAuth = async () => {
       try {
-        const savedUser = await authService.getProfile();
-        if (savedUser) setUser(savedUser);
+        const saved = localStorage.getItem('nini-user');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (parsed?.token) {
+            setUser(parsed);
+          }
+        }
       } catch (err) {
         console.error('Failed to restore auth session', err);
+        clearAuthSession();
       } finally {
         setIsLoading(false);
       }
@@ -56,10 +55,24 @@ export function AuthProvider({ children }) {
     }
   }, []);
 
-  const signup = useCallback(async (name, email, password) => {
+  const signup = useCallback(async (userData) => {
     setIsLoading(true);
     try {
-      const userData = await authService.signup({ name, email, password });
+      const result = await authService.signup(userData);
+      setUser(result);
+      setAuthSession(result);
+      return { success: true };
+    } catch (error) {
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  const googleLogin = useCallback(async (payload) => {
+    setIsLoading(true);
+    try {
+      const userData = await authService.googleLogin(payload);
       setUser(userData);
       setAuthSession(userData);
       return { success: true };
@@ -70,8 +83,8 @@ export function AuthProvider({ children }) {
     }
   }, []);
 
-  const logout = useCallback(() => {
-    authService.logout();
+  const logout = useCallback(async () => {
+    await authService.logout();
     clearAuthSession();
     setUser(null);
   }, []);
@@ -89,7 +102,7 @@ export function AuthProvider({ children }) {
 
   return (
     <AuthContext.Provider
-      value={{ user, isAuthenticated, isLoading, login, signup, logout, updateUser }}
+      value={{ user, isAuthenticated, isLoading, login, signup, googleLogin, logout, updateUser }}
     >
       {children}
     </AuthContext.Provider>

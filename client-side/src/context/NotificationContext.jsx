@@ -1,47 +1,91 @@
 /* eslint-disable react-refresh/only-export-components */
-import { createContext, useContext, useState } from 'react';
-import { NOTIFICATIONS as initialNotifications } from '@/data/notifications';
+import { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
+import api from '@/services/api';
+import { useAuth } from './AuthContext';
 
 const NotificationContext = createContext();
 
-export function NotificationProvider({ children }) {
-  const [notifications, setNotifications] = useState(initialNotifications);
-  const [unreadCount, setUnreadCount] = useState(
-    initialNotifications.filter(n => !n.read).length
-  );
+const POLL_INTERVAL = 30000; // 30 seconds
 
-  /** Mark a specific notification as read */
+const mapNotification = (n) => ({
+  id: n._id,
+  type: n.type || 'info',
+  title: n.title || 'Notification',
+  message: n.message || '',
+  time: n.createdAt || n.time || new Date().toISOString(),
+  read: n.read || false,
+});
+
+export function NotificationProvider({ children }) {
+  const { user } = useAuth();
+  const [notifications, setNotifications] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const intervalRef = useRef(null);
+
+  const fetchNotifications = useCallback(async () => {
+    if (!user?.token) return;
+
+    try {
+      // Admin gets notifications from /admin/notifications
+      // Regular users get notifications too (if endpoint exists)
+      const isAdmin = user.role === 'admin';
+      const endpoint = isAdmin ? '/admin/notifications' : '/admin/notifications';
+
+      const { data: res } = await api.get(endpoint);
+      const items = (res.data || []).map(mapNotification);
+      setNotifications(items);
+      setUnreadCount(items.filter((n) => !n.read).length);
+    } catch {
+      // Silently fail — notifications are non-critical
+    }
+  }, [user]);
+
+  // Initial fetch + polling
+  useEffect(() => {
+    fetchNotifications();
+
+    intervalRef.current = setInterval(fetchNotifications, POLL_INTERVAL);
+
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    };
+  }, [fetchNotifications]);
+
+  /** Mark a specific notification as read (client-side only) */
   const markAsRead = (id) => {
-    setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
-    setUnreadCount(prev => Math.max(0, prev - 1));
+    setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)));
+    setUnreadCount((prev) => Math.max(0, prev - 1));
   };
 
-  /** Mark all as read */
+  /** Mark all as read (client-side only) */
   const markAllAsRead = () => {
-    setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
     setUnreadCount(0);
   };
 
-  /** Add a new notification (e.g., when a leave is approved) */
+  /** Add a local notification */
   const addNotification = (notif) => {
     const newNotif = {
       id: `notif-${Date.now()}`,
       time: new Date().toISOString(),
       read: false,
-      ...notif
+      ...notif,
     };
-    setNotifications(prev => [newNotif, ...prev]);
-    setUnreadCount(prev => prev + 1);
+    setNotifications((prev) => [newNotif, ...prev]);
+    setUnreadCount((prev) => prev + 1);
   };
 
   return (
-    <NotificationContext.Provider value={{ 
-      notifications, 
-      unreadCount, 
-      markAsRead, 
-      markAllAsRead, 
-      addNotification 
-    }}>
+    <NotificationContext.Provider
+      value={{
+        notifications,
+        unreadCount,
+        markAsRead,
+        markAllAsRead,
+        addNotification,
+        refetch: fetchNotifications,
+      }}
+    >
       {children}
     </NotificationContext.Provider>
   );

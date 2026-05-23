@@ -28,6 +28,7 @@ const User = require('../models/User');
 const Notification = require('../models/Notification');
 const Payroll = require('../models/Payroll');
 const Attendance = require('../models/Attendance');
+const Department = require('../models/Department');
 const { createAuditLog } = require('../utils/logger');
 
 // --- ANNOUNCEMENT MANAGEMENT ---
@@ -369,10 +370,10 @@ exports.overrideAttendance = async (req, res, next) => {
             });
         }
 
-        if (!['in', 'out'].includes(type)) {
+        if (!['in', 'out', 'delete'].includes(type)) {
             return res.status(400).json({
                 success: false,
-                message: "Type must be either 'in' or 'out'"
+                message: "Type must be either 'in', 'out', or 'delete'"
             });
         }
 
@@ -386,6 +387,28 @@ exports.overrideAttendance = async (req, res, next) => {
 
         const endOfTargetDay = new Date(targetDate);
         endOfTargetDay.setHours(23, 59, 59, 999);
+
+        if (type === 'delete') {
+            await Attendance.deleteMany({
+                user: employeeId,
+                timestamp: { $gte: startOfTargetDay, $lte: endOfTargetDay }
+            });
+
+            await createAuditLog(
+                adminId,
+                'attendance_override',
+                `Admin deleted all attendance logs for ${employee.fullname} on ${startOfTargetDay.toLocaleDateString()}.`,
+                req,
+                'WARN',
+                'SECURITY'
+            );
+
+            return res.status(200).json({
+                success: true,
+                message: `Attendance logs successfully deleted for this date.`,
+                data: null
+            });
+        }
 
         let logEntry = await Attendance.findOne({
             user: employeeId,
@@ -493,7 +516,8 @@ exports.getEmployeeAnalytics = async (req, res, next) => {
                     avgHoursPerDay: avgHoursPerDay,
                     daysPresent: daysPresentCount,
                     expectedDays: expectedWorkDays
-                }
+                },
+                logs: monthlyLogs
             }
         });
 
@@ -727,5 +751,196 @@ exports.handleNotifications = async (req, res, next) => {
         });
     } catch (error) {
         if (next) next(error);
+    }
+};
+
+// --- EMPLOYEE MANAGEMENT BY ADMIN ---
+
+exports.createEmployee = async (req, res, next) => {
+    try {
+        const { fullname, email, password, department, position } = req.body;
+        if (!email || !fullname) {
+            return res.status(400).json({ success: false, message: 'Please provide name and email' });
+        }
+        const userExists = await User.findOne({ email });
+        if (userExists) {
+            return res.status(400).json({ success: false, message: 'Email already registered' });
+        }
+        const user = await User.create({
+            fullname,
+            email,
+            password: password || '123456',
+            role: 'user',
+            company: req.user.company,
+            department: department || 'Unassigned',
+            position: position || 'Staff Employee',
+            employmentStatus: 'active'
+        });
+        res.status(201).json({ success: true, data: user });
+    } catch (error) {
+        next(error);
+    }
+};
+
+exports.deleteEmployee = async (req, res, next) => {
+    try {
+        const employee = await User.findOne({ _id: req.params.id, company: req.user.company });
+        if (!employee) {
+            return res.status(404).json({ success: false, message: 'Employee not found' });
+        }
+        await employee.deleteOne();
+        res.status(200).json({ success: true, message: 'Employee deleted successfully' });
+    } catch (error) {
+        next(error);
+    }
+};
+
+exports.approveEmployee = async (req, res, next) => {
+    try {
+        const employee = await User.findOne({ _id: req.params.id, company: req.user.company });
+        if (!employee) {
+            return res.status(404).json({ success: false, message: 'Employee not found' });
+        }
+        employee.employmentStatus = 'active';
+        await employee.save();
+        res.status(200).json({ success: true, data: employee });
+    } catch (error) {
+        next(error);
+    }
+};
+
+exports.rejectEmployee = async (req, res, next) => {
+    try {
+        const employee = await User.findOne({ _id: req.params.id, company: req.user.company });
+        if (!employee) {
+            return res.status(404).json({ success: false, message: 'Employee not found' });
+        }
+        await employee.deleteOne();
+        res.status(200).json({ success: true, message: 'Employee registration rejected and deleted' });
+    } catch (error) {
+        next(error);
+    }
+};
+
+// --- DEPARTMENT MANAGEMENT ---
+
+exports.getDepartments = async (req, res, next) => {
+    try {
+        const company = req.user.company;
+
+        // Get departments from dedicated collection
+        const deptDocs = await Department.find({ company }).sort({ name: 1 });
+        const deptNames = deptDocs.map(d => d.name);
+
+        // Also pull distinct departments from User records (covers legacy data)
+        const userDepts = await User.distinct('department', { company, department: { $ne: 'Unassigned' } });
+
+        // Merge and deduplicate (case-insensitive)
+        const seen = new Set();
+        const merged = [];
+        for (const name of [...deptNames, ...userDepts]) {
+            const key = name.toLowerCase();
+            if (!seen.has(key)) {
+                seen.add(key);
+                merged.push(name);
+            }
+        }
+
+        merged.sort((a, b) => a.localeCompare(b));
+        res.status(200).json({ success: true, data: merged });
+    } catch (error) {
+        next(error);
+    }
+};
+
+exports.createDepartment = async (req, res, next) => {
+    try {
+        const { name } = req.body;
+        if (!name || !name.trim()) {
+            return res.status(400).json({ success: false, message: 'Department name is required' });
+        }
+
+        const company = req.user.company;
+        const exists = await Department.findOne({
+            name: { $regex: new RegExp(`^${name.trim()}$`, 'i') },
+            company
+        });
+        if (exists) {
+            return res.status(400).json({ success: false, message: 'Department already exists' });
+        }
+
+        const dept = await Department.create({ name: name.trim(), company });
+        res.status(201).json({ success: true, data: dept.name });
+    } catch (error) {
+        next(error);
+    }
+};
+
+exports.updateDepartment = async (req, res, next) => {
+    try {
+        const { oldName } = req.params;
+        const { name: newName } = req.body;
+        const company = req.user.company;
+
+        if (!newName || !newName.trim()) {
+            return res.status(400).json({ success: false, message: 'New department name is required' });
+        }
+
+        // Check duplicate
+        if (oldName.toLowerCase() !== newName.trim().toLowerCase()) {
+            const duplicate = await Department.findOne({
+                name: { $regex: new RegExp(`^${newName.trim()}$`, 'i') },
+                company
+            });
+            if (duplicate) {
+                return res.status(400).json({ success: false, message: 'New department name already exists' });
+            }
+        }
+
+        // Update or create the department doc
+        await Department.findOneAndUpdate(
+            { name: { $regex: new RegExp(`^${oldName}$`, 'i') }, company },
+            { name: newName.trim() },
+            { upsert: true, new: true }
+        );
+
+        // Cascade rename to all users in that department
+        await User.updateMany(
+            { department: { $regex: new RegExp(`^${oldName}$`, 'i') }, company },
+            { department: newName.trim() }
+        );
+
+        res.status(200).json({ success: true, data: newName.trim() });
+    } catch (error) {
+        next(error);
+    }
+};
+
+exports.deleteDepartment = async (req, res, next) => {
+    try {
+        const { name } = req.params;
+        const company = req.user.company;
+
+        // Block if active employees assigned
+        const activeCount = await User.countDocuments({
+            department: { $regex: new RegExp(`^${name}$`, 'i') },
+            company,
+            employmentStatus: 'active'
+        });
+        if (activeCount > 0) {
+            return res.status(400).json({
+                success: false,
+                message: `Cannot delete: ${activeCount} active employee(s) assigned`
+            });
+        }
+
+        await Department.findOneAndDelete({
+            name: { $regex: new RegExp(`^${name}$`, 'i') },
+            company
+        });
+
+        res.status(200).json({ success: true, message: 'Department deleted' });
+    } catch (error) {
+        next(error);
     }
 };
