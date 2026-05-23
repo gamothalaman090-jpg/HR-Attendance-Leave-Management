@@ -986,8 +986,18 @@ exports.teamCreate = async (req, res, next) => {
             mustChangePassword: true    
         }));
 
-        // 3. Prevent duplicate collisions across the system
+        // FIX Part A: Check for duplicate emails inside the incoming array itself
         const emailsToImport = preparedEmployees.map(e => e.email);
+        const internalDuplicates = emailsToImport.filter((email, index) => emailsToImport.indexOf(email) !== index);
+        
+        if (internalDuplicates.length > 0) {
+            return res.status(400).json({
+                success: false,
+                message: `Registration blocked. You entered duplicate emails in your form list: ${[...new Set(internalDuplicates)].join(', ')}`
+            });
+        }
+
+        // 3. Prevent duplicate collisions across the database system
         const duplicateChecks = await User.find({ email: { $in: emailsToImport } }).select('email');
         if (duplicateChecks.length > 0) {
             const list = duplicateChecks.map(u => u.email).join(', ');
