@@ -766,6 +766,20 @@ exports.createEmployee = async (req, res, next) => {
         if (userExists) {
             return res.status(400).json({ success: false, message: 'Email already registered' });
         }
+
+        const employeeCount = await User.countDocuments({
+            role: 'user',
+            employmentStatus: { $ne: 'terminated' },
+            company: req.user.company
+        });
+
+        if (employeeCount >= 10) {
+            return res.status(400).json({
+                success: false,
+                message: 'Tier Limit Reached: Starter tier supports a maximum of 10 employees.'
+            });
+        }
+
         const user = await User.create({
             fullname,
             email,

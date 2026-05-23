@@ -33,15 +33,32 @@ exports.register = async (req, res, next) => {
             return res.status(400).json({ success: false, message: 'Email already registered' });
         }     
         
+        const targetRole = role || 'user';
+        const targetCompany = company || 'Default Company';
+
+        if (targetRole === 'user') {
+            const employeeCount = await User.countDocuments({
+                role: 'user',
+                employmentStatus: { $ne: 'terminated' },
+                company: targetCompany
+            });
+            if (employeeCount >= 10) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Tier Limit Reached: This company has reached the maximum of 10 employees.'
+                });
+            }
+        }
+        
         const user = await User.create({
             fullname,
             email,
             password,
-            role: role || 'user', // Accept dynamic registration roles to cleanly provision admins and employees
-            company: company || 'Default Company',
+            role: targetRole, // Accept dynamic registration roles to cleanly provision admins and employees
+            company: targetCompany,
             department: department || 'Unassigned',
             position: position || 'Staff Employee',
-            employmentStatus: (role === 'admin' || role === 'superadmin') ? 'active' : 'pending'
+            employmentStatus: (targetRole === 'admin' || targetRole === 'superadmin') ? 'active' : 'pending'
         });
 
         const token = generateToken(user._id);
@@ -145,6 +162,19 @@ exports.googleOAuth = async (req, res, next) => {
                 await user.save();
             }
         } else {
+            const targetCompany = req.body.company || 'Default Company';
+            const employeeCount = await User.countDocuments({
+                role: 'user',
+                employmentStatus: { $ne: 'terminated' },
+                company: targetCompany
+            });
+            if (employeeCount >= 10) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Tier Limit Reached: This company has reached the maximum of 10 employees.'
+                });
+            }
+
             isNewRegistration = true;
             user = await User.create({
                 fullname,
@@ -153,7 +183,7 @@ exports.googleOAuth = async (req, res, next) => {
                 providerId: providerId,
                 profilePicture: profilePicture || '',
                 role: 'user',
-                company: req.body.company || 'Default Company',
+                company: targetCompany,
                 department: 'Unassigned',
                 position: 'Staff Employee',
                 employmentStatus: 'pending'
