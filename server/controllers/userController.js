@@ -42,6 +42,10 @@ exports.getUserProfile = async (req, res, next) => {
 exports.clockIn = async (req, res, next) => {
     try {
         const userId = req.user.id;
+        const now = new Date();
+        const currentDateString = now.toISOString().split('T')[0]; // Yields "YYYY-MM-DD"
+
+        // Check if user already clocked in overall
         const lastEntry = await Attendance.findOne({ user: userId }).sort({ timestamp: -1 });
         
         if (lastEntry && lastEntry.type === 'in') {
@@ -51,13 +55,24 @@ exports.clockIn = async (req, res, next) => {
             });
         }
 
+        // 📝 Optional Quality-of-Life Guardrail:
+        // Prevent double clock-ins on the exact same calendar date if they already finished their shift
+        const alreadyWorkedToday = await Attendance.findOne({ user: userId, date: currentDateString, type: 'out' });
+        if (alreadyWorkedToday) {
+            return res.status(400).json({
+                success: false,
+                message: 'You have already completed your shift tracking for today.'
+            });
+        }
+
         const entry = await Attendance.create({
             user: userId,
             type: 'in',
-            timestamp: new Date()
+            date: currentDateString, // Saved cleanly to the DB
+            timestamp: now
         });
 
-        // 📝 Telemetry Log: Route clock-ins to INFO level under ATTENDANCE module
+        // 📝 Telemetry Log
         await createAuditLog(
             userId, 
             'attendance_in', 
@@ -67,10 +82,9 @@ exports.clockIn = async (req, res, next) => {
             'ATTENDANCE'
         );
 
-      
-        const currentHour = new Date().getHours();
+        const currentHour = now.getHours();
         if (currentHour >= 9) {
-            const timeString = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            const timeString = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
             await handleNotifications(
                 'attendance_late',
                 'Late Clock-In',
@@ -94,6 +108,9 @@ exports.clockIn = async (req, res, next) => {
 exports.clockOut = async (req, res, next) => {
     try {
         const userId = req.user.id;
+        const now = new Date();
+        const currentDateString = now.toISOString().split('T')[0]; // Yields "YYYY-MM-DD"
+
         const lastEntry = await Attendance.findOne({ user: userId }).sort({ timestamp: -1 });
         
         if (!lastEntry || lastEntry.type === 'out') {
@@ -104,19 +121,18 @@ exports.clockOut = async (req, res, next) => {
         }
 
         const clockInTime = new Date(lastEntry.timestamp);
-        const clockOutTime = new Date();
-        
-        const diffMs = clockOutTime - clockInTime;
+        const diffMs = now - clockInTime;
         const durationMinutes = Math.max(0, Math.ceil(diffMs / (1000 * 60)));
 
         const entry = await Attendance.create({
             user: userId,
             type: 'out',
-            timestamp: clockOutTime,
+            date: currentDateString, // Tracks the out-event's calendar date
+            timestamp: now,
             workDuration: durationMinutes 
         });
 
-        // 📝 Telemetry Log: Route clock-outs to INFO level under ATTENDANCE module
+        // 📝 Telemetry Log
         await createAuditLog(
             userId, 
             'attendance_out', 

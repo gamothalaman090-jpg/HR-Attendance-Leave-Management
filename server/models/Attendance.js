@@ -16,6 +16,11 @@ const attendanceSchema = new mongoose.Schema({
         ref: 'User',
         required: true
     },
+    // 📅 Added for straightforward single-day calendar queries
+    date: {
+        type: String, // Stored as "YYYY-MM-DD"
+        required: true
+    },
     timestamp: {
         type: Date,
         default: Date.now
@@ -25,7 +30,6 @@ const attendanceSchema = new mongoose.Schema({
         enum: ['in', 'out'],
         required: true
     },
-    
     workDuration: {
         type: Number,
         default: null
@@ -33,5 +37,8 @@ const attendanceSchema = new mongoose.Schema({
 }, {
     timestamps: true
 });
+
+
+attendanceSchema.index({ user: 1, date: 1 });
 
 module.exports = mongoose.model('Attendance', attendanceSchema);

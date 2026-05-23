@@ -44,9 +44,7 @@ export default function OnboardingPage() {
   
   // Step 2 State
   const [team, setTeam] = useState([
-    { id: '1', name: 'Sarah Chen', email: 'sarah@example.com', role: 'Senior Engineer' },
-    { id: '2', name: 'James Kim', email: 'james@example.com', role: 'Product Designer' },
-    { id: '3', name: 'Maria Lopez', email: 'maria@example.com', role: 'Marketing Lead' },
+    { id: '1', name: '', email: '', role: '' },
   ]);
 
   const [errors, setErrors] = useState({});
