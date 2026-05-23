@@ -1,19 +1,17 @@
 /**
  * Name: adminController.js
  * Purpose: Contains controller functions for admin-specific operations, including announcement, attendance, leave, and payroll management.
- * Dependencies: Announcement model, Leave model, User model, Attendance model, Payroll model, Logger Utility
+ * Dependencies: Announcement model, Leave model, User model, Attendance model, Payroll model, Logger Utility, Notification model
  * Author: Ian
  * Location: server/controllers/adminController.js
  * Created: 2026-05-15
  * Last Updated: 2026-05-23
  * */
 
-
 /**
  * Note:
  * // Response formatting
- * 
-const response = await axios.get('/api/admin/employees-directory');
+ * const response = await axios.get('/api/admin/employees-directory');
 // 1. Set the raw rows list for the big dashboard data table
 setEmployees(response.data.data);
 // 2. Set the data variables for your top metric card widgets instantly!
@@ -22,13 +20,12 @@ setPresentCount(response.data.summary.present);
 setAbsentCount(response.data.summary.absent);
 setLateCount(response.data.summary.late);
 setLeaveCount(response.data.summary.onLeave);
- * 
- */
-
+ * * */
 
 const Announcement = require('../models/Announcement');
 const Leave = require('../models/Leave');
 const User = require('../models/User');
+const Notification = require('../models/Notification');
 const Payroll = require('../models/Payroll');
 const Attendance = require('../models/Attendance');
 const { createAuditLog } = require('../utils/logger');
@@ -89,6 +86,13 @@ exports.createAnnouncement = async (req, res, next) => {
             req,
             'INFO',
             'SYSTEM'
+        );
+
+        // 🔔 Notification: Log general announcement to the feed
+        await exports.handleNotifications(
+            'announcement',
+            'New Announcement Published',
+            `A new bulletin titled "${title}" has been posted to your dashboard.`
         );
 
         return res.status(201).json({
@@ -236,6 +240,19 @@ exports.reviewLeaveRequest = async (req, res, next) => {
             req,
             'INFO',
             'SECURITY'
+        );
+
+        // 🔔 Notification: Log leave status changes specifically targeted to the relevant user
+        const statusHeader = action === 'approved' ? 'Leave Request Approved' : 'Leave Request Rejected';
+        const statusMsg = action === 'approved' 
+            ? `Your request for ${leave.leaveType} Leave starting ${new Date(leave.startDate).toLocaleDateString()} has been approved.`
+            : `Your request for ${leave.leaveType} Leave has been declined by administration.`;
+
+        await exports.handleNotifications(
+            'leave_status',
+            statusHeader,
+            statusMsg,
+            leave.user // Directly assigns to recipient user column
         );
 
         return res.status(200).json({
@@ -551,6 +568,14 @@ exports.generatePayrollRun = async (req, res, next) => {
             'PAYROLL'
         );
 
+        // 🔔 Notification: Inform the user that their payslip has been generated and is awaiting verification
+        await exports.handleNotifications(
+            'payroll_generated',
+            'Payslip Generated',
+            `Your payslip calculations for period ${new Date(periodStart).toLocaleDateString()} to ${new Date(periodEnd).toLocaleDateString()} have been processed and are pending review.`,
+            employeeId
+        );
+
         return res.status(201).json({
             success: true,
             message: 'Payroll entry provisioned securely',
@@ -585,6 +610,14 @@ exports.releaseSalary = async (req, res, next) => {
             req,
             'INFO',
             'PAYROLL'
+        );
+
+        // 🔔 Notification: Inform the targeted user that funds have been officially sent out
+        await exports.handleNotifications(
+            'payroll_released',
+            'Salary Disbursed 🎉',
+            `Great news! Your salary payment for cycle ending ${new Date(payroll.periodEnd).toLocaleDateString()} has been approved and released.`,
+            payroll.employee._id
         );
 
         return res.status(200).json({
@@ -631,5 +664,37 @@ exports.deletePayrollEntry = async (req, res, next) => {
         });
     } catch (error) {
         next(error);
+    }
+};
+
+// --- SINGLE CONSOLIDATED NOTIFICATION CONTROLLER PIPELINE ---
+
+exports.handleNotifications = async (req, res, next) => {
+    // Scenario A: Internal backend trigger (Saving a new targeted/global notification entry)
+    if (typeof req === 'string') {
+        const [type, title, message, recipientId] = [req, res, next, arguments[3]];
+        try {
+            await Notification.create({ 
+                type, 
+                title, 
+                message,
+                recipient: recipientId || null // Optional: Null handles general broadcasts to all managers
+            });
+            return;
+        } catch (err) {
+            return console.error('Notification log initialization failed:', err);
+        }
+    }
+
+    // Scenario B: Normal Express GET route request
+    try {
+        const feed = await Notification.find().sort({ createdAt: -1 }).limit(20);
+        return res.status(200).json({ 
+            success: true, 
+            count: feed.length,
+            data: feed 
+        });
+    } catch (error) {
+        if (next) next(error);
     }
 };

@@ -1,7 +1,7 @@
 /**
  * Name: userController.js
  * Purpose: Handles user-related logic, including attendance management, announcements, and leave requests.
- * Dependencies: User Model, Attendance Model, Announcement Model, Leave Model, Logger Utility
+ * Dependencies: User Model, Attendance Model, Announcement Model, Leave Model, Logger Utility, Admin Controller (Notifications)
  * Author: Ian
  * Location: server/controllers/userController.js
  * Created: 2026-05-15
@@ -12,6 +12,7 @@ const Attendance = require('../models/Attendance');
 const Announcement = require('../models/Announcement');
 const Leave = require('../models/Leave');
 const { createAuditLog } = require('../utils/logger'); 
+const { handleNotifications } = require('./adminController'); // ◄ Imported shared utility function
 
 exports.getUserProfile = async (req, res, next) => {
     try {
@@ -65,6 +66,17 @@ exports.clockIn = async (req, res, next) => {
             'INFO',
             'ATTENDANCE'
         );
+
+      
+        const currentHour = new Date().getHours();
+        if (currentHour >= 9) {
+            const timeString = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            await handleNotifications(
+                'attendance_late',
+                'Late Clock-In',
+                `${req.user.fullname || 'Employee'} clocked in late at ${timeString} today.`
+            );
+        }
 
         return res.status(201).json({ 
             success: true, 
@@ -226,6 +238,15 @@ exports.requestLeave = async (req, res, next) => {
             req,
             'INFO',
             'LEAVE'
+        );
+
+      
+        const formattedStart = start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        const formattedEnd = end.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        await handleNotifications(
+            'leave_request',
+            'New Leave Request',
+            `${user.fullname} requested ${leaveType} Leave for ${formattedStart}-${formattedEnd}.`
         );
 
         return res.status(201).json({

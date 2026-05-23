@@ -24,7 +24,8 @@ const {
     getPayrollDashboard,  
     generatePayrollRun,  
     releaseSalary,        
-    deletePayrollEntry    
+    deletePayrollEntry ,
+    handleNotifications
 } = require('../controllers/adminController');
 
 const { protect, authorize } = require('../middlewares/authMiddleware'); 
@@ -69,6 +70,10 @@ router.route('/payroll/:id')
     .delete(deletePayrollEntry);  
 
 router.route('/payroll/:id/release')
-    .put(releaseSalary);          
+    .put(releaseSalary);      
+    
+// --- NOTIFICATIONS ENDPOINTS ---    
+router.route('/notifications')
+    .get(handleNotifications); 
 
 module.exports = router;
