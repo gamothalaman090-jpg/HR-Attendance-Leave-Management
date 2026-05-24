@@ -12,15 +12,21 @@ import api from './api';
  * Build a calendar-grid array for the current month from raw attendance logs.
  * Each entry: { date, day, dayOfWeek, status, clockIn, clockOut, hours }
  */
-const buildMonthlyCalendar = (logs) => {
+const buildMonthlyCalendar = (logs, joinDate) => {
   const today = new Date();
   const year = today.getFullYear();
   const month = today.getMonth();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
 
+  const joinDateMidnight = joinDate ? new Date(joinDate) : null;
+  if (joinDateMidnight) {
+    joinDateMidnight.setHours(0, 0, 0, 0);
+  }
+
   // Index logs by date string for fast lookup
   const logsByDate = {};
   logs.forEach((log) => {
+    if (!log.timestamp) return;
     const d = new Date(log.timestamp);
     const key = d.toISOString().split('T')[0];
     if (!logsByDate[key]) logsByDate[key] = [];
@@ -33,13 +39,14 @@ const buildMonthlyCalendar = (logs) => {
     const dateStr = date.toISOString().split('T')[0];
     const dayOfWeek = date.getDay();
     const isFuture = date > today;
+    const isBeforeCreation = joinDateMidnight ? date < joinDateMidnight : false;
 
     if (dayOfWeek === 0 || dayOfWeek === 6) {
       records.push({ date: dateStr, day, dayOfWeek, status: 'weekend', clockIn: null, clockOut: null, hours: 0 });
       continue;
     }
 
-    if (isFuture) {
+    if (isFuture || isBeforeCreation) {
       records.push({ date: dateStr, day, dayOfWeek, status: 'upcoming', clockIn: null, clockOut: null, hours: 0 });
       continue;
     }
@@ -102,6 +109,9 @@ export const attendanceService = {
   async getMonthly() {
     const { data: res } = await api.get('/user/history');
     const logs = res.data || [];
+    if (logs.length > 0 && logs[0].status !== undefined) {
+      return logs;
+    }
     return buildMonthlyCalendar(logs);
   },
 
@@ -144,24 +154,39 @@ export const attendanceService = {
       const { data: res } = await api.get('/user/history');
       const logs = res.data || [];
       if (logs.length > 0) {
-        const lastLog = logs[0]; // sorted by timestamp desc
-        const today = new Date().toISOString().split('T')[0];
-        const logDate = new Date(lastLog.timestamp).toISOString().split('T')[0];
-
-        if (logDate === today) {
-          const time = new Date(lastLog.timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-          if (lastLog.type === 'in') {
-            clockStatus = { isClockedIn: true, clockInTime: time, clockOutTime: null };
-          } else {
-            // Find today's clock-in
-            const todayIn = logs.find((l) => l.type === 'in' && new Date(l.timestamp).toISOString().split('T')[0] === today);
-            clockStatus = {
-              isClockedIn: false,
-              clockInTime: todayIn ? new Date(todayIn.timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : null,
-              clockOutTime: time,
-            };
+        if (logs[0].status !== undefined) {
+          const today = new Date().toISOString().split('T')[0];
+          const todayRecord = logs.find(r => r.date === today);
+          if (todayRecord) {
+            if (todayRecord.clockIn && !todayRecord.clockOut) {
+              clockStatus = { isClockedIn: true, clockInTime: todayRecord.clockIn, clockOutTime: null };
+            } else if (todayRecord.clockIn && todayRecord.clockOut) {
+              clockStatus = { isClockedIn: false, clockInTime: todayRecord.clockIn, clockOutTime: todayRecord.clockOut };
+            } else {
+              clockStatus = { isClockedIn: false, clockInTime: null, clockOutTime: null };
+            }
+            return { ...clockStatus };
           }
-          return { ...clockStatus };
+        } else {
+          const lastLog = logs[0]; // sorted by timestamp desc
+          const today = new Date().toISOString().split('T')[0];
+          const logDate = new Date(lastLog.timestamp).toISOString().split('T')[0];
+
+          if (logDate === today) {
+            const time = new Date(lastLog.timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+            if (lastLog.type === 'in') {
+              clockStatus = { isClockedIn: true, clockInTime: time, clockOutTime: null };
+            } else {
+              // Find today's clock-in
+              const todayIn = logs.find((l) => l.type === 'in' && new Date(l.timestamp).toISOString().split('T')[0] === today);
+              clockStatus = {
+                isClockedIn: false,
+                clockInTime: todayIn ? new Date(todayIn.timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : null,
+                clockOutTime: time,
+              };
+            }
+            return { ...clockStatus };
+          }
         }
       }
     } catch {
@@ -186,6 +211,13 @@ export const attendanceService = {
   async getEmployeeAnalytics(employeeId) {
     const { data: res } = await api.get(`/admin/users/${employeeId}/analytics`);
     return res.data;
+  },
+
+  /** Get attendance grid for a staff member (for admin dashboard) */
+  async getEmployeeAttendanceGrid(employeeId, joinDate) {
+    const res = await this.getEmployeeAnalytics(employeeId);
+    const logs = res?.logs || [];
+    return buildMonthlyCalendar(logs, joinDate);
   },
 
   /**

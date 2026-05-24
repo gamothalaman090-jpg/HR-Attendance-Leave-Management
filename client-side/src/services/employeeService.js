@@ -4,6 +4,11 @@ import api from './api';
  * Employee Service — Communicates with Node.js/Express/MongoDB backend for employee management.
  */
 
+const DEPARTMENTS = [
+  'Engineering', 'Design', 'Marketing', 'Sales',
+  'Human Resources', 'Finance', 'Product', 'Operations', 'Unassigned'
+];
+
 const mapEmployee = (emp) => {
   if (!emp) return null;
   
@@ -65,7 +70,26 @@ export const employeeService = {
 
   /** Get all department names */
   async getDepartments() {
-    return [...DEPARTMENTS];
+    const res = await api.get('/admin/departments');
+    return res.data.data || [];
+  },
+
+  /** Create department */
+  async createDepartment(name) {
+    const res = await api.post('/admin/departments', { name });
+    return res.data.data;
+  },
+
+  /** Update department */
+  async updateDepartment(oldName, newName) {
+    const res = await api.put(`/admin/departments/${encodeURIComponent(oldName)}`, { name: newName });
+    return res.data.data;
+  },
+
+  /** Delete department */
+  async deleteDepartment(name) {
+    await api.delete(`/admin/departments/${encodeURIComponent(name)}`);
+    return true;
   },
 
   /** Get employee statistics */
@@ -74,12 +98,13 @@ export const employeeService = {
     const active = employees.filter((e) => e.status === 'active').length;
     const onLeave = employees.filter((e) => e.status === 'on-leave').length;
     const inactive = employees.filter((e) => e.status === 'inactive').length;
+    const depts = await this.getDepartments();
     return {
       total: employees.length,
       active,
       onLeave,
       inactive,
-      departments: DEPARTMENTS.length,
+      departments: depts.length,
     };
   },
 

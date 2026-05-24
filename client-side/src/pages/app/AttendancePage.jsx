@@ -78,16 +78,22 @@ export default function AttendancePage() {
     }
   };
 
+  const fetchStaffRecords = async (staffId, joinDate) => {
+    try {
+      const records = await attendanceService.getEmployeeAttendanceGrid(staffId, joinDate);
+      setStaffRecords(records || []);
+    } catch (err) {
+      console.error('Failed to load staff records:', err);
+      setStaffRecords([]);
+    }
+  };
+
   const loadStaffData = async () => {
     setLoading(true);
     try {
-      const [employees, allAtt] = await Promise.all([
-        employeeService.getAll(),
-        attendanceService.getAllEmployeesAttendance()
-      ]);
+      const employees = await employeeService.getAll();
       const actives = employees.filter(e => e.status === 'active');
       setStaffList(actives);
-      setAllAttendance(allAtt);
       
       if (actives.length > 0 && !selectedStaffId) {
         setSelectedStaffId(actives[0].id);
@@ -108,12 +114,13 @@ export default function AttendancePage() {
   }, [activeTab]);
 
   useEffect(() => {
-    if (selectedStaffId && allAttendance[selectedStaffId]) {
-      setStaffRecords(allAttendance[selectedStaffId]);
+    if (selectedStaffId && staffList.length > 0) {
+      const selectedStaff = staffList.find(e => e.id === selectedStaffId);
+      fetchStaffRecords(selectedStaffId, selectedStaff?.joinDate);
     } else {
       setStaffRecords([]);
     }
-  }, [selectedStaffId, allAttendance]);
+  }, [selectedStaffId, staffList]);
 
   useEffect(() => {
     if (clockStatus.isClockedIn) {
@@ -184,7 +191,8 @@ export default function AttendancePage() {
         data: adjustForm
       });
       setAdjustTarget(null);
-      loadStaffData();
+      const selectedStaff = staffList.find(e => e.id === selectedStaffId);
+      await fetchStaffRecords(selectedStaffId, selectedStaff?.joinDate);
     } catch (err) {
       alert(err.message);
     }

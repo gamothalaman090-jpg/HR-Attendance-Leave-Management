@@ -490,8 +490,12 @@ exports.getEmployeeAnalytics = async (req, res, next) => {
             ? Number((totalHoursWorked / daysPresentCount).toFixed(1)) 
             : 0;
 
+        const employeeCreatedAt = new Date(employee.createdAt || new Date());
+        employeeCreatedAt.setHours(0, 0, 0, 0);
+
         let expectedWorkDays = 0;
-        let loopDate = new Date(startOfMonth);
+        const startCountingDate = startOfMonth > employeeCreatedAt ? startOfMonth : employeeCreatedAt;
+        let loopDate = new Date(startCountingDate);
         while (loopDate <= now) {
             const dayOfWeek = loopDate.getDay();
             if (dayOfWeek !== 0 && dayOfWeek !== 6) {

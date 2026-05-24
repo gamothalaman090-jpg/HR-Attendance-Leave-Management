@@ -5,7 +5,7 @@
  * Author: Ian
  * Location: server/models/Department.js
  * Created: 2026-05-23
- * Last Updated: 2026-05-23
+ * Last Updated: 2026-05-24
  */
 
 const mongoose = require('mongoose');
@@ -16,10 +16,14 @@ const TeamSchema = new mongoose.Schema({
 });
 
 const DepartmentSchema = new mongoose.Schema({
-    name: { type: String, required: true, unique: true, trim: true },
+    name: { type: String, required: true, trim: true },
+    company: { type: String, required: true, trim: true },
     description: { type: String, trim: true },
     // Nested array of teams belonging strictly to this department
     teams: [TeamSchema] 
 }, { timestamps: true });
+
+// Ensure uniqueness of department name per company
+DepartmentSchema.index({ company: 1, name: 1 }, { unique: true });
 
 module.exports = mongoose.model('Department', DepartmentSchema);

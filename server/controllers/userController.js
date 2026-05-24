@@ -159,24 +159,13 @@ exports.getAttendanceHistory = async (req, res, next) => {
     try {
         const userId = req.user.id;
         
-        // 1. Find the user's VERY FIRST attendance record (oldest timestamp)
-        const firstLog = await Attendance.findOne({ user: userId })
-            .sort({ timestamp: 1 });
-
-        let firstTimeInDate; 
-        if (firstLog) {
-            firstTimeInDate = new Date(firstLog.timestamp);
-            firstTimeInDate.setHours(0, 0, 0, 0); // Clear time for accurate comparison
-        } else {
-            // FIX: If they have absolutely NO records, set it to null
-            // This prevents "today" from blocking the calendar generation loop
-            firstTimeInDate = null;
-        }
+        // Use user account creation date as the start boundary
+        const createdAt = req.user.createdAt || new Date();
+        const createdAtMidnight = new Date(createdAt);
+        createdAtMidnight.setHours(0, 0, 0, 0);
 
         // 2. Get year and month from query parameters, fallback to current date
         const now = new Date();
-        const todayMidnight = new Date();
-        todayMidnight.setHours(0, 0, 0, 0);
         const year = req.query.year ? parseInt(req.query.year) : now.getFullYear();
         const month = req.query.month ? parseInt(req.query.month) : now.getMonth();
 
@@ -217,15 +206,8 @@ exports.getAttendanceHistory = async (req, res, next) => {
             const isWeekend = (dayOfWeek === 0 || dayOfWeek === 6);
             const isFuture = currentDayDate > now;
 
-            // FIX: If firstTimeInDate is null, every historic day before today is 'upcoming' 
-            // instead of breaking the grid generator.
-            let isBeforeFirstWorkDay = false;
-            if (firstTimeInDate !== null) {
-                isBeforeFirstWorkDay = normalizedLoopDate < firstTimeInDate;
-            } else {
-                // If they have never clocked in ever, anything before today is treated as neutral/upcoming
-                isBeforeFirstWorkDay = normalizedLoopDate < todayMidnight;
-            }
+            // Check if day is prior to user account creation
+            const isBeforeCreation = normalizedLoopDate < createdAtMidnight;
 
             const dayLogs = logsByDate[dateStr] || [];
             const hasInLog = dayLogs.some(l => l.type === 'in');
@@ -235,7 +217,7 @@ exports.getAttendanceHistory = async (req, res, next) => {
             let clockOut = '—';
             let hours = 0;
 
-            if (isFuture || isBeforeFirstWorkDay) {
+            if (isFuture || isBeforeCreation) {
                 status = 'upcoming';
             } else if (hasInLog) {
                 const inLog = dayLogs.find(l => l.type === 'in');
