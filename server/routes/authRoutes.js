@@ -19,8 +19,8 @@ const {
     logout,
     changePassword,
     updateProfile,
-    googleOAuth
-
+    googleOAuth,
+    onboardUser
 } = require('../controllers/authController');
 
 
@@ -33,5 +33,6 @@ router.post('/google', googleOAuth);
 
 router.put('/profile/change-password', protect, changePassword);
 router.put('/profile/update', protect, upload.single('profilePicture'), updateProfile);
+router.put('/onboard', protect, onboardUser);
 
 module.exports = router;

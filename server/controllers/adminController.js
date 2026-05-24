@@ -776,12 +776,13 @@ exports.createEmployee = async (req, res, next) => {
         const user = await User.create({
             fullname,
             email,
-            password: password || '123456',
+            password: password || 'WelcomeNini123!',
             role: 'user',
             company: req.user.company,
             department: department || 'Unassigned',
             position: position || 'Staff Employee',
-            employmentStatus: 'active'
+            employmentStatus: 'active',
+            onboarded: true
         });
         res.status(201).json({ success: true, data: user });
     } catch (error) {
@@ -978,12 +979,13 @@ exports.teamCreate = async (req, res, next) => {
         const preparedEmployees = employees.map(emp => ({
             fullname: emp.fullname.trim(),
             email: emp.email.toLowerCase().trim(),
-            password: 'TEMP_UNSET_PASSWORD_123!', // Unset stub password configuration
+            password: emp.password || 'WelcomeNini123!', // Unset stub password configuration
             role: 'user',
             company: companyId,
             department: emp.department?.trim() || 'Unassigned',
             position: emp.position?.trim() || 'Staff Employee',
             employmentStatus: 'active', 
+            onboarded: true,
             
             // Flags to handle granular setups later in the Management Tab
             isProfileConfigured: false, 

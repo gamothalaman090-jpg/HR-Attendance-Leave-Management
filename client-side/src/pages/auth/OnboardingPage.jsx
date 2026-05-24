@@ -165,6 +165,9 @@ export default function OnboardingPage() {
         author: 'HR Manager'
       });
       
+      // Persist onboarding completion status on backend
+      await api.put('/auth/onboard');
+      
       updateUser({ onboarded: true });
       navigate('/app');
     } catch (err) {

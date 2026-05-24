@@ -21,6 +21,7 @@ export const authService = {
         company: data.company,
         department: data.department || 'Unassigned',
         position: data.position || 'Staff Employee',
+        onboarded: data.onboarded,
         token,
       };
     } catch (err) {
@@ -53,6 +54,7 @@ export const authService = {
         company: data.company,
         department: data.department || 'Unassigned',
         position: data.position || 'Staff Employee',
+        onboarded: data.onboarded,
         token,
       };
     } catch (err) {
@@ -77,6 +79,7 @@ export const authService = {
         company: data.company,
         department: data.department || 'Unassigned',
         position: data.position || 'Staff Employee',
+        onboarded: data.onboarded,
         token,
       };
     } catch (err) {
@@ -106,6 +109,7 @@ export const authService = {
         company: data.company,
         department: data.department || 'Unassigned',
         position: data.position || 'Staff Employee',
+        onboarded: data.onboarded,
         token,
       };
     } catch (err) {
@@ -132,7 +136,7 @@ export const authService = {
    */
   changePassword: async (currentPassword, newPassword) => {
     try {
-      const res = await api.put('/profile/change-password', {
+      const res = await api.put('/auth/profile/change-password', {
         currentPassword,
         newPassword,
       });
@@ -148,7 +152,7 @@ export const authService = {
    */
   updateProfile: async (formData) => {
     try {
-      const res = await api.put('/profile/update', formData, {
+      const res = await api.put('/auth/profile/update', formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
@@ -166,6 +170,7 @@ export const authService = {
         company: data.company,
         department: data.department,
         position: data.position,
+        onboarded: data.onboarded,
         token,
       };
     } catch (err) {
@@ -185,6 +190,20 @@ export const authService = {
     }
     localStorage.removeItem('nini-user');
     localStorage.removeItem('nini-token');
+  },
+
+  /**
+   * Complete onboarding
+   */
+  completeOnboarding: async () => {
+    try {
+      const res = await api.put('/auth/onboard');
+      const { data } = res.data;
+      return data;
+    } catch (err) {
+      const errorMsg = err.response?.data?.message || 'Failed to complete onboarding';
+      throw new Error(errorMsg);
+    }
   },
 };
 

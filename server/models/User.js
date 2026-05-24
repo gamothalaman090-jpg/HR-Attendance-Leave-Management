@@ -71,6 +71,10 @@ const userSchema = new mongoose.Schema({
         type: String,
         default: '' 
     },
+    onboarded: {
+        type: Boolean,
+        default: false
+    },
     leaveBalances: {
         annual: { 
             allotted: { type: Number, default: 20 }, 

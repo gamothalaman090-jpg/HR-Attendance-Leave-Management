@@ -30,7 +30,8 @@ exports.getUserProfile = async (req, res, next) => {
                 email: user.email,
                 role: user.role,
                 employmentStatus: user.employmentStatus || 'active', // FIXED: Included field addition
-                leaveBalances: user.leaveBalances 
+                leaveBalances: user.leaveBalances,
+                onboarded: user.onboarded
             }
         });
     } catch (error) {
@@ -48,7 +49,7 @@ exports.clockIn = async (req, res, next) => {
         // Check if user already clocked in overall
         const lastEntry = await Attendance.findOne({ user: userId }).sort({ timestamp: -1 });
         
-        if (lastEntry && lastEntry.type === 'in') {
+        if (lastEntry && lastEntry.type === 'in' && lastEntry.date === currentDateString) {
             return res.status(400).json({ 
                 success: false, 
                 message: 'You are already clocked in. Please clock out first.' 
@@ -113,7 +114,7 @@ exports.clockOut = async (req, res, next) => {
 
         const lastEntry = await Attendance.findOne({ user: userId }).sort({ timestamp: -1 });
         
-        if (!lastEntry || lastEntry.type === 'out') {
+        if (!lastEntry || lastEntry.type === 'out' || lastEntry.date !== currentDateString) {
             return res.status(400).json({ 
                 success: false, 
                 message: 'You cannot clock out without clocking in first.' 
@@ -174,6 +175,8 @@ exports.getAttendanceHistory = async (req, res, next) => {
 
         // 2. Get year and month from query parameters, fallback to current date
         const now = new Date();
+        const todayMidnight = new Date();
+        todayMidnight.setHours(0, 0, 0, 0);
         const year = req.query.year ? parseInt(req.query.year) : now.getFullYear();
         const month = req.query.month ? parseInt(req.query.month) : now.getMonth();
 
@@ -221,7 +224,7 @@ exports.getAttendanceHistory = async (req, res, next) => {
                 isBeforeFirstWorkDay = normalizedLoopDate < firstTimeInDate;
             } else {
                 // If they have never clocked in ever, anything before today is treated as neutral/upcoming
-                isBeforeFirstWorkDay = normalizedLoopDate < now.setHours(0,0,0,0);
+                isBeforeFirstWorkDay = normalizedLoopDate < todayMidnight;
             }
 
             const dayLogs = logsByDate[dateStr] || [];

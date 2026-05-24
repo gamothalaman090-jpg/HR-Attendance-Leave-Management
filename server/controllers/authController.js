@@ -34,7 +34,14 @@ exports.register = async (req, res, next) => {
         }     
         
         const targetRole = role || 'user';
-        const targetCompany = company || 'Default Company';
+        let targetCompany = company;
+        if (!targetCompany || targetCompany === 'Default Company') {
+            if (targetRole === 'admin' && fullname) {
+                targetCompany = `${fullname.trim()}'s Org`;
+            } else {
+                targetCompany = 'Default Company';
+            }
+        }
 
         if (targetRole === 'user') {
             const employeeCount = await User.countDocuments({
@@ -58,7 +65,8 @@ exports.register = async (req, res, next) => {
             company: targetCompany,
             department: department || 'Unassigned',
             position: position || 'Staff Employee',
-            employmentStatus: (targetRole === 'admin' || targetRole === 'superadmin') ? 'active' : 'pending'
+            employmentStatus: (targetRole === 'admin' || targetRole === 'superadmin') ? 'active' : 'pending',
+            onboarded: targetRole === 'admin' ? false : true
         });
 
         const token = generateToken(user._id);
@@ -84,7 +92,8 @@ exports.register = async (req, res, next) => {
                 role: user.role,
                 company: user.company,
                 department: user.department,
-                position: user.position
+                position: user.position,
+                onboarded: user.onboarded
             }
         });
     } catch (error) {
@@ -130,7 +139,7 @@ exports.login = async (req, res, next) => {
         res.status(200).json({
             success: true,
             token,
-            data: { id: user._id, fullname: user.fullname, role: user.role, company: user.company },
+            data: { id: user._id, fullname: user.fullname, role: user.role, company: user.company, onboarded: user.onboarded },
             message: 'Login successful'
         });
     } catch (error) {
@@ -186,7 +195,8 @@ exports.googleOAuth = async (req, res, next) => {
                 company: targetCompany,
                 department: 'Unassigned',
                 position: 'Staff Employee',
-                employmentStatus: 'pending'
+                employmentStatus: 'pending',
+                onboarded: true
             });
         }
 
@@ -223,7 +233,8 @@ exports.googleOAuth = async (req, res, next) => {
                 role: user.role,
                 company: user.company,
                 department: user.department,
-                position: user.position
+                position: user.position,
+                onboarded: user.onboarded
             }
         });
 
@@ -374,6 +385,42 @@ exports.changePassword = async (req, res, next) => {
         );
 
         res.status(200).json({ success: true, message: 'Password updated successfully' });
+    } catch (error) {
+        next(error);
+    }
+};
+
+exports.onboardUser = async (req, res, next) => {
+    try {
+        const user = await User.findById(req.user.id);
+        if (!user) {
+            return res.status(404).json({ success: false, message: 'User not found' });
+        }
+        
+        user.onboarded = true;
+        await user.save();
+        
+        await createAuditLog(
+            req.user.id,
+            'profile_update',
+            `User completed onboarding flow successfully.`,
+            req,
+            'INFO',
+            'AUTH'
+        );
+        
+        res.status(200).json({
+            success: true,
+            message: 'Onboarding completed successfully',
+            data: {
+                id: user._id,
+                fullname: user.fullname,
+                email: user.email,
+                role: user.role,
+                company: user.company,
+                onboarded: user.onboarded
+            }
+        });
     } catch (error) {
         next(error);
     }
