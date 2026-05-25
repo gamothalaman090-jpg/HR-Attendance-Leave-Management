@@ -18,7 +18,8 @@ const {
     getUserProfile,
     getLeaveBalances,
     requestLeave,
-    getMyLeaves
+    getMyLeaves,
+    getMyPayroll
 } = require('../controllers/userController');
 
 
@@ -41,5 +42,8 @@ router.get('/announcements', getAnnouncements);
 router.get('/leave-balance', getLeaveBalances);
 router.post('/leave-request', requestLeave);
 router.get('/leave-history', getMyLeaves);
+
+// Payroll routes
+router.get('/payroll', getMyPayroll);
 
 module.exports = router;

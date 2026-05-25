@@ -41,7 +41,7 @@ export const authService = {
         email,
         password,
         company: company || 'Default Company',
-        role: role || 'user',
+        role: role || 'admin',
       });
       
       const { token, data } = res.data;

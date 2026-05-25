@@ -26,8 +26,9 @@ const mapPayroll = (p) => {
 
 export const payrollService = {
   /** Get all payroll records + dashboard metrics */
-  async getAll() {
-    const { data: res } = await api.get('/admin/payroll');
+  async getAll(isAdmin = false) {
+    const endpoint = isAdmin ? '/admin/payroll' : '/user/payroll';
+    const { data: res } = await api.get(endpoint);
     return (res.data || []).map(mapPayroll);
   },
 
