@@ -19,20 +19,14 @@ export default function PayslipsPage() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const allPay = await payrollService.getAll();
+      const allPay = await payrollService.getAll(isHighRanking);
       // If employee/manager/hr:
       // Admins/HR/Managers see all payslips, regular employees only see their own payslips
       if (isHighRanking) {
         setPayslips(allPay.filter(p => p.status === 'paid'));
       } else {
-        // Find employee object to match email or id
-        const allEmps = await employeeService.getAll();
-        const me = allEmps.find(e => e.email.toLowerCase() === user.email.toLowerCase());
-        if (me) {
-          setPayslips(allPay.filter(p => p.status === 'paid' && p.employeeId === me.id));
-        } else {
-          setPayslips([]);
-        }
+        // Backend filters user payroll automatically, so we set the result directly
+        setPayslips(allPay);
       }
     } catch (err) {
       console.error(err);

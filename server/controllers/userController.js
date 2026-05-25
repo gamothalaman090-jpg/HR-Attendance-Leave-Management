@@ -11,6 +11,7 @@ const mongoose = require('mongoose');
 const User = require('../models/User'); 
 const Attendance = require('../models/Attendance');
 const Leave = require('../models/Leave');
+const Payroll = require('../models/Payroll');
 const { createAuditLog } = require('../utils/logger'); 
 const { handleNotifications } = require('./adminController'); // ◄ Imported shared utility function
 
@@ -409,6 +410,21 @@ exports.getLeaveBalances = async (req, res, next) => {
         return res.status(200).json({
             success: true,
             data: user.leaveBalances || {}
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+exports.getMyPayroll = async (req, res, next) => {
+    try {
+        const payrolls = await Payroll.find({ employee: req.user.id, status: 'Paid' })
+            .populate('employee', 'fullname email position profilePicture')
+            .sort({ paymentDate: -1 });
+
+        return res.status(200).json({
+            success: true,
+            data: payrolls
         });
     } catch (error) {
         next(error);

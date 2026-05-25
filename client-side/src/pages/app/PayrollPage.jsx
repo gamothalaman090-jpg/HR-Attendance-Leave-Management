@@ -36,7 +36,7 @@ export default function PayrollPage() {
     setLoading(true);
     try {
       const [allPay, allEmp] = await Promise.all([
-        payrollService.getAll(),
+        payrollService.getAll(isHighRanking),
         employeeService.getAll()
       ]);
       setPayrolls(allPay || []);
@@ -297,7 +297,7 @@ export default function PayrollPage() {
               onChange={e => setNewRun({ ...newRun, employeeId: e.target.value })}
               options={employees.map(emp => ({
                 value: emp.id,
-                label: `${emp.name} (${emp.id})`
+                label: `${emp.name} — ${emp.email}`
               }))}
             />
 
