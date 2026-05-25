@@ -31,6 +31,14 @@ const Attendance = require('../models/Attendance');
 const Department = require('../models/Department');
 const { createAuditLog } = require('../utils/logger');
 
+// Helper to format Date objects as local YYYY-MM-DD
+const getLocalDateString = (date) => {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+};
+
 // --- ANNOUNCEMENT MANAGEMENT ---
 
 exports.getAdminAnnouncements = async (req, res) => {
@@ -385,7 +393,7 @@ exports.overrideAttendance = async (req, res, next) => {
             return res.status(404).json({ success: false, message: 'Employee record not found in your organization' });
         }
 
-        const isoDateString = new Date(targetDate).toISOString().split('T')[0];
+        const isoDateString = targetDate.split('T')[0];
 
         if (type === 'delete') {
             await Attendance.deleteMany({
@@ -475,7 +483,7 @@ exports.getEmployeeAnalytics = async (req, res, next) => {
         const uniqueDaysPresent = new Set();
 
         monthlyLogs.forEach(log => {
-            const dateKey = log.date || new Date(log.timestamp).toISOString().split('T')[0];
+            const dateKey = log.date || getLocalDateString(new Date(log.timestamp));
             uniqueDaysPresent.add(dateKey);
 
             if (log.type === 'out' && log.workDuration) {
@@ -648,7 +656,6 @@ exports.releaseSalary = async (req, res, next) => {
             return res.status(400).json({ success: false, message: 'This payroll calculation run has already been fully settled and paid.' });
         }
 
-        options.status = 'Paid';
         payroll.status = 'Paid';
         payroll.paymentDate = new Date();
         await payroll.save();

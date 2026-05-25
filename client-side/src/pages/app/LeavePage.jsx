@@ -110,7 +110,7 @@ export default function LeavePage() {
   const { register, handleSubmit, reset, watch, formState: { errors } } = useForm();
 
   /* ── TanStack Query Hooks ── */
-  const { data: leaves = [], isLoading: loading } = useLeaves();
+  const { data: leaves = [], isLoading: loading } = useLeaves(isHR);
   const { data: balance } = useLeaveBalance();
   const createMutation = useCreateLeave();
   const approveMutation = useApproveLeave();
@@ -119,10 +119,14 @@ export default function LeavePage() {
   /* ── Filter leaves ── */
   const filteredLeaves = leaves.filter((l) => {
     // Role-based filtering
+    const isCurrentUserLeave = 
+      (l.employeeId && user?.id && String(l.employeeId) === String(user.id)) ||
+      (l.employeeName && user?.name && l.employeeName.toLowerCase() === user.name.toLowerCase());
+
     if (!isHR) {
-      if (l.employeeName !== user?.name) return false;
+      if (!isCurrentUserLeave) return false;
     } else if (activeTab === 'my') {
-      if (l.employeeName !== user?.name) return false;
+      if (!isCurrentUserLeave) return false;
     }
 
     if (statusFilter !== 'all' && l.status !== statusFilter) return false;

@@ -7,12 +7,20 @@
  * Created: 2026-05-15
  * Last Updated: 2026-05-23
  */
+const mongoose = require('mongoose');
 const User = require('../models/User'); 
 const Attendance = require('../models/Attendance');
-const Announcement = require('../models/Announcement');
 const Leave = require('../models/Leave');
 const { createAuditLog } = require('../utils/logger'); 
 const { handleNotifications } = require('./adminController'); // ◄ Imported shared utility function
+
+// Helper to format Date objects as local YYYY-MM-DD
+const getLocalDateString = (date) => {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+};
 
 exports.getUserProfile = async (req, res, next) => {
     try {
@@ -44,7 +52,7 @@ exports.clockIn = async (req, res, next) => {
     try {
         const userId = req.user.id;
         const now = new Date();
-        const currentDateString = now.toISOString().split('T')[0]; // Yields "YYYY-MM-DD"
+        const currentDateString = getLocalDateString(now); // Yields "YYYY-MM-DD"
 
         // Check if user already clocked in overall
         const lastEntry = await Attendance.findOne({ user: userId }).sort({ timestamp: -1 });
@@ -110,7 +118,7 @@ exports.clockOut = async (req, res, next) => {
     try {
         const userId = req.user.id;
         const now = new Date();
-        const currentDateString = now.toISOString().split('T')[0]; // Yields "YYYY-MM-DD"
+        const currentDateString = getLocalDateString(now); // Yields "YYYY-MM-DD"
 
         const lastEntry = await Attendance.findOne({ user: userId }).sort({ timestamp: -1 });
         
@@ -196,7 +204,7 @@ exports.getAttendanceHistory = async (req, res, next) => {
         // 7. Generate the exact grid layout expected by the frontend calendar
         for (let day = 1; day <= totalDaysInMonth; day++) {
             const currentDayDate = new Date(year, month, day);
-            const dateStr = currentDayDate.toISOString().split('T')[0];
+            const dateStr = getLocalDateString(currentDayDate);
 
             // Normalize current loop date to midnight for comparison accuracy
             const normalizedLoopDate = new Date(currentDayDate);
@@ -340,6 +348,8 @@ exports.requestLeave = async (req, res, next) => {
             status: 'pending'
         });
         
+        await leave.populate('user', 'fullname email role department position');
+        
         // 📝 Telemetry Log: Submitting leave requests creates a trackable record under INFO level in LEAVE module
         await createAuditLog(
             req.user.id, 
@@ -374,7 +384,9 @@ exports.requestLeave = async (req, res, next) => {
 exports.getMyLeaves = async (req, res, next) => {
     try {
         const userId = req.user.id;
-        const leaves = await Leave.find({ user: userId }).sort({ createdAt: -1 });
+        const leaves = await Leave.find({ user: userId })
+            .populate('user', 'fullname email role department position')
+            .sort({ createdAt: -1 });
 
         return res.status(200).json({
             success: true,

@@ -60,6 +60,3 @@ temp/
 # --- AI agent skills (local only) ---
 .agents/
 skills-lock.json
-
-# --- Misc ---
-deprecated/

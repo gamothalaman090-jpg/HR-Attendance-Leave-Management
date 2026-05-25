@@ -4,10 +4,10 @@ import leaveService from '@/services/leaveService';
 /**
  * Hook to fetch all leave requests.
  */
-export function useLeaves() {
+export function useLeaves(isHR = false) {
   return useQuery({
-    queryKey: ['leaves'],
-    queryFn: () => leaveService.getAll(),
+    queryKey: ['leaves', isHR ? 'all' : 'my'],
+    queryFn: () => isHR ? leaveService.getAll() : leaveService.getMyLeaves(),
   });
 }
 

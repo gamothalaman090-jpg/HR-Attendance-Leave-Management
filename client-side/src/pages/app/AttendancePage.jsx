@@ -153,6 +153,10 @@ export default function AttendancePage() {
       }
       setShowConfirmModal(false);
       loadPersonalData();
+    } catch (err) {
+      console.error(err);
+      alert(err.message || 'An error occurred during clock tracking.');
+      setShowConfirmModal(false);
     } finally {
       setClocking(false);
     }
