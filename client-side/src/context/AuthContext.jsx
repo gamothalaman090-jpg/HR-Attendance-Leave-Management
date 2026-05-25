@@ -20,26 +20,33 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Initialize from storage on mount
-  useEffect(() => {
-    const initAuth = async () => {
-      try {
-        const saved = localStorage.getItem('nini-user');
-        if (saved) {
-          const parsed = JSON.parse(saved);
-          if (parsed?.token) {
-            setUser(parsed);
+
+useEffect(() => {
+  const initAuth = async () => {
+    try {
+      const saved = localStorage.getItem('nini-user');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed?.token) {
+          setUser(parsed); // set immediately to avoid flash
+          
+          // Then fetch fresh data from backend
+          const freshUser = await authService.getProfile();
+          if (freshUser) {
+            setUser(freshUser);
+            setAuthSession(freshUser); // update localStorage too
           }
         }
-      } catch (err) {
-        console.error('Failed to restore auth session', err);
-        clearAuthSession();
-      } finally {
-        setIsLoading(false);
       }
-    };
-    initAuth();
-  }, []);
+    } catch (err) {
+      console.error('Failed to restore auth session', err);
+      clearAuthSession();
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  initAuth();
+}, []);
 
   const login = useCallback(async (email, password) => {
     try {

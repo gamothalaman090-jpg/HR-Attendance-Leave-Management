@@ -33,15 +33,15 @@ exports.register = async (req, res, next) => {
             return res.status(400).json({ success: false, message: 'Email already registered' });
         }     
         
-        const targetRole = role || 'user';
-        let targetCompany = company;
-        if (!targetCompany || targetCompany === 'Default Company') {
-            if (targetRole === 'admin' && fullname) {
-                targetCompany = `${fullname.trim()}'s Org`;
-            } else {
-                targetCompany = 'Default Company';
-            }
-        }
+const targetRole = role || 'admin';
+let targetCompany = company;
+if (!targetCompany || targetCompany === 'Default Company') {
+    if (targetRole === 'admin' && fullname) {
+        targetCompany = `${fullname.trim()}'s Org`;
+    } else {
+        targetCompany = 'Default Company';
+    }
+}
 
         if (targetRole === 'user') {
             const employeeCount = await User.countDocuments({

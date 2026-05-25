@@ -40,7 +40,9 @@ exports.getUserProfile = async (req, res, next) => {
                 role: user.role,
                 employmentStatus: user.employmentStatus || 'active', // FIXED: Included field addition
                 leaveBalances: user.leaveBalances,
-                onboarded: user.onboarded
+                onboarded: user.onboarded,
+                department: user.department || 'Unassigned', // FIXED: Added default value for department
+                position: user.position || 'Staff Employee' // FIXED: Added default value for position
             }
         });
     } catch (error) {
