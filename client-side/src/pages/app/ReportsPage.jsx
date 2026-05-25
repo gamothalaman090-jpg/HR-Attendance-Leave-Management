@@ -35,9 +35,6 @@ const CHART_COLORS = {
   annual: '#6366f1',
   sick: '#ef4444',
   personal: '#8b5cf6',
-  maternity: '#ec4899',
-  paternity: '#06b6d4',
-  unpaid: '#6b7280',
 };
 
 const TABS = ['attendance', 'leave'];
@@ -312,9 +309,6 @@ export default function ReportsPage() {
                       { value: 'annual', label: 'Annual' },
                       { value: 'sick', label: 'Sick' },
                       { value: 'personal', label: 'Personal' },
-                      { value: 'maternity', label: 'Maternity' },
-                      { value: 'paternity', label: 'Paternity' },
-                      { value: 'unpaid', label: 'Unpaid' },
                     ]}
                     placeholder="Filter Type"
                   />

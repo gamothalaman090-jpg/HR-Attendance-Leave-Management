@@ -37,9 +37,6 @@ export const LEAVE_TYPES = [
   { value: 'annual', label: 'Annual Leave', color: 'primary' },
   { value: 'sick', label: 'Sick Leave', color: 'danger' },
   { value: 'personal', label: 'Personal Leave', color: 'secondary' },
-  { value: 'maternity', label: 'Maternity Leave', color: 'accent' },
-  { value: 'paternity', label: 'Paternity Leave', color: 'accent' },
-  { value: 'unpaid', label: 'Unpaid Leave', color: 'warning' },
 ];
 
 /* ── Leave Status ── */

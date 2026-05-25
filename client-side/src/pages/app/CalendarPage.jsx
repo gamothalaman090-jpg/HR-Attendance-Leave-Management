@@ -12,9 +12,6 @@ const EVENT_COLORS = {
   annual: { bg: 'bg-primary/15', text: 'text-primary', dot: 'bg-primary' },
   sick: { bg: 'bg-danger/15', text: 'text-danger', dot: 'bg-danger' },
   personal: { bg: 'bg-secondary/15', text: 'text-secondary', dot: 'bg-secondary' },
-  maternity: { bg: 'bg-accent/15', text: 'text-accent', dot: 'bg-accent' },
-  paternity: { bg: 'bg-accent/15', text: 'text-accent', dot: 'bg-accent' },
-  holiday: { bg: 'bg-warning/15', text: 'text-warning', dot: 'bg-warning' },
 };
 
 /* Static company holidays */
