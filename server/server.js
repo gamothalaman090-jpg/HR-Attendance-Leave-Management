@@ -56,7 +56,19 @@ app.use('/api', globalLimiter);
 // 2. Add extra protection layer to authentication routes to stop brute-force attacks
 app.use('/api/auth', authLimiter);
 
-// --- HEALTH CHECK ---
+// --- HEALTH CHECK & ROOT ---
+app.get('/', (req, res) => {
+  res.status(200).json({
+    status: 'active',
+    message: 'Welcome to the HR Attendance & Leave Management API Service.',
+    version: '1.0.0',
+    endpoints: {
+      health: '/health',
+      api: '/api'
+    }
+  });
+});
+
 app.get('/health', (req, res) => {
   res.status(200).json({
     status: 'active',
