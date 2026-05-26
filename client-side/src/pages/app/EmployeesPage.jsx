@@ -448,6 +448,12 @@ export default function EmployeesPage() {
         employee={selectedEmployee}
         isOpen={isDetailModalOpen}
         onClose={() => setIsDetailModalOpen(false)}
+        departments={departments}
+        onUpdate={(updatedEmp) => {
+          setEmployees((prev) => prev.map((e) => (e.id === updatedEmp.id ? updatedEmp : e)));
+          setSelectedEmployee(updatedEmp);
+          fetchData();
+        }}
       />
 
       {/* CUSTOM MODAL: DELETE CONFIRMATION */}

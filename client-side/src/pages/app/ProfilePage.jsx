@@ -73,7 +73,7 @@ export default function ProfilePage() {
             <div className="grid sm:grid-cols-2 gap-4">
               {[
                 { icon: Mail, label: 'Email', value: user?.email || 'alex.rivera@nini.io' },
-                { icon: Phone, label: 'Phone', value: '+1 (555) 234-5678' },
+                { icon: Phone, label: 'Phone', value: user?.phone || 'Not provided' },
                 { icon: Building, label: 'Department', value: user?.department || 'Human Resources' },
                 { icon: Briefcase, label: 'Role', value: user?.role || 'HR Manager' },
                 { icon: Calendar, label: 'Join Date', value: formatDate(user?.joinDate || '2024-03-15') },

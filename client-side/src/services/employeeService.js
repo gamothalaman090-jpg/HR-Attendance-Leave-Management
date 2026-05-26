@@ -19,6 +19,10 @@ const mapEmployee = (emp) => {
     status = 'on-leave';
   }
 
+  const annual = typeof emp.leaveBalances?.annual === 'number' ? emp.leaveBalances.annual : (emp.leaveBalances?.annual?.left ?? 20);
+  const sick = typeof emp.leaveBalances?.sick === 'number' ? emp.leaveBalances.sick : (emp.leaveBalances?.sick?.left ?? 10);
+  const personal = typeof emp.leaveBalances?.personal === 'number' ? emp.leaveBalances.personal : (emp.leaveBalances?.personal?.left ?? 5);
+
   return {
     id: emp._id,
     name: emp.fullname,
@@ -29,9 +33,14 @@ const mapEmployee = (emp) => {
     status,
     todayStatus: emp.todayStatus || 'Absent',
     joinDate: emp.createdAt ? emp.createdAt.split('T')[0] : new Date().toISOString().split('T')[0],
-    annualBalance: emp.leaveBalances?.annual ?? 20,
-    sickBalance: emp.leaveBalances?.sick ?? 10,
-    personalBalance: emp.leaveBalances?.personal ?? 5
+    leaveBalance: {
+      annual,
+      sick,
+      personal
+    },
+    annualBalance: annual,
+    sickBalance: sick,
+    personalBalance: personal
   };
 };
 
@@ -136,6 +145,32 @@ export const employeeService = {
   async reject(id) {
     await api.put(`/admin/users/${id}/reject`);
     return true;
+  },
+
+  /** Update an existing employee */
+  async update(id, employeeData) {
+    const res = await api.put(`/admin/users/${id}`, {
+      fullname: employeeData.name,
+      email: employeeData.email,
+      department: employeeData.department,
+      position: employeeData.role,
+      phone: employeeData.phone,
+      leaveBalances: {
+        annual: {
+            allotted: employeeData.annualBalance || 20,
+            left: employeeData.annualBalance || 20
+        },
+        sick: {
+            allotted: employeeData.sickBalance || 12,
+            left: employeeData.sickBalance || 12
+        },
+        personal: {
+            allotted: employeeData.personalBalance || 7,
+            left: employeeData.personalBalance || 7
+        }
+      }
+    });
+    return mapEmployee(res.data.data);
   }
 };
 

@@ -318,6 +318,19 @@ exports.updateProfile = async (req, res, next) => {
         }
 
         if (req.body.fullname) user.fullname = req.body.fullname;
+        if (req.body.phone !== undefined) user.phone = req.body.phone;
+        if (req.body.department !== undefined && req.user.role === 'admin') {
+            user.department = req.body.department;
+        }
+
+        if (req.body.email && req.body.email !== user.email) {
+            const emailExists = await User.findOne({ email: req.body.email });
+            if (emailExists) {
+                return res.status(400).json({ success: false, message: 'Email is already in use by another user' });
+            }
+            user.email = req.body.email;
+        }
+
         if (req.file && req.file.path) {
             user.profilePicture = req.file.path;
         }
@@ -341,8 +354,13 @@ exports.updateProfile = async (req, res, next) => {
                 id: user._id,
                 fullname: user.fullname,
                 email: user.email,
+                phone: user.phone || '',
                 profilePicture: user.profilePicture,
-                role: user.role
+                role: user.role,
+                company: user.company,
+                department: user.department,
+                position: user.position,
+                onboarded: user.onboarded
             }
         });
     } catch (error) {

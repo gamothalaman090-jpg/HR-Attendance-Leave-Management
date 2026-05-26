@@ -27,6 +27,7 @@ const {
     deletePayrollEntry ,
     handleNotifications,
     createEmployee,
+    updateEmployee,
     deleteEmployee,
     approveEmployee,
     rejectEmployee,
@@ -72,6 +73,7 @@ router.route('/users')
     .post(createEmployee); 
 
 router.route('/users/:id')
+    .put(updateEmployee)
     .delete(deleteEmployee);
 
 router.route('/users/:id/approve')

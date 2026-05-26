@@ -43,11 +43,11 @@ const getLocalDateString = (date) => {
 
 exports.getAdminAnnouncements = async (req, res) => {
     try {
-        const adminId = req.user.id; 
-        
+        const adminId = req.user.id;
+
         // FIX: Swapped 'name' for 'fullname' to match the actual User schema property
         const announcements = await Announcement.find({ author: adminId, company: req.user.company })
-            .populate('author', 'fullname profilePicture') 
+            .populate('author', 'fullname profilePicture')
             .sort({ createdAt: -1 });
 
         return res.status(200).json({
@@ -87,7 +87,7 @@ exports.createAnnouncement = async (req, res, next) => {
             title,
             content,
             category: category ? category.toLowerCase() : 'general',
-            eventDate: eventDate || null, 
+            eventDate: eventDate || null,
             author: adminId,
             company: req.user.company
         });
@@ -206,8 +206,8 @@ exports.getAllLeaveRequests = async (req, res, next) => {
 exports.reviewLeaveRequest = async (req, res, next) => {
     try {
         const leaveId = req.params.id;
-        const adminId = req.user.id; 
-        const { action } = req.body; 
+        const adminId = req.user.id;
+        const { action } = req.body;
 
         if (!action || !['approved', 'declined'].includes(action)) {
             return res.status(400).json({ success: false, message: "Please provide a valid action ('approved' or 'declined')" });
@@ -224,9 +224,9 @@ exports.reviewLeaveRequest = async (req, res, next) => {
         }
 
         if (leave.status !== 'pending') {
-            return res.status(400).json({ 
-                success: false, 
-                message: `This leave request has already been ${leave.status}` 
+            return res.status(400).json({
+                success: false,
+                message: `This leave request has already been ${leave.status}`
             });
         }
 
@@ -262,7 +262,7 @@ exports.reviewLeaveRequest = async (req, res, next) => {
         );
 
         const statusHeader = action === 'approved' ? 'Leave Request Approved' : 'Leave Request Rejected';
-        const statusMsg = action === 'approved' 
+        const statusMsg = action === 'approved'
             ? `Your request for ${leave.leaveType} Leave starting ${new Date(leave.startDate).toLocaleDateString()} has been approved.`
             : `Your request for ${leave.leaveType} Leave has been declined by administration.`;
 
@@ -288,8 +288,8 @@ exports.reviewLeaveRequest = async (req, res, next) => {
 
 exports.getAllEmployees = async (req, res, next) => {
     try {
-        const employees = await User.find({ 
-            role: 'user', 
+        const employees = await User.find({
+            role: 'user',
             employmentStatus: { $ne: 'terminated' },
             company: req.user.company
         }).select('-password').lean();
@@ -340,7 +340,7 @@ exports.getAllEmployees = async (req, res, next) => {
 
             const firstClockIn = sortedInLogs[0];
             const shiftThreshold = new Date(firstClockIn.timestamp);
-            shiftThreshold.setHours(9, 0, 0, 0); 
+            shiftThreshold.setHours(9, 0, 0, 0);
 
             if (new Date(firstClockIn.timestamp) > shiftThreshold) {
                 return { ...employee, todayStatus: 'Late' };
@@ -465,7 +465,7 @@ exports.overrideAttendance = async (req, res, next) => {
 exports.getEmployeeAnalytics = async (req, res, next) => {
     try {
         const { employeeId } = req.params;
-        
+
         const employee = await User.findOne({ _id: employeeId, company: req.user.company }).select('-password').lean();
         if (!employee) {
             return res.status(404).json({ success: false, message: 'Employee not found in your organization' });
@@ -494,8 +494,8 @@ exports.getEmployeeAnalytics = async (req, res, next) => {
         const totalHoursWorked = Number((totalMinutesWorked / 60).toFixed(1));
         const daysPresentCount = uniqueDaysPresent.size;
 
-        const avgHoursPerDay = daysPresentCount > 0 
-            ? Number((totalHoursWorked / daysPresentCount).toFixed(1)) 
+        const avgHoursPerDay = daysPresentCount > 0
+            ? Number((totalHoursWorked / daysPresentCount).toFixed(1))
             : 0;
 
         const employeeCreatedAt = new Date(employee.createdAt || new Date());
@@ -512,8 +512,8 @@ exports.getEmployeeAnalytics = async (req, res, next) => {
             loopDate.setDate(loopDate.getDate() + 1);
         }
 
-        const attendanceRate = expectedWorkDays > 0 
-            ? Math.min(100, Math.round((daysPresentCount / expectedWorkDays) * 100)) 
+        const attendanceRate = expectedWorkDays > 0
+            ? Math.min(100, Math.round((daysPresentCount / expectedWorkDays) * 100))
             : 100;
 
         return res.status(200).json({
@@ -729,15 +729,17 @@ exports.deletePayrollEntry = async (req, res, next) => {
 
 // --- SINGLE CONSOLIDATED NOTIFICATION CONTROLLER PIPELINE ---
 
-exports.handleNotifications = async (req, res, next) => {
+exports.handleNotifications = async (req, res, next, recipientId, company) => {
     if (typeof req === 'string') {
-        const [type, title, message, recipientId, company] = [req, res, next, arguments[3], arguments[4]];
+        const type = req;
+        const title = res;
+        const message = next;
         try {
-            await Notification.create({ 
-                type, 
-                title, 
+            await Notification.create({
+                type,
+                title,
                 message,
-                recipient: recipientId || null, 
+                recipient: recipientId || null,
                 company: company || 'Default Company'
             });
             return;
@@ -747,11 +749,18 @@ exports.handleNotifications = async (req, res, next) => {
     }
 
     try {
-        const feed = await Notification.find({ company: req.user.company }).sort({ createdAt: -1 }).limit(20);
-        return res.status(200).json({ 
-            success: true, 
+        const query = { company: req.user.company };
+        if (req.user.role !== 'admin') {
+            query.$or = [
+                { recipient: null },
+                { recipient: req.user.id }
+            ];
+        }
+        const feed = await Notification.find(query).sort({ createdAt: -1 }).limit(20);
+        return res.status(200).json({
+            success: true,
             count: feed.length,
-            data: feed 
+            data: feed
         });
     } catch (error) {
         if (next) next(error);
@@ -762,7 +771,7 @@ exports.handleNotifications = async (req, res, next) => {
 
 exports.createEmployee = async (req, res, next) => {
     try {
-        const { fullname, email, password, department, position } = req.body;
+        const { fullname, email, password, department, position, phone } = req.body;
         if (!email || !fullname) {
             return res.status(400).json({ success: false, message: 'Please provide name and email' });
         }
@@ -792,10 +801,71 @@ exports.createEmployee = async (req, res, next) => {
             company: req.user.company,
             department: department || 'Unassigned',
             position: position || 'Staff Employee',
+            phone: phone || '',
             employmentStatus: 'active',
             onboarded: true
         });
         res.status(201).json({ success: true, data: user });
+    } catch (error) {
+        next(error);
+    }
+};
+
+exports.updateEmployee = async (req, res, next) => {
+    try {
+        const { fullname, email, department, position, phone, leaveBalances } = req.body;
+        const employee = await User.findOne({ _id: req.params.id, company: req.user.company });
+
+        if (!employee) {
+            return res.status(404).json({ success: false, message: 'Employee not found' });
+        }
+
+        if (email && email !== employee.email) {
+            const emailExists = await User.findOne({ email });
+            if (emailExists) {
+                return res.status(400).json({ success: false, message: 'Email is already taken by another user' });
+            }
+            employee.email = email;
+        }
+
+        if (fullname) employee.fullname = fullname;
+        if (department) employee.department = department;
+        if (position) employee.position = position;
+        if (phone !== undefined) employee.phone = phone;
+
+        if (leaveBalances) {
+            employee.leaveBalances = {
+                annual: {
+                    allotted: leaveBalances.annual?.allotted ?? employee.leaveBalances?.annual?.allotted ?? 20,
+                    left: leaveBalances.annual?.left ?? employee.leaveBalances?.annual?.left ?? 20
+                },
+                sick: {
+                    allotted: leaveBalances.sick?.allotted ?? employee.leaveBalances?.sick?.allotted ?? 12,
+                    left: leaveBalances.sick?.left ?? employee.leaveBalances?.sick?.left ?? 12
+                },
+                personal: {
+                    allotted: leaveBalances.personal?.allotted ?? employee.leaveBalances?.personal?.allotted ?? 7,
+                    left: leaveBalances.personal?.left ?? employee.leaveBalances?.personal?.left ?? 7
+                }
+            };
+        }
+
+        await employee.save();
+
+        await createAuditLog(
+            req.user.id,
+            'profile_update',
+            `Admin updated profile of employee ${employee.fullname} (ID: ${employee._id})`,
+            req,
+            'INFO',
+            'SYSTEM'
+        );
+
+        return res.status(200).json({
+            success: true,
+            message: 'Employee updated successfully',
+            data: employee
+        });
     } catch (error) {
         next(error);
     }
@@ -995,18 +1065,18 @@ exports.teamCreate = async (req, res, next) => {
             company: companyId,
             department: emp.department?.trim() || 'Unassigned',
             position: emp.position?.trim() || 'Staff Employee',
-            employmentStatus: 'active', 
+            employmentStatus: 'active',
             onboarded: true,
-            
+
             // Flags to handle granular setups later in the Management Tab
-            isProfileConfigured: false, 
-            mustChangePassword: true    
+            isProfileConfigured: false,
+            mustChangePassword: true
         }));
 
         // FIX Part A: Check for duplicate emails inside the incoming array itself
         const emailsToImport = preparedEmployees.map(e => e.email);
         const internalDuplicates = emailsToImport.filter((email, index) => emailsToImport.indexOf(email) !== index);
-        
+
         if (internalDuplicates.length > 0) {
             return res.status(400).json({
                 success: false,

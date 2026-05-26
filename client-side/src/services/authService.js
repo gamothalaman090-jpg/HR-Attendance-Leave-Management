@@ -21,6 +21,7 @@ export const authService = {
         company: data.company,
         department: data.department || 'Unassigned',
         position: data.position || 'Staff Employee',
+        phone: data.phone || '',
         onboarded: data.onboarded,
         token,
       };
@@ -54,6 +55,7 @@ export const authService = {
         company: data.company,
         department: data.department || 'Unassigned',
         position: data.position || 'Staff Employee',
+        phone: data.phone || '',
         onboarded: data.onboarded,
         token,
       };
@@ -79,6 +81,7 @@ export const authService = {
         company: data.company,
         department: data.department || 'Unassigned',
         position: data.position || 'Staff Employee',
+        phone: data.phone || '',
         onboarded: data.onboarded,
         token,
       };
@@ -109,6 +112,7 @@ export const authService = {
         company: data.company,
         department: data.department || 'Unassigned',
         position: data.position || 'Staff Employee',
+        phone: data.phone || '',
         onboarded: data.onboarded,
         token,
       };
@@ -170,6 +174,7 @@ export const authService = {
         company: data.company,
         department: data.department,
         position: data.position,
+        phone: data.phone || '',
         onboarded: data.onboarded,
         token,
       };

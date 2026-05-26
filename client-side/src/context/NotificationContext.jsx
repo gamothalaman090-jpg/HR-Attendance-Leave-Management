@@ -27,9 +27,9 @@ export function NotificationProvider({ children }) {
 
     try {
       // Admin gets notifications from /admin/notifications
-      // Regular users get notifications too (if endpoint exists)
+      // Regular users get notifications from /user/notifications
       const isAdmin = user.role === 'admin';
-      const endpoint = isAdmin ? '/admin/notifications' : '/admin/notifications';
+      const endpoint = isAdmin ? '/admin/notifications' : '/user/notifications';
 
       const { data: res } = await api.get(endpoint);
       const items = (res.data || []).map(mapNotification);

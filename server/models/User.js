@@ -57,6 +57,10 @@ const userSchema = new mongoose.Schema({
         trim: true,
         default: 'Staff Employee'
     },
+    phone: {
+        type: String,
+        default: ''
+    },
     employmentStatus: {
         type: String,
         enum: ['pending', 'active', 'inactive', 'suspended', 'terminated'],
