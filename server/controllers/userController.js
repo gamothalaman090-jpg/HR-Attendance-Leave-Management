@@ -37,7 +37,9 @@ exports.getUserProfile = async (req, res, next) => {
                 id: user._id,
                 fullname: user.fullname,
                 email: user.email,
+                phone: user.phone || '',
                 role: user.role,
+                profilePicture: user.profilePicture || '',
                 employmentStatus: user.employmentStatus || 'active', // FIXED: Included field addition
                 leaveBalances: user.leaveBalances,
                 onboarded: user.onboarded,

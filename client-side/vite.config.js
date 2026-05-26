@@ -43,6 +43,9 @@ export default defineConfig({
   server: {
     port: 5173,
     open: true,
+      headers: {
+    'Content-Security-Policy': "img-src 'self' data: https: blob:",
+  },
   },
   build: {
     rollupOptions: {

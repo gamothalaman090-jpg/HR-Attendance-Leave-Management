@@ -42,6 +42,11 @@ export default function AdminLayout() {
     setMobileMenuOpen(false);
   }, [location.pathname]);
 
+const getAvatarUrl = (profilePicture) => {
+  if (!profilePicture) return null;
+  const base = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+  return profilePicture.startsWith('http') ? profilePicture : `${base}/${profilePicture}`;
+};
   return (
     <div className="min-h-screen flex bg-bg transition-colors duration-base">
       {/* ── Desktop Sidebar ── */}
@@ -205,9 +210,17 @@ export default function AdminLayout() {
 
             {/* User avatar */}
             <div className="flex items-center gap-2 p-1.5 rounded-[10px]">
-              <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-white text-body-sm font-bold">
-                {user?.name?.charAt(0) || <User size={16} />}
-              </div>
+<div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-white text-body-sm font-bold overflow-hidden">
+  {user?.profilePicture ? (
+    <img
+   src={getAvatarUrl(user.profilePicture)}
+      alt={user.name}
+      className="w-full h-full object-cover"
+    />
+  ) : (
+    user?.name?.charAt(0) || <User size={16} />
+  )}
+</div>
               <span className="hidden sm:block text-body-sm font-medium text-text">
                 {user?.name || 'Superadmin'}
               </span>

@@ -51,9 +51,17 @@ export default function ProfilePage() {
       {/* Profile Header */}
       <div className="bg-surface border border-border rounded-[16px] p-6 mb-6">
         <div className="flex flex-col sm:flex-row items-center sm:items-start gap-5">
-          <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center text-primary text-h2 font-bold shrink-0">
-            {getInitials(user?.name)}
-          </div>
+<div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center text-primary text-h2 font-bold shrink-0 overflow-hidden">
+  {user?.profilePicture ? (
+    <img
+     src={user.profilePicture.startsWith('http') ? user.profilePicture : `${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/${user.profilePicture}`}
+      alt={user.name}
+      className="w-full h-full object-cover"
+    />
+  ) : (
+    getInitials(user?.name)
+  )}
+</div>
           <div className="text-center sm:text-left flex-1">
             <h1 className="font-heading text-h2 font-bold mb-1">{user?.name || 'Alex Rivera'}</h1>
             <p className="text-body text-text-muted mb-3">{user?.role || 'HR Manager'} · {user?.department || 'Human Resources'}</p>

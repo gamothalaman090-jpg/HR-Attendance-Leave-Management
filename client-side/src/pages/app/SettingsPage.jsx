@@ -42,6 +42,7 @@ export default function SettingsPage() {
     email: user?.email || '',
     phone: user?.phone || '',
     department: user?.department || 'Unassigned',
+    profilePicture: user?.profilePicture || '',
   });
 
   const [notifications, setNotifications] = useState({
@@ -64,6 +65,15 @@ export default function SettingsPage() {
   const [errorMsg, setErrorMsg] = useState('');
   const [departments, setDepartments] = useState([]);
 
+
+ const getAvatarUrl = (profilePicture) => {
+  if (!profilePicture) return null;
+  const base = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+  return profilePicture.startsWith('http')
+    ? profilePicture
+    : `${base}/${profilePicture}`;
+};
+
   useEffect(() => {
     if (user?.role === 'admin') {
       employeeService.getDepartments()
@@ -81,11 +91,12 @@ export default function SettingsPage() {
         department: user.department || 'Unassigned',
       });
       // Setup avatar preview if existing
-      if (user.profilePicture) {
-        const fullUrl = user.profilePicture.startsWith('http') 
-          ? user.profilePicture 
-          : `http://localhost:5000/${user.profilePicture}`;
-        setAvatarPreviewUrl(fullUrl);
+if (user.profilePicture) {
+  const base = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+  const fullUrl = user.profilePicture.startsWith('http')
+    ? user.profilePicture
+    : `${base}/${user.profilePicture}`;
+  setAvatarPreviewUrl(fullUrl);
       } else {
         setAvatarPreviewUrl('');
       }
@@ -96,14 +107,17 @@ export default function SettingsPage() {
     fileInputRef.current?.click();
   };
 
-  const handleAvatarChange = (e) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setSelectedAvatarFile(file);
-      const localUrl = URL.createObjectURL(file);
-      setAvatarPreviewUrl(localUrl);
-    }
+const handleAvatarChange = (e) => {
+  const file = e.target.files?.[0];
+  if (!file) return;
+  setSelectedAvatarFile(file);
+
+  const reader = new FileReader();
+  reader.onload = (event) => {
+    setAvatarPreviewUrl(event.target.result); // data:image/... — allowed by CSP
   };
+  reader.readAsDataURL(file);
+};
 
   const handleSaveProfile = async (e) => {
     e.preventDefault();
