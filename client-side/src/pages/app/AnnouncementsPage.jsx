@@ -11,7 +11,7 @@ export default function AnnouncementsPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('All');
-  
+
   // Modal state
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newAnnouncement, setNewAnnouncement] = useState({ title: '', content: '', category: 'General', priority: 'normal' });
@@ -62,40 +62,40 @@ export default function AnnouncementsPage() {
   };
 
   const getCategoryColor = (category) => {
-    switch(category) {
-      case 'Urgent': return 'bg-danger/10 text-danger border-danger/20';
-      case 'Event': return 'bg-success/10 text-success border-success/20';
-      case 'Operations': return 'bg-warning/10 text-warning border-warning/20';
+    switch (category?.toLowerCase()) {
+      case 'urgent': return 'bg-danger/10 text-danger border-danger/20';
+      case 'event': return 'bg-success/10 text-success border-success/20';
+      case 'operations': return 'bg-warning/10 text-warning border-warning/20';
       default: return 'bg-primary/10 text-primary border-primary/20';
     }
   };
 
-const getAuthorName = (authorData) => {
-  if (typeof authorData === 'string' && authorData.trim() !== '') {
-    return authorData;
-  }
-  
-  if (typeof authorData === 'object' && authorData !== null) {
-    // 1. Check 'fullname' first since your backend query now explicitly selects it
-    if (typeof authorData.fullname === 'string' && authorData.fullname.trim() !== '') {
-      return authorData.fullname;
+  const getAuthorName = (authorData) => {
+    if (typeof authorData === 'string' && authorData.trim() !== '') {
+      return authorData;
     }
-    // 2. Check 'name' explicitly next
-    if (typeof authorData.name === 'string' && authorData.name.trim() !== '') {
-      return authorData.name;
+
+    if (typeof authorData === 'object' && authorData !== null) {
+      // 1. Check 'fullname' first since your backend query now explicitly selects it
+      if (typeof authorData.fullname === 'string' && authorData.fullname.trim() !== '') {
+        return authorData.fullname;
+      }
+      // 2. Check 'name' explicitly next
+      if (typeof authorData.name === 'string' && authorData.name.trim() !== '') {
+        return authorData.name;
+      }
+      // 3. Check 'username' fallback
+      if (typeof authorData.username === 'string' && authorData.username.trim() !== '') {
+        return authorData.username;
+      }
     }
-    // 3. Check 'username' fallback
-    if (typeof authorData.username === 'string' && authorData.username.trim() !== '') {
-      return authorData.username;
-    }
-  }
-  
-  return 'System Admin';
-};
+
+    return 'System Admin';
+  };
 
   // Filter logic
   const filteredAnnouncements = announcements.filter((item) => {
-    if (categoryFilter !== 'All' && item.category !== categoryFilter) return false;
+    if (categoryFilter !== 'All' && item.category?.toLowerCase() !== categoryFilter.toLowerCase()) return false;
     if (search) {
       const q = search.toLowerCase();
       const authorString = getAuthorName(item.author);
@@ -120,9 +120,9 @@ const getAuthorName = (authorData) => {
           </h1>
           <p className="text-body text-text-muted mt-2">Stay updated with the latest corporate news, events, and circulars.</p>
         </div>
-        
+
         {isHighRanking && (
-          <Button 
+          <Button
             onClick={() => setIsModalOpen(true)}
             leftIcon={<Plus size={18} />}
           >
@@ -167,8 +167,8 @@ const getAuthorName = (authorData) => {
           <Bell className="mx-auto text-text-muted/50 mb-4" size={48} />
           <h3 className="text-h3 font-heading font-bold text-text mb-2">No announcements found</h3>
           <p className="text-text-muted">
-            {search || categoryFilter !== 'All' 
-              ? 'Try modifying your search queries or category filters.' 
+            {search || categoryFilter !== 'All'
+              ? 'Try modifying your search queries or category filters.'
               : 'Check back later for updates from your team.'}
           </p>
         </div>
@@ -185,22 +185,22 @@ const getAuthorName = (authorData) => {
                     <span className="text-[10px] font-bold text-danger uppercase">Priority</span>
                   </div>
                 )}
-                
+
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex-1">
                     <div className="flex items-center gap-3 mb-3">
                       <span className={`px-3 py-1 rounded-full text-xs font-bold border ${getCategoryColor(item.category)}`}>
-                        {item.category}
+                        {item.category ? item.category.charAt(0).toUpperCase() + item.category.slice(1) : ''}
                       </span>
                       <span className="text-caption text-text-muted flex items-center gap-1">
                         <Calendar size={14} />
                         {new Date(item.date).toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
                       </span>
                     </div>
-                    
+
                     <h3 className="text-h3 font-heading font-bold text-text mb-3">{item.title}</h3>
                     <p className="text-body text-text-muted whitespace-pre-wrap leading-relaxed">{item.content}</p>
-                    
+
                     <div className="mt-6 flex items-center gap-3">
                       <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-sm">
                         {initial}
@@ -212,7 +212,7 @@ const getAuthorName = (authorData) => {
                   </div>
 
                   {isHighRanking && (
-                    <button 
+                    <button
                       onClick={() => handleDelete(item.id)}
                       className="opacity-0 group-hover:opacity-100 p-2 text-text-muted hover:text-danger hover:bg-danger/10 rounded-full transition-all duration-200 cursor-pointer"
                       title="Delete Announcement"
@@ -230,19 +230,19 @@ const getAuthorName = (authorData) => {
       {/* Creation Modal */}
       <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Create Announcement" size="lg">
         <form onSubmit={handleCreate} className="space-y-4 pt-2">
-          <Input 
+          <Input
             required
             label="Title"
             value={newAnnouncement.title}
-            onChange={e => setNewAnnouncement({...newAnnouncement, title: e.target.value})}
+            onChange={e => setNewAnnouncement({ ...newAnnouncement, title: e.target.value })}
             placeholder="e.g. Q3 Townhall Meeting"
           />
 
           <div className="grid grid-cols-2 gap-4">
-            <Select 
+            <Select
               label="Category"
               value={newAnnouncement.category}
-              onChange={e => setNewAnnouncement({...newAnnouncement, category: e.target.value})}
+              onChange={e => setNewAnnouncement({ ...newAnnouncement, category: e.target.value })}
               options={[
                 { value: 'General', label: 'General' },
                 { value: 'Event', label: 'Event' },
@@ -250,10 +250,10 @@ const getAuthorName = (authorData) => {
                 { value: 'Urgent', label: 'Urgent' },
               ]}
             />
-            <Select 
+            <Select
               label="Priority"
               value={newAnnouncement.priority}
-              onChange={e => setNewAnnouncement({...newAnnouncement, priority: e.target.value})}
+              onChange={e => setNewAnnouncement({ ...newAnnouncement, priority: e.target.value })}
               options={[
                 { value: 'normal', label: 'Normal' },
                 { value: 'high', label: 'High' },
@@ -261,25 +261,25 @@ const getAuthorName = (authorData) => {
             />
           </div>
 
-          <Textarea 
+          <Textarea
             required
             label="Content"
             value={newAnnouncement.content}
-            onChange={e => setNewAnnouncement({...newAnnouncement, content: e.target.value})}
+            onChange={e => setNewAnnouncement({ ...newAnnouncement, content: e.target.value })}
             placeholder="Write your announcement details here..."
             rows={5}
           />
 
           <div className="pt-4 border-t border-border flex justify-end gap-3 mt-6">
-            <Button 
-              type="button" 
+            <Button
+              type="button"
               variant="secondary"
               onClick={() => setIsModalOpen(false)}
             >
               Cancel
             </Button>
-            <Button 
-              type="submit" 
+            <Button
+              type="submit"
             >
               Publish Announcement
             </Button>
