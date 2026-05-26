@@ -9,6 +9,15 @@ import {
 } from 'lucide-react';
 import { cn } from '@/utils/helpers';
 
+/* Hide native browser password-reveal toggle (Edge / Chrome eye icon) */
+const hidePasswordRevealCSS = `
+  input[type="password"]::-ms-reveal,
+  input[type="password"]::-ms-clear,
+  input[type="password"]::-webkit-credentials-auto-fill-button {
+    display: none !important;
+  }
+`;
+
 const SECTIONS = [
   { id: 'profile', label: 'Profile', icon: User },
   { id: 'notifications', label: 'Notifications', icon: Bell },
@@ -61,6 +70,7 @@ export default function SettingsPage() {
   return (
     <div className="p-6 md:p-8 max-w-5xl mx-auto">
       <Meta title="Settings" />
+      <style dangerouslySetInnerHTML={{ __html: hidePasswordRevealCSS }} />
       <div className="mb-6">
         <h1 className="font-heading text-h2 font-bold mb-1">Settings</h1>
         <p className="text-text-muted text-body">Configure your workspace preferences.</p>

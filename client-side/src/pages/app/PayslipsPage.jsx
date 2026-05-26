@@ -86,10 +86,10 @@ export default function PayslipsPage() {
             visibility: hidden;
           }
           #printable-payslip, #printable-payslip * {
-            visibility: visible;
+            visibility: visible !important;
           }
           #printable-payslip {
-            position: absolute;
+            position: fixed;
             left: 0;
             top: 0;
             width: 100%;
@@ -98,6 +98,7 @@ export default function PayslipsPage() {
             color: black !important;
             border: none !important;
             box-shadow: none !important;
+            z-index: 99999;
           }
           .no-print {
             display: none !important;
@@ -194,7 +195,6 @@ export default function PayslipsPage() {
         onClose={() => setSelectedPayslip(null)} 
         title="View Payslip Statement" 
         size="xl"
-        className="no-print"
         footer={
           <div className="flex gap-2">
             <Button

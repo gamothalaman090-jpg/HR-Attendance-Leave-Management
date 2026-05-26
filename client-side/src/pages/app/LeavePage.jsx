@@ -31,13 +31,13 @@ const STATUS_FILTER = [
   { value: 'all', label: 'All Status' },
   { value: 'pending', label: 'Pending' },
   { value: 'approved', label: 'Approved' },
-  { value: 'rejected', label: 'Rejected' },
+  { value: 'declined', label: 'Declined' },
 ];
 
 const BADGE_VARIANT = {
   pending: 'warning',
   approved: 'success',
-  rejected: 'danger',
+  declined: 'danger',
   cancelled: 'default',
 };
 
@@ -197,9 +197,9 @@ export default function LeavePage() {
   /* ── Balance cards ── */
   const balanceCards = balance
     ? [
-      { label: 'Annual', used: balance.annual.used, total: balance.annual.total, remaining: balance.annual.remaining, color: 'primary' },
-      { label: 'Sick', used: balance.sick.used, total: balance.sick.total, remaining: balance.sick.remaining, color: 'danger' },
-      { label: 'Personal', used: balance.personal.used, total: balance.personal.total, remaining: balance.personal.remaining, color: 'secondary' },
+      { label: 'Annual', used: balance.annual.used, total: balance.annual.total, remaining: balance.annual.left, color: 'primary' },
+      { label: 'Sick', used: balance.sick.used, total: balance.sick.total, remaining: balance.sick.left, color: 'danger' },
+      { label: 'Personal', used: balance.personal.used, total: balance.personal.total, remaining: balance.personal.left, color: 'secondary' },
     ]
     : [];
 
@@ -563,7 +563,7 @@ export default function LeavePage() {
                     </div>
                   )}
 
-                  {selectedLeave.status === 'rejected' && (
+                  {selectedLeave.status === 'declined' && (
                     <div className="relative flex gap-4">
                       <div className="w-8 h-8 rounded-full bg-surface ring-4 ring-surface flex items-center justify-center shrink-0 z-10 relative">
                         <div className="absolute inset-0 rounded-full bg-danger/10"></div>
