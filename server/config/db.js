@@ -1,11 +1,11 @@
 /**
  * Name: db.js
- * Purpose: Configures the MongoDB connection.
+ * Purpose: Configures the MongoDB connection with serverless-safe caching.
  * Dependencies: mongoose
  * Author: Ian
  * Location: server/config/db.js
  * Created: 2026-05-15
- * Last Updated: 2026-05-15
+ * Last Updated: 2026-05-26
  */
 
 const mongoose = require('mongoose');
@@ -18,23 +18,48 @@ try {
   console.warn('Warning: Could not set custom DNS servers:', err.message);
 }
 
+// Cache connection across serverless invocations
+let cached = global.mongoose;
+if (!cached) {
+  cached = global.mongoose = { conn: null, promise: null };
+}
+
 const connectDB = async () => {
   if (!process.env.MONGODB_URI) {
-    console.error('CRITICAL ERROR: MONGODB_URI is not defined in environment variables!');
+    console.error('CRITICAL ERROR: MONGODB_URI is not defined!');
     return;
   }
-  try {
-    const conn = await mongoose.connect(process.env.MONGODB_URI, {
-      family: 4,
-    });
-    console.log(`MongoDB Connected: ${conn.connection.host}`);
-  } catch (err) {
-    console.error(`MongoDB Connection Error: ${err.message}`);
-    // Do not call process.exit(1) in production/serverless environments as it crashes Vercel's wrapper.
-    if (process.env.NODE_ENV !== 'production') {
-      process.exit(1);
-    }
+
+  // Reuse existing connection
+  if (cached.conn) {
+    console.log('MongoDB: reusing existing connection');
+    return cached.conn;
   }
+
+  // Wait for in-progress connection
+  if (!cached.promise) {
+    cached.promise = mongoose
+      .connect(process.env.MONGODB_URI, {
+        family: 4,
+        bufferCommands: false,
+        serverSelectionTimeoutMS: 5000,
+        socketTimeoutMS: 8000,
+        connectTimeoutMS: 5000,
+        maxPoolSize: 10,
+      })
+      .then((conn) => {
+        console.log(`MongoDB Connected: ${conn.connection.host}`);
+        return conn;
+      })
+      .catch((err) => {
+        cached.promise = null; // reset so next request retries
+        console.error(`MongoDB Connection Error: ${err.message}`);
+        throw err;
+      });
+  }
+
+  cached.conn = await cached.promise;
+  return cached.conn;
 };
 
 module.exports = connectDB;
