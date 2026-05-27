@@ -60,4 +60,6 @@ const logSchema = new mongoose.Schema({
     timestamps: true
 });
 
+logSchema.index({ createdAt: -1 });
+
 module.exports = mongoose.model('Log', logSchema);

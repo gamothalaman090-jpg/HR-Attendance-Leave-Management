@@ -41,4 +41,7 @@ const LeaveSchema = new mongoose.Schema({
     }
 }, { timestamps: true });
 
+LeaveSchema.index({ user: 1, status: 1 });
+LeaveSchema.index({ startDate: 1, endDate: 1 });
+
 module.exports = mongoose.model('Leave', LeaveSchema);

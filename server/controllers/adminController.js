@@ -178,7 +178,8 @@ exports.getAllLeaveRequests = async (req, res, next) => {
         const users = await User.find({ company: req.user.company }).select('_id');
         const userIds = users.map(u => u._id);
 
-        await Leave.updateMany(
+        // Run deactivation asynchronously in the background so it doesn't block the GET response latency
+        Leave.updateMany(
             {
                 status: 'pending',
                 startDate: { $lt: today },
@@ -187,7 +188,7 @@ exports.getAllLeaveRequests = async (req, res, next) => {
             {
                 $set: { status: 'declined' }
             }
-        );
+        ).catch(err => console.error('💥 Expired leaves auto-decline failed:', err.message));
 
         const requests = await Leave.find({ user: { $in: userIds } })
             .populate('user', 'fullname email role department position')

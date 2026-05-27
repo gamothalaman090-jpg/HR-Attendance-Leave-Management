@@ -9,14 +9,19 @@
  */
 
 const mongoose = require('mongoose');
-const dns = require('dns');
 
-dns.setDefaultResultOrder('ipv4first');
-try {
-  dns.setServers(['8.8.8.8', '8.8.4.4']);
-} catch (err) {
-  console.warn('Warning: Could not set custom DNS servers:', err.message);
+// Conditionally apply DNS server configuration for local development (not on Vercel)
+if (!process.env.VERCEL) {
+  try {
+    const dns = require('dns');
+    dns.setDefaultResultOrder('ipv4first');
+    dns.setServers(['8.8.8.8', '8.8.4.4']);
+    console.log('Local environment: DNS servers configured to Google Public DNS.');
+  } catch (err) {
+    console.warn('Warning: Could not set custom DNS servers:', err.message);
+  }
 }
+
 
 const connectDB = async () => {
   if (!process.env.MONGODB_URI) {

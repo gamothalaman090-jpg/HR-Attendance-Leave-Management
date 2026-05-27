@@ -89,7 +89,7 @@ export default function CalendarPage() {
     });
 
     return map;
-  }, []);
+  }, [leaveRequests]);
 
   /* ── Selected day events ── */
   const selectedDateStr = selectedDay

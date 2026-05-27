@@ -40,5 +40,6 @@ const attendanceSchema = new mongoose.Schema({
 
 
 attendanceSchema.index({ user: 1, date: 1 });
+attendanceSchema.index({ user: 1, timestamp: 1 });
 
 module.exports = mongoose.model('Attendance', attendanceSchema);
