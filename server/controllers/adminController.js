@@ -730,11 +730,16 @@ exports.deletePayrollEntry = async (req, res, next) => {
 
 // --- SINGLE CONSOLIDATED NOTIFICATION CONTROLLER PIPELINE ---
 
-exports.handleNotifications = async (req, res, next, recipientId, company) => {
+exports.handleNotifications = async (req, res, next) => {
+
+
     if (typeof req === 'string') {
         const type = req;
         const title = res;
         const message = next;
+        const recipientId = arguments[3];
+        const company = arguments[4];
+
         try {
             await Notification.create({
                 type,
@@ -745,26 +750,38 @@ exports.handleNotifications = async (req, res, next, recipientId, company) => {
             });
             return;
         } catch (err) {
-            return console.error('Notification log initialization failed:', err);
+            console.error('Notification creation failed:', err);
+            return;
         }
     }
 
+   
     try {
+        if (!req.user) {
+            return res.status(401).json({ success: false, message: "Unauthorized" });
+        }
+
         const query = { company: req.user.company };
+
         if (req.user.role !== 'admin') {
             query.$or = [
                 { recipient: null },
-                { recipient: req.user.id }
+                { recipient: req.user._id }
             ];
         }
-        const feed = await Notification.find(query).sort({ createdAt: -1 }).limit(20);
+
+        const feed = await Notification.find(query)
+            .sort({ createdAt: -1 })
+            .limit(20);
+
         return res.status(200).json({
             success: true,
             count: feed.length,
             data: feed
         });
     } catch (error) {
-        if (next) next(error);
+        console.error('Get notifications error:', error);
+        next(error);
     }
 };
 
