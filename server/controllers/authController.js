@@ -93,6 +93,7 @@ if (!targetCompany || targetCompany === 'Default Company') {
                 company: user.company,
                 department: user.department,
                 position: user.position,
+                profilePicture: user.profilePicture || '',
                 onboarded: user.onboarded
             }
         });
@@ -139,7 +140,7 @@ exports.login = async (req, res, next) => {
         res.status(200).json({
             success: true,
             token,
-            data: { id: user._id, fullname: user.fullname, role: user.role, company: user.company, onboarded: user.onboarded },
+            data: { id: user._id, fullname: user.fullname, role: user.role, company: user.company, department: user.department, position: user.position, profilePicture: user.profilePicture || '', onboarded: user.onboarded },
             message: 'Login successful'
         });
     } catch (error) {

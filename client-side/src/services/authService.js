@@ -23,6 +23,7 @@ export const authService = {
         position: data.position || 'Staff Employee',
         phone: data.phone || '',
         onboarded: data.onboarded,
+        profilePicture: data.profilePicture || '',
         token,
       };
     } catch (err) {
@@ -57,6 +58,7 @@ export const authService = {
         position: data.position || 'Staff Employee',
         phone: data.phone || '',
         onboarded: data.onboarded,
+        profilePicture: data.profilePicture || '',
         token,
       };
     } catch (err) {
@@ -83,6 +85,7 @@ export const authService = {
         position: data.position || 'Staff Employee',
         phone: data.phone || '',
         onboarded: data.onboarded,
+        profilePicture: data.profilePicture || '',
         token,
       };
     } catch (err) {
@@ -177,6 +180,7 @@ export const authService = {
         position: data.position,
         phone: data.phone || '',
         onboarded: data.onboarded,
+        profilePicture: data.profilePicture || '',
         token,
       };
     } catch (err) {
