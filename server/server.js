@@ -40,10 +40,25 @@ const app = express();
 // Crucial so the rate limiter tracks the REAL user's IP instead of the proxy server's internal loopback IP.
 app.set('trust proxy', 1);
 
+const mongoose = require('mongoose');
+
 // --- GLOBAL MIDDLEWARES ---
 app.use(cors()); 
 app.use(express.json()); 
 app.use(express.urlencoded({ extended: true })); 
+
+// Ensure database connection is ready on serverless environments before processing API calls
+app.use('/api', async (req, res, next) => {
+  try {
+    if (mongoose.connection.readyState !== 1) {
+      await connectDB();
+    }
+    next();
+  } catch (err) {
+    console.error('Database connection middleware error:', err);
+    res.status(503).json({ success: false, message: 'Database connection unavailable. Please try again.' });
+  }
+}); 
 
 if (process.env.NODE_ENV === 'development') {
   app.use(morgan('dev'));

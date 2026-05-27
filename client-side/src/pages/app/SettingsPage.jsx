@@ -38,7 +38,7 @@ export default function SettingsPage() {
     logout();
     navigate('/');
   };
-  
+
   const fileInputRef = useRef(null);
   const [selectedAvatarFile, setSelectedAvatarFile] = useState(null);
   const [avatarPreviewUrl, setAvatarPreviewUrl] = useState('');
@@ -88,12 +88,12 @@ export default function SettingsPage() {
         department: user.department || 'Unassigned',
       });
       // Setup avatar preview if existing
-if (user.profilePicture) {
-  const base = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-  const fullUrl = user.profilePicture.startsWith('http')
-    ? user.profilePicture
-    : `${base}/${user.profilePicture}`;
-  setAvatarPreviewUrl(fullUrl);
+      if (user.profilePicture) {
+        const base = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+        const fullUrl = user.profilePicture.startsWith('http')
+          ? user.profilePicture
+          : `${base}/${user.profilePicture}`;
+        setAvatarPreviewUrl(fullUrl);
       } else {
         setAvatarPreviewUrl('');
       }
@@ -104,17 +104,17 @@ if (user.profilePicture) {
     fileInputRef.current?.click();
   };
 
-const handleAvatarChange = (e) => {
-  const file = e.target.files?.[0];
-  if (!file) return;
-  setSelectedAvatarFile(file);
+  const handleAvatarChange = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setSelectedAvatarFile(file);
 
-  const reader = new FileReader();
-  reader.onload = (event) => {
-    setAvatarPreviewUrl(event.target.result); // data:image/... — allowed by CSP
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      setAvatarPreviewUrl(event.target.result); // data:image/... — allowed by CSP
+    };
+    reader.readAsDataURL(file);
   };
-  reader.readAsDataURL(file);
-};
 
   const handleSaveProfile = async (e) => {
     e.preventDefault();
@@ -140,7 +140,7 @@ const handleAvatarChange = (e) => {
       }
 
       const updated = await authService.updateProfile(formData);
-      
+
       // Update local storage and context state
       updateUser({
         name: updated.name,
@@ -252,7 +252,7 @@ const handleAvatarChange = (e) => {
 
         {/* Content */}
         <div className="lg:col-span-3 bg-surface border border-border rounded-[16px] p-6 relative">
-          
+
           {successMsg && (
             <div className="mb-6 p-3 bg-success/10 border border-success/20 text-success rounded-[10px] text-body-sm font-semibold flex items-center gap-2 animate-in fade-in slide-in-from-top-1 duration-200">
               <Check size={16} className="stroke-[2.5]" />
@@ -275,14 +275,14 @@ const handleAvatarChange = (e) => {
 
               <form onSubmit={handleSaveProfile}>
                 <div className="flex items-center gap-5 mb-6 pb-6 border-b border-border">
-                  <div 
+                  <div
                     onClick={handleAvatarClick}
                     className="relative w-16 h-16 rounded-[18px] bg-primary/10 flex items-center justify-center text-primary text-h3 font-bold cursor-pointer group hover:bg-primary/20 transition-all overflow-hidden"
                   >
                     {avatarPreviewUrl ? (
-                      <img 
-                        src={avatarPreviewUrl} 
-                        alt="Avatar Preview" 
+                      <img
+                        src={avatarPreviewUrl}
+                        alt="Avatar Preview"
                         className="w-full h-full object-cover group-hover:scale-105 transition-all duration-300"
                       />
                     ) : (
@@ -302,7 +302,7 @@ const handleAvatarChange = (e) => {
                   <div>
                     <div className="text-body font-semibold text-text">{user?.name}</div>
                     <div className="text-caption text-text-muted uppercase tracking-wider font-bold mt-0.5">{user?.role}</div>
-                    <button 
+                    <button
                       type="button"
                       onClick={handleAvatarClick}
                       className="text-body-sm text-primary hover:text-primary-light font-medium mt-1 cursor-pointer flex items-center gap-1 transition-colors"
@@ -519,7 +519,7 @@ const handleAvatarChange = (e) => {
               <div className="mt-8 pt-6 border-t border-border">
                 <h3 className="text-body font-semibold text-danger mb-2">Danger Zone</h3>
                 <p className="text-body-sm text-text-muted mb-3">Once deleted, your account cannot be recovered.</p>
-                <button 
+                <button
                   type="button"
                   onClick={() => alert("Purge request filed. Please coordinate with Superadmin to complete account deletion.")}
                   className="px-4 py-2.5 border border-danger/30 text-danger hover:bg-danger/10 font-semibold rounded-[10px] text-body-sm transition-all"

@@ -23,7 +23,13 @@ if (!process.env.VERCEL) {
 }
 
 
+let cachedConnection = null;
+
 const connectDB = async () => {
+  if (cachedConnection && mongoose.connection.readyState === 1) {
+    return cachedConnection;
+  }
+
   if (!process.env.MONGODB_URI) {
     console.error('CRITICAL ERROR: MONGODB_URI is not defined in environment variables!');
     return;
@@ -32,7 +38,9 @@ const connectDB = async () => {
     const conn = await mongoose.connect(process.env.MONGODB_URI, {
       family: 4,
     });
+    cachedConnection = conn;
     console.log(`MongoDB Connected: ${conn.connection.host}`);
+    return conn;
   } catch (err) {
     console.error(`MongoDB Connection Error: ${err.message}`);
     // Do not call process.exit(1) in production/serverless environments as it crashes Vercel's wrapper.

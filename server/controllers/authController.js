@@ -71,6 +71,7 @@ if (!targetCompany || targetCompany === 'Default Company') {
 
         const token = generateToken(user._id);
 
+        req.user = { company: user.company };
         // 📝 Telemetry Log: New registrations mapped to INFO level under AUTH module
         await createAuditLog(
             user._id,
@@ -127,6 +128,7 @@ exports.login = async (req, res, next) => {
 
         const token = generateToken(user._id);
         
+        req.user = { company: user.company };
         // 📝 Telemetry Log: Successful logins sent directly to AUTH stream
         await createAuditLog(
             user._id,
@@ -211,6 +213,7 @@ exports.googleOAuth = async (req, res, next) => {
 
         const token = generateToken(user._id);
 
+        req.user = { company: user.company };
         // 📝 Telemetry Log: Routes OAuth registrations or authorizations into the AUTH engine module cleanly
         await createAuditLog(
             user._id,
@@ -272,6 +275,7 @@ exports.forgotPassword = async (req, res, next) => {
 
         await transporter.sendMail(mailOptions);
 
+        req.user = { company: user.company };
         // 📝 Telemetry Log: Escallated to WARN under SECURITY tracking because password resets change security parameters
         await createAuditLog(
             user._id,
