@@ -235,6 +235,7 @@ exports.googleOAuth = async (req, res, next) => {
                 company: user.company,
                 department: user.department,
                 position: user.position,
+                profilePicture: user.profilePicture || '',
                 onboarded: user.onboarded
             }
         });
@@ -437,6 +438,7 @@ exports.onboardUser = async (req, res, next) => {
                 email: user.email,
                 role: user.role,
                 company: user.company,
+                profilePicture: user.profilePicture || '',
                 onboarded: user.onboarded
             }
         });
