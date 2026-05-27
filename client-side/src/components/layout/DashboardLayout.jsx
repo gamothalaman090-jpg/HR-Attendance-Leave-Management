@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Outlet, NavLink, useNavigate, useLocation, Link } from 'react-router-dom';
+import { Outlet, NavLink, useLocation, Link } from 'react-router-dom';
 import PageTransition from '@/components/common/PageTransition';
 import {
   LayoutDashboard,
@@ -8,7 +8,6 @@ import {
   Users,
   Calendar,
   Settings,
-  LogOut,
   Menu,
   X,
   ChevronLeft,
@@ -48,9 +47,8 @@ const SIDEBAR_ITEMS = [
 export default function DashboardLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
   const { isDark, toggleTheme } = useTheme();
-  const navigate = useNavigate();
 
   const visibleSidebarItems = SIDEBAR_ITEMS.filter(item => {
     if (!item.roles) return true;
@@ -58,11 +56,6 @@ export default function DashboardLayout() {
     if (userRole === 'superadmin') return true;
     return item.roles.some(r => userRole?.includes(r));
   });
-
-  const handleLogout = () => {
-    logout();
-    navigate('/');
-  };
 
   // Close mobile menu on route change
   const location = useLocation();
@@ -131,17 +124,6 @@ const getAvatarUrl = (profilePicture) => {
             </NavLink>
           ))}
         </nav>
-
-        {/* Bottom section */}
-        <div className="p-3 border-t border-border">
-          <button
-            onClick={handleLogout}
-            className="flex items-center gap-3 w-full px-3 py-2.5 rounded-[10px] text-body-sm font-medium text-danger hover:bg-danger/10 transition-colors cursor-pointer"
-          >
-            <LogOut size={20} className="shrink-0" />
-            {sidebarOpen && <span>Logout</span>}
-          </button>
-        </div>
       </aside>
 
       {/* ── Mobile Sidebar Overlay ── */}
@@ -187,15 +169,6 @@ const getAvatarUrl = (profilePicture) => {
                 </NavLink>
               ))}
             </nav>
-            <div className="p-3 border-t border-border">
-              <button
-                onClick={handleLogout}
-                className="flex items-center gap-3 w-full px-3 py-2.5 rounded-[10px] text-body-sm font-medium text-danger hover:bg-danger/10 transition-colors cursor-pointer"
-              >
-                <LogOut size={20} />
-                <span>Logout</span>
-              </button>
-            </div>
           </aside>
         </div>
       )}

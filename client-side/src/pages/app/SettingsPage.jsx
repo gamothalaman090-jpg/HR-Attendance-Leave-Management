@@ -1,11 +1,11 @@
 import { useState, useRef, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Meta from '@/components/common/Meta';
 import { useAuth } from '@/context/AuthContext';
 import { useTheme } from '@/hooks/useTheme';
-import { Button, Input } from '@/components/ui';
 import {
   User, Bell, Palette, Shield, Save,
-  Sun, Moon, Monitor, Camera, Sparkles, Check, AlertCircle
+  Sun, Moon, Monitor, Camera, Check, AlertCircle, LogOut
 } from 'lucide-react';
 import { cn } from '@/utils/helpers';
 import { getInitials } from '@/utils/formatters';
@@ -29,9 +29,15 @@ const SECTIONS = [
 ];
 
 export default function SettingsPage() {
-  const { user, updateUser } = useAuth();
+  const { user, updateUser, logout } = useAuth();
   const { theme, setTheme } = useTheme();
   const [activeSection, setActiveSection] = useState('profile');
+  const navigate = useNavigate();
+
+  const handleLogout = () => {
+    logout();
+    navigate('/');
+  };
   
   const fileInputRef = useRef(null);
   const [selectedAvatarFile, setSelectedAvatarFile] = useState(null);
@@ -64,15 +70,6 @@ export default function SettingsPage() {
   const [successMsg, setSuccessMsg] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
   const [departments, setDepartments] = useState([]);
-
-
- const getAvatarUrl = (profilePicture) => {
-  if (!profilePicture) return null;
-  const base = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-  return profilePicture.startsWith('http')
-    ? profilePicture
-    : `${base}/${profilePicture}`;
-};
 
   useEffect(() => {
     if (user?.role === 'admin') {
@@ -220,7 +217,7 @@ const handleAvatarChange = (e) => {
 
       <div className="grid lg:grid-cols-4 gap-6">
         {/* Sidebar Nav */}
-        <div className="bg-surface border border-border rounded-[16px] p-4 h-fit">
+        <div className="bg-surface border border-border rounded-[16px] p-4 h-fit flex flex-col gap-4">
           <nav className="space-y-1">
             {SECTIONS.map(({ id, label, icon: Icon }) => (
               <button
@@ -242,6 +239,15 @@ const handleAvatarChange = (e) => {
               </button>
             ))}
           </nav>
+          <div className="border-t border-border pt-3">
+            <button
+              onClick={handleLogout}
+              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-[10px] text-body-sm font-medium text-danger hover:bg-danger/10 transition-all cursor-pointer"
+            >
+              <LogOut size={18} />
+              Logout
+            </button>
+          </div>
         </div>
 
         {/* Content */}
