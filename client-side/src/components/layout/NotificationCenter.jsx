@@ -20,7 +20,7 @@ const TYPE_ICONS = {
 
 export default function NotificationCenter() {
   const [isOpen, setIsOpen] = useState(false);
-  const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotifications();
+  const { notifications, unreadCount, markAsRead, markAllAsRead, clearAll, clearNotification } = useNotifications();
   const panelRef = useRef(null);
 
   // Close on Escape key
@@ -45,7 +45,7 @@ export default function NotificationCenter() {
   }, [isOpen]);
 
   const slideOver = (
-    <div className={cn("fixed inset-0 z-[100] flex justify-end", !isOpen && "pointer-events-none")}>
+    <div className={cn("fixed inset-0 z-[1100] flex justify-end", !isOpen && "pointer-events-none")}>
       {/* Backdrop */}
       <div
         className={cn(
@@ -74,12 +74,12 @@ export default function NotificationCenter() {
             )}
           </div>
           <div className="flex items-center gap-3">
-            {unreadCount > 0 && (
+            {notifications.length > 0 && (
               <button
-                onClick={markAllAsRead}
-                className="text-caption font-medium text-primary hover:text-primary-dark transition-colors cursor-pointer"
+                onClick={clearAll}
+                className="text-caption font-medium text-danger hover:text-danger-dark transition-colors cursor-pointer"
               >
-                Mark all as read
+                Clear all
               </button>
             )}
             <button
@@ -139,8 +139,20 @@ export default function NotificationCenter() {
                     </div>
 
                     {!notif.read && (
-                      <div className="absolute top-6 right-5 w-2.5 h-2.5 bg-primary rounded-full shadow-glow-primary" />
+                      <div className="absolute top-6 right-5 w-2.5 h-2.5 bg-primary rounded-full shadow-glow-primary group-hover:scale-0 transition-all duration-200" />
                     )}
+
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        clearNotification(notif.id);
+                      }}
+                      className="absolute top-5 right-4 p-1 rounded-md text-text-muted opacity-0 group-hover:opacity-100 hover:text-text hover:bg-surface-alt transition-all duration-200 cursor-pointer"
+                      title="Dismiss notification"
+                      aria-label="Dismiss notification"
+                    >
+                      <X size={14} />
+                    </button>
                   </div>
                 );
               })}

@@ -24,8 +24,10 @@ const {
     getPayrollDashboard,  
     generatePayrollRun,  
     releaseSalary,        
-    deletePayrollEntry ,
+    deletePayrollEntry,
     getNotifications,
+    clearNotifications,
+    deleteNotification,
     createEmployee,
     updateEmployee,
     deleteEmployee,
@@ -99,7 +101,11 @@ router.route('/payroll/:id/release')
     
 // --- NOTIFICATIONS ENDPOINTS ---    
 router.route('/notifications')
-    .get(getNotifications); 
+    .get(getNotifications)
+    .delete(clearNotifications); 
+
+router.route('/notifications/:id')
+    .delete(deleteNotification);
 
 // --- DEPARTMENT ENDPOINTS ---
 router.route('/departments')

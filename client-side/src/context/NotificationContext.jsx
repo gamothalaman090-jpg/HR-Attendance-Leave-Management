@@ -69,6 +69,43 @@ export function NotificationProvider({ children }) {
     setUnreadCount(0);
   };
 
+  /** Clear all notifications (both API and client-side) */
+  const clearAll = async () => {
+    if (!user?.token) return;
+
+    try {
+      const isAdmin = user.role === 'admin';
+      const endpoint = isAdmin ? '/admin/notifications' : '/user/notifications';
+
+      await api.delete(endpoint);
+      setNotifications([]);
+      setUnreadCount(0);
+    } catch (error) {
+      console.error('Failed to clear notifications:', error);
+    }
+  };
+
+  /** Clear a single notification (both API and client-side) */
+  const clearNotification = async (id) => {
+    if (!user?.token) return;
+
+    try {
+      const isAdmin = user.role === 'admin';
+      const endpoint = isAdmin ? `/admin/notifications/${id}` : `/user/notifications/${id}`;
+
+      await api.delete(endpoint);
+      setNotifications((prev) => {
+        const target = prev.find((n) => n.id === id);
+        if (target && !target.read) {
+          setUnreadCount((count) => Math.max(0, count - 1));
+        }
+        return prev.filter((n) => n.id !== id);
+      });
+    } catch (error) {
+      console.error('Failed to clear notification:', error);
+    }
+  };
+
   /** Add a local notification */
   const addNotification = (notif) => {
     const newNotif = {
@@ -88,6 +125,8 @@ export function NotificationProvider({ children }) {
         unreadCount,
         markAsRead,
         markAllAsRead,
+        clearAll,
+        clearNotification,
         addNotification,
         refetch: fetchNotifications,
       }}
