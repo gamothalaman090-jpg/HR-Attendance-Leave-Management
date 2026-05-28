@@ -25,7 +25,7 @@ const {
     generatePayrollRun,  
     releaseSalary,        
     deletePayrollEntry ,
-    handleNotifications,
+    getNotifications,
     createEmployee,
     updateEmployee,
     deleteEmployee,
@@ -99,7 +99,7 @@ router.route('/payroll/:id/release')
     
 // --- NOTIFICATIONS ENDPOINTS ---    
 router.route('/notifications')
-    .get(handleNotifications); 
+    .get(getNotifications); 
 
 // --- DEPARTMENT ENDPOINTS ---
 router.route('/departments')

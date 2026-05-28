@@ -8,12 +8,12 @@
  * Last Updated: 2026-05-23
  */
 const mongoose = require('mongoose');
-const User = require('../models/User'); 
+const User = require('../models/User');
 const Attendance = require('../models/Attendance');
 const Leave = require('../models/Leave');
 const Payroll = require('../models/Payroll');
-const { createAuditLog } = require('../utils/logger'); 
-const { handleNotifications } = require('./adminController'); // ◄ Imported shared utility function
+const { createAuditLog } = require('../utils/logger');
+const { createNotification } = require('./adminController'); // ◄ Imported shared utility function
 
 // Helper to format Date objects as local YYYY-MM-DD
 const getLocalDateString = (date) => {
@@ -61,11 +61,11 @@ exports.clockIn = async (req, res, next) => {
 
         // Check if user already clocked in overall
         const lastEntry = await Attendance.findOne({ user: userId }).sort({ timestamp: -1 });
-        
+
         if (lastEntry && lastEntry.type === 'in' && lastEntry.date === currentDateString) {
-            return res.status(400).json({ 
-                success: false, 
-                message: 'You are already clocked in. Please clock out first.' 
+            return res.status(400).json({
+                success: false,
+                message: 'You are already clocked in. Please clock out first.'
             });
         }
 
@@ -88,30 +88,36 @@ exports.clockIn = async (req, res, next) => {
 
         // 📝 Telemetry Log
         await createAuditLog(
-            userId, 
-            'attendance_in', 
-            `${req.user.fullname || 'Employee'} successfully clocked in (Time In).`, 
+            userId,
+            'attendance_in',
+            `${req.user.fullname || 'Employee'} successfully clocked in (Time In).`,
             req,
             'INFO',
             'ATTENDANCE'
         );
 
-        const currentHour = now.getHours();
-        if (currentHour >= 9) {
+        const clockInTime = now;
+        const lateThreshold = new Date(now);
+        lateThreshold.setHours(9, 0, 0, 0);
+        if (clockInTime > lateThreshold) {
             const timeString = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-            await handleNotifications(
-                'attendance_late',
-                'Late Clock-In',
-                `${req.user.fullname || 'Employee'} clocked in late at ${timeString} today.`,
-                null,
-                req.user.company
-            );
+            // Notify ALL company admins about the late clock-in
+            const admins = await User.find({ company: req.user.company, role: 'admin' }).select('_id');
+            for (const admin of admins) {
+                await createNotification(
+                    'attendance_late',
+                    'Late Clock-In',
+                    `${req.user.fullname || 'Employee'} clocked in late at ${timeString} today.`,
+                    admin._id,
+                    req.user.company
+                );
+            }
         }
 
-        return res.status(201).json({ 
-            success: true, 
-            message: 'Clock-In successful. Countdown initiated.', 
-            data: entry 
+        return res.status(201).json({
+            success: true,
+            message: 'Clock-In successful. Countdown initiated.',
+            data: entry
         });
     } catch (err) {
         next(err);
@@ -126,11 +132,11 @@ exports.clockOut = async (req, res, next) => {
         const currentDateString = getLocalDateString(now); // Yields "YYYY-MM-DD"
 
         const lastEntry = await Attendance.findOne({ user: userId }).sort({ timestamp: -1 });
-        
+
         if (!lastEntry || lastEntry.type === 'out' || lastEntry.date !== currentDateString) {
-            return res.status(400).json({ 
-                success: false, 
-                message: 'You cannot clock out without clocking in first.' 
+            return res.status(400).json({
+                success: false,
+                message: 'You cannot clock out without clocking in first.'
             });
         }
 
@@ -143,23 +149,23 @@ exports.clockOut = async (req, res, next) => {
             type: 'out',
             date: currentDateString, // Tracks the out-event's calendar date
             timestamp: now,
-            workDuration: durationMinutes 
+            workDuration: durationMinutes
         });
 
         // 📝 Telemetry Log
         await createAuditLog(
-            userId, 
-            'attendance_out', 
-            `${req.user.fullname || 'Employee'} successfully clocked out. Duration: ${durationMinutes} mins.`, 
+            userId,
+            'attendance_out',
+            `${req.user.fullname || 'Employee'} successfully clocked out. Duration: ${durationMinutes} mins.`,
             req,
             'INFO',
             'ATTENDANCE'
         );
 
-        return res.status(201).json({ 
-            success: true, 
-            message: 'Clock-Out successful. Countdown stopped.', 
-            data: entry 
+        return res.status(201).json({
+            success: true,
+            message: 'Clock-Out successful. Countdown stopped.',
+            data: entry
         });
     } catch (err) {
         next(err);
@@ -171,7 +177,7 @@ exports.clockOut = async (req, res, next) => {
 exports.getAttendanceHistory = async (req, res, next) => {
     try {
         const userId = req.user.id;
-        
+
         // Use user account creation date as the start boundary
         const createdAt = req.user.createdAt || new Date();
         const createdAtMidnight = new Date(createdAt);
@@ -232,21 +238,23 @@ exports.getAttendanceHistory = async (req, res, next) => {
 
             if (isFuture || isBeforeCreation) {
                 status = 'upcoming';
+            } else if (isWeekend) {
+                status = 'weekend';
             } else if (hasInLog) {
                 const inLog = dayLogs.find(l => l.type === 'in');
                 const outLog = dayLogs.find(l => l.type === 'out');
 
                 const checkInTime = new Date(inLog.timestamp);
-                status = checkInTime.getHours() >= 9 ? 'late' : 'present';
+                const lateThreshold = new Date(checkInTime);
+                lateThreshold.setHours(9, 0, 0, 0);
+                status = checkInTime > lateThreshold ? 'late' : 'present';
                 clockIn = checkInTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-                
+
                 if (outLog) {
                     const checkOutTime = new Date(outLog.timestamp);
                     clockOut = checkOutTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
                     hours = outLog.workDuration ? parseFloat((outLog.workDuration / 60).toFixed(1)) : 0;
                 }
-            } else if (isWeekend) {
-                status = 'weekend';
             }
 
             calendarRecords.push({
@@ -259,10 +267,10 @@ exports.getAttendanceHistory = async (req, res, next) => {
             });
         }
 
-        return res.status(200).json({ 
-            success: true, 
-            count: calendarRecords.length, 
-            data: calendarRecords 
+        return res.status(200).json({
+            success: true,
+            count: calendarRecords.length,
+            data: calendarRecords
         });
     } catch (err) {
         next(err);
@@ -273,7 +281,7 @@ exports.getAnnouncements = async (req, res, next) => {
     try {
         // Look up models explicitly through the mongoose instance to force cross-reference resolution
         const AnnouncementModel = mongoose.model('Announcement');
-        
+
         const announcements = await AnnouncementModel.find({ company: req.user.company })
             .populate({
                 path: 'author',
@@ -301,16 +309,16 @@ exports.requestLeave = async (req, res, next) => {
         if (!leaveType || !startDate || !endDate || !reason) {
             return res.status(400).json({ success: false, message: 'All fields are required' });
         }
-        
-        const typeKey = leaveType.toLowerCase(); 
+
+        const typeKey = leaveType.toLowerCase();
         const user = await User.findById(req.user.id);
-        
+
         if (!user || !user.leaveBalances || !user.leaveBalances[typeKey]) {
             return res.status(400).json({ success: false, message: 'Invalid leave type specified' });
         }
 
-        const start = new Date(startDate);
-        const end = new Date(endDate);
+        const start = new Date(startDate + 'T00:00:00');
+        const end = new Date(endDate + 'T00:00:00');
         const totalDaysRequested = Math.ceil((end - start) / (1000 * 60 * 60 * 24)) + 1;
 
         if (totalDaysRequested <= 0) {
@@ -327,20 +335,20 @@ exports.requestLeave = async (req, res, next) => {
         if (overlappingLeave) {
             const existingStart = overlappingLeave.startDate.toISOString().split('T')[0];
             const existingEnd = overlappingLeave.endDate.toISOString().split('T')[0];
-            
-            return res.status(400).json({ 
-                success: false, 
-                message: `Leave conflict: You already have a ${overlappingLeave.status} ${overlappingLeave.leaveType} from ${existingStart} to ${existingEnd}.` 
+
+            return res.status(400).json({
+                success: false,
+                message: `Leave conflict: You already have a ${overlappingLeave.status} ${overlappingLeave.leaveType} from ${existingStart} to ${existingEnd}.`
             });
         }
 
-        const maxDeficit = -10; 
+        const maxDeficit = -10;
         const projectedBalance = user.leaveBalances[typeKey].left - totalDaysRequested;
 
         if (projectedBalance < maxDeficit) {
-            return res.status(400).json({ 
-                success: false, 
-                message: `Request denied. Balance deficit would exceed the maximum allowed limit.` 
+            return res.status(400).json({
+                success: false,
+                message: `Request denied. Balance deficit would exceed the maximum allowed limit.`
             });
         }
 
@@ -352,27 +360,41 @@ exports.requestLeave = async (req, res, next) => {
             reason,
             status: 'pending'
         });
-        
+
         await leave.populate('user', 'fullname email role department position');
-        
+
         // 📝 Telemetry Log: Submitting leave requests creates a trackable record under INFO level in LEAVE module
         await createAuditLog(
-            req.user.id, 
-            'leave_request', 
-            `${user.fullname} submitted a pending ${leaveType} leave request for ${totalDaysRequested} day(s).`, 
+            req.user.id,
+            'leave_request',
+            `${user.fullname} submitted a pending ${leaveType} leave request for ${totalDaysRequested} day(s).`,
             req,
             'INFO',
             'LEAVE'
         );
 
-      
+
         const formattedStart = start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
         const formattedEnd = end.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-        await handleNotifications(
+
+        // Notify ALL company admins about the new leave request
+        const admins = await User.find({ company: req.user.company, role: 'admin' }).select('_id');
+        for (const admin of admins) {
+            await createNotification(
+                'leave_request',
+                'New Leave Request',
+                `${user.fullname} requested ${leaveType} Leave for ${formattedStart}-${formattedEnd}.`,
+                admin._id,
+                req.user.company
+            );
+        }
+
+        // Send confirmation notification to the employee themselves
+        await createNotification(
             'leave_request',
-            'New Leave Request',
-            `${user.fullname} requested ${leaveType} Leave for ${formattedStart}-${formattedEnd}.`,
-            null,
+            'Leave Requested',
+            `Your ${leaveType} leave request has been submitted successfully.`,
+            req.user.id,
             req.user.company
         );
 

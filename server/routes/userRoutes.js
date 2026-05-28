@@ -21,14 +21,14 @@ const {
     getMyLeaves,
     getMyPayroll
 } = require('../controllers/userController');
-const { handleNotifications } = require('../controllers/adminController');
+const { getNotifications } = require('../controllers/adminController');
 
 
 router.use(protect);
 
 //User Info (Accessible by all roles: user, admin, superadmin)
 router.get('/profile', getUserProfile);
-router.get('/notifications', handleNotifications);
+router.get('/notifications', getNotifications);
 
 router.use(authorize('user', 'admin'));
 

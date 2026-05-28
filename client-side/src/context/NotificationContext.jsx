@@ -42,6 +42,12 @@ export function NotificationProvider({ children }) {
 
   // Initial fetch + polling
   useEffect(() => {
+    if (!user?.token) {
+      setNotifications([]);
+      setUnreadCount(0);
+      return;
+    }
+
     fetchNotifications();
 
     intervalRef.current = setInterval(fetchNotifications, POLL_INTERVAL);
@@ -49,7 +55,7 @@ export function NotificationProvider({ children }) {
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
-  }, [fetchNotifications]);
+  }, [user, fetchNotifications]);
 
   /** Mark a specific notification as read (client-side only) */
   const markAsRead = (id) => {

@@ -8,9 +8,14 @@ import { createPortal } from 'react-dom';
 
 const TYPE_ICONS = {
   leave: { icon: Calendar, color: 'text-primary bg-primary/10' },
+  leave_request: { icon: Calendar, color: 'text-primary bg-primary/10' },
+  leave_status: { icon: Calendar, color: 'text-primary bg-primary/10' },
   attendance: { icon: Info, color: 'text-accent bg-accent/10' },
+  attendance_late: { icon: Info, color: 'text-accent bg-accent/10' },
   system: { icon: Info, color: 'text-info bg-info/10' },
   team: { icon: CheckCircle2, color: 'text-success bg-success/10' },
+  payroll_generated: { icon: Info, color: 'text-info bg-info/10' },
+  payroll_released: { icon: CheckCircle2, color: 'text-success bg-success/10' },
 };
 
 export default function NotificationCenter() {

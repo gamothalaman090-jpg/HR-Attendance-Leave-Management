@@ -30,6 +30,9 @@ const Payroll = require('../models/Payroll');
 const Attendance = require('../models/Attendance');
 const Department = require('../models/Department');
 const { createAuditLog } = require('../utils/logger');
+const bcrypt = require('bcryptjs');
+
+const escapeRegex = (str) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 // Helper to format Date objects as local YYYY-MM-DD
 const getLocalDateString = (date) => {
@@ -97,20 +100,24 @@ exports.createAnnouncement = async (req, res, next) => {
 
         await createAuditLog(
             adminId,
-            'profile_update',
+            'announcement_create',
             `Admin created a new announcement titled: "${title}" under category: "${category || 'general'}".`,
             req,
             'INFO',
             'SYSTEM'
         );
 
-        await exports.handleNotifications(
-            'announcement',
-            'New Announcement Published',
-            `A new bulletin titled "${title}" has been posted to your dashboard.`,
-            null,
-            req.user.company
-        );
+        // Notify all employees in the company about the new announcement
+        const companyUsers = await User.find({ company: req.user.company, role: { $in: ['user', 'admin'] } }).select('_id');
+        for (const u of companyUsers) {
+            await exports.createNotification(
+                'announcement',
+                'New Announcement Published',
+                `A new bulletin titled "${title}" has been posted to your dashboard.`,
+                u._id,
+                req.user.company
+            );
+        }
 
         return res.status(201).json({
             success: true,
@@ -149,7 +156,7 @@ exports.deleteAnnouncement = async (req, res) => {
 
         await createAuditLog(
             adminId,
-            'profile_update',
+            'announcement_delete',
             `Admin deleted an announcement titled: "${exactTitle}".`,
             req,
             'INFO',
@@ -178,17 +185,20 @@ exports.getAllLeaveRequests = async (req, res, next) => {
         const users = await User.find({ company: req.user.company }).select('_id');
         const userIds = users.map(u => u._id);
 
-        // Run deactivation asynchronously in the background so it doesn't block the GET response latency
-        Leave.updateMany(
-            {
-                status: 'pending',
-                startDate: { $lt: today },
-                user: { $in: userIds }
-            },
-            {
-                $set: { status: 'declined' }
-            }
-        ).catch(err => console.error('💥 Expired leaves auto-decline failed:', err.message));
+        try {
+            await Leave.updateMany(
+                {
+                    status: 'pending',
+                    startDate: { $lt: today },
+                    user: { $in: userIds }
+                },
+                {
+                    $set: { status: 'declined' }
+                }
+            );
+        } catch (err) {
+            console.error('💥 Expired leaves auto-decline failed:', err.message);
+        }
 
         const requests = await Leave.find({ user: { $in: userIds } })
             .populate('user', 'fullname email role department position')
@@ -267,7 +277,7 @@ exports.reviewLeaveRequest = async (req, res, next) => {
             ? `Your request for ${leave.leaveType} Leave starting ${new Date(leave.startDate).toLocaleDateString()} has been approved.`
             : `Your request for ${leave.leaveType} Leave has been declined by administration.`;
 
-        await exports.handleNotifications(
+        await exports.createNotification(
             'leave_status',
             statusHeader,
             statusMsg,
@@ -616,14 +626,14 @@ exports.generatePayrollRun = async (req, res, next) => {
 
         await createAuditLog(
             req.user.id,
-            'profile_update',
+            'payroll_generate',
             `Generated pending payroll sheet run reference: ${payroll.payrollId} for ${payroll.employee.fullname}`,
             req,
             'INFO',
             'PAYROLL'
         );
 
-        await exports.handleNotifications(
+        await exports.createNotification(
             'payroll_generated',
             'Payslip Generated',
             `Your payslip calculations for period ${new Date(periodStart).toLocaleDateString()} to ${new Date(periodEnd).toLocaleDateString()} have been processed and are pending review.`,
@@ -649,7 +659,7 @@ exports.releaseSalary = async (req, res, next) => {
             return res.status(404).json({ success: false, message: 'Payroll ledger target row not found' });
         }
 
-        if (!payroll.employee || payroll.employee.company !== req.user.company) {
+        if (!payroll.employee || payroll.employee.company.toString() !== req.user.company.toString()) {
             return res.status(403).json({ success: false, message: 'Unauthorized: Employee does not belong to your organization' });
         }
 
@@ -663,14 +673,14 @@ exports.releaseSalary = async (req, res, next) => {
 
         await createAuditLog(
             req.user.id,
-            'profile_update',
+            'payroll_release',
             `Approved and released budget payout for calculation worksheet profile ID: ${payroll.payrollId} tracking to ${payroll.employee.fullname}`,
             req,
             'INFO',
             'PAYROLL'
         );
 
-        await exports.handleNotifications(
+        await exports.createNotification(
             'payroll_released',
             'Salary Disbursed 🎉',
             `Great news! Your salary payment for cycle ending ${new Date(payroll.periodEnd).toLocaleDateString()} has been approved and released.`,
@@ -696,7 +706,7 @@ exports.deletePayrollEntry = async (req, res, next) => {
             return res.status(404).json({ success: false, message: 'Target ledger entity row calculation sheet not found' });
         }
 
-        if (!payroll.employee || payroll.employee.company !== req.user.company) {
+        if (!payroll.employee || payroll.employee.company.toString() !== req.user.company.toString()) {
             return res.status(403).json({ success: false, message: 'Unauthorized: Employee does not belong to your organization' });
         }
 
@@ -712,7 +722,7 @@ exports.deletePayrollEntry = async (req, res, next) => {
 
         await createAuditLog(
             req.user.id,
-            'profile_update',
+            'payroll_delete',
             `Dropped raw data entry log out of payroll worksheets tracking code: ${cachedId}`,
             req,
             'WARN',
@@ -730,47 +740,30 @@ exports.deletePayrollEntry = async (req, res, next) => {
 
 // --- SINGLE CONSOLIDATED NOTIFICATION CONTROLLER PIPELINE ---
 
-exports.handleNotifications = async (req, res, next) => {
-
-
-    if (typeof req === 'string') {
-        const type = req;
-        const title = res;
-        const message = next;
-        const recipientId = arguments[3];
-        const company = arguments[4];
-
-        try {
-            await Notification.create({
-                type,
-                title,
-                message,
-                recipient: recipientId || null,
-                company: company || 'Default Company'
-            });
-            return;
-        } catch (err) {
-            console.error('Notification creation failed:', err);
-            return;
-        }
+exports.createNotification = async (type, title, message, recipientId, company) => {
+    try {
+        await Notification.create({
+            type,
+            title,
+            message,
+            recipient: recipientId || null,
+            company: company || 'Default Company'
+        });
+    } catch (err) {
+        console.error('Notification creation failed:', err);
     }
+};
 
-   
+exports.getNotifications = async (req, res, next) => {
     try {
         if (!req.user) {
             return res.status(401).json({ success: false, message: "Unauthorized" });
         }
 
-        const query = { company: req.user.company };
-
-        if (req.user.role !== 'admin') {
-            query.$or = [
-                { recipient: null },
-                { recipient: req.user._id }
-            ];
-        }
-
-        const feed = await Notification.find(query)
+        const feed = await Notification.find({
+            company: req.user.company,
+            recipient: req.user.id
+        })
             .sort({ createdAt: -1 })
             .limit(20);
 
@@ -966,7 +959,7 @@ exports.createDepartment = async (req, res, next) => {
 
         const company = req.user.company;
         const exists = await Department.findOne({
-            name: { $regex: new RegExp(`^${name.trim()}$`, 'i') },
+            name: { $regex: new RegExp(`^${escapeRegex(name.trim())}$`, 'i') },
             company
         });
         if (exists) {
@@ -993,7 +986,7 @@ exports.updateDepartment = async (req, res, next) => {
         // Check duplicate
         if (oldName.toLowerCase() !== newName.trim().toLowerCase()) {
             const duplicate = await Department.findOne({
-                name: { $regex: new RegExp(`^${newName.trim()}$`, 'i') },
+                name: { $regex: new RegExp(`^${escapeRegex(newName.trim())}$`, 'i') },
                 company
             });
             if (duplicate) {
@@ -1003,14 +996,14 @@ exports.updateDepartment = async (req, res, next) => {
 
         // Update or create the department doc
         await Department.findOneAndUpdate(
-            { name: { $regex: new RegExp(`^${oldName}$`, 'i') }, company },
+            { name: { $regex: new RegExp(`^${escapeRegex(oldName)}$`, 'i') }, company },
             { name: newName.trim() },
             { upsert: true, new: true }
         );
 
         // Cascade rename to all users in that department
         await User.updateMany(
-            { department: { $regex: new RegExp(`^${oldName}$`, 'i') }, company },
+            { department: { $regex: new RegExp(`^${escapeRegex(oldName)}$`, 'i') }, company },
             { department: newName.trim() }
         );
 
@@ -1028,7 +1021,7 @@ exports.deleteDepartment = async (req, res, next) => {
 
         // Block if active employees assigned
         const activeCount = await User.countDocuments({
-            department: { $regex: new RegExp(`^${name}$`, 'i') },
+            department: { $regex: new RegExp(`^${escapeRegex(name)}$`, 'i') },
             company,
             employmentStatus: 'active'
         });
@@ -1040,7 +1033,7 @@ exports.deleteDepartment = async (req, res, next) => {
         }
 
         await Department.findOneAndDelete({
-            name: { $regex: new RegExp(`^${name}$`, 'i') },
+            name: { $regex: new RegExp(`^${escapeRegex(name)}$`, 'i') },
             company
         });
 
@@ -1075,10 +1068,10 @@ exports.teamCreate = async (req, res, next) => {
         }
 
         // 2. Format raw input elements with operational platform settings
-        const preparedEmployees = employees.map(emp => ({
+        const preparedEmployees = await Promise.all(employees.map(async emp => ({
             fullname: emp.fullname.trim(),
             email: emp.email.toLowerCase().trim(),
-            password: emp.password || 'WelcomeNini123!', // Unset stub password configuration
+            password: await bcrypt.hash(emp.password || 'WelcomeNini123!', 12),
             role: 'user',
             company: companyId,
             department: emp.department?.trim() || 'Unassigned',
@@ -1089,7 +1082,7 @@ exports.teamCreate = async (req, res, next) => {
             // Flags to handle granular setups later in the Management Tab
             isProfileConfigured: false,
             mustChangePassword: true
-        }));
+        })));
 
         // FIX Part A: Check for duplicate emails inside the incoming array itself
         const emailsToImport = preparedEmployees.map(e => e.email);
@@ -1118,7 +1111,7 @@ exports.teamCreate = async (req, res, next) => {
         // Telemetry Audit Log
         await createAuditLog(
             adminId,
-            'profile_update',
+            'team_create',
             `Admin initialized teamCreate engine: provisioned ${onboardedTeam.length} initial profiles.`,
             req, 'INFO', 'SYSTEM'
         );
