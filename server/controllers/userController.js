@@ -152,7 +152,7 @@ exports.clockOut = async (req, res, next) => {
             workDuration: durationMinutes
         });
 
-        // 📝 Telemetry Log
+        // Telemetry Log
         await createAuditLog(
             userId,
             'attendance_out',
