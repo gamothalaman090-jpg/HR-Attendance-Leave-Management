@@ -778,6 +778,54 @@ exports.getNotifications = async (req, res, next) => {
     }
 };
 
+exports.clearNotifications = async (req, res, next) => {
+    try {
+        if (!req.user) {
+            return res.status(401).json({ success: false, message: "Unauthorized" });
+        }
+
+        await Notification.deleteMany({
+            company: req.user.company,
+            recipient: req.user.id
+        });
+
+        return res.status(200).json({
+            success: true,
+            message: 'All notifications cleared successfully'
+        });
+    } catch (error) {
+        console.error('Clear notifications error:', error);
+        next(error);
+    }
+};
+
+exports.deleteNotification = async (req, res, next) => {
+    try {
+        if (!req.user) {
+            return res.status(401).json({ success: false, message: "Unauthorized" });
+        }
+
+        const notification = await Notification.findOne({
+            _id: req.params.id,
+            recipient: req.user.id
+        });
+
+        if (!notification) {
+            return res.status(404).json({ success: false, message: 'Notification not found' });
+        }
+
+        await notification.deleteOne();
+
+        return res.status(200).json({
+            success: true,
+            message: 'Notification cleared successfully'
+        });
+    } catch (error) {
+        console.error('Delete notification error:', error);
+        next(error);
+    }
+};
+
 // --- EMPLOYEE MANAGEMENT BY ADMIN ---
 
 exports.createEmployee = async (req, res, next) => {
