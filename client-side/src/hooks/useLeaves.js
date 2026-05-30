@@ -2,12 +2,18 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import leaveService from '@/services/leaveService';
 
 /**
- * Hook to fetch all leave requests.
+ * Hook to fetch leave requests with server-side pagination.
+ * @param {boolean} isHR - whether to fetch all (admin) or own leaves
+ * @param {{ page?: number, limit?: number, status?: string }} options
  */
-export function useLeaves(isHR = false) {
+export function useLeaves(isHR = false, { page = 1, limit = 20, status } = {}) {
   return useQuery({
-    queryKey: ['leaves', isHR ? 'all' : 'my'],
-    queryFn: () => isHR ? leaveService.getAll() : leaveService.getMyLeaves(),
+    queryKey: ['leaves', isHR ? 'all' : 'my', { page, limit, status }],
+    queryFn: () =>
+      isHR
+        ? leaveService.getAll({ page, limit, status })
+        : leaveService.getMyLeaves({ page, limit, status }),
+    keepPreviousData: true,
   });
 }
 

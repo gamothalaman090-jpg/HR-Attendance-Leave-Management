@@ -37,9 +37,9 @@ export default function CalendarPage() {
     let active = true;
     const fetchLeaves = async () => {
       try {
-        const data = await (isHR ? leaveService.getAll() : leaveService.getMyLeaves());
+        const res = await (isHR ? leaveService.getAll({ limit: 1000 }) : leaveService.getMyLeaves({ limit: 1000 }));
         if (active) {
-          setLeaveRequests(data);
+          setLeaveRequests(res.data || []);
           setLoading(false);
         }
       } catch (err) {

@@ -4,7 +4,8 @@ import Meta from '@/components/common/Meta';
 import { useForm } from 'react-hook-form';
 import {
   CalendarOff, Plus, Search,
-  CheckCircle2, XCircle, AlertTriangle, Eye, Clock, Check, X
+  CheckCircle2, XCircle, AlertTriangle, Eye, Clock, Check, X,
+  ChevronLeft, ChevronRight,
 } from 'lucide-react';
 import { Badge, Modal, Button, SkeletonTable } from '@/components/ui';
 import { LEAVE_TYPES } from '@/utils/constants';
@@ -93,6 +94,7 @@ export default function LeavePage() {
   const [activeTab, setActiveTab] = useState(isHR ? 'team' : 'my');
   const [statusFilter, setStatusFilter] = useState('all');
   const [search, setSearch] = useState('');
+  const [page, setPage] = useState(1);
   const [showRequestModal, setShowRequestModal] = useState(false);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [selectedLeave, setSelectedLeave] = useState(null);
@@ -107,16 +109,26 @@ export default function LeavePage() {
     }
   }, [searchParams, setSearchParams]);
 
+  // Reset to page 1 when filters change
+  useEffect(() => { setPage(1); }, [statusFilter, activeTab]);
+
   const { register, handleSubmit, reset, watch, formState: { errors } } = useForm();
 
   /* ── TanStack Query Hooks ── */
-  const { data: leaves = [], isLoading: loading } = useLeaves(isHR);
+  const ITEMS_PER_PAGE = 10;
+  const serverStatus = statusFilter !== 'all' ? statusFilter : undefined;
+  const { data: leavesResult, isLoading: loading } = useLeaves(isHR, { page, limit: ITEMS_PER_PAGE, status: serverStatus });
   const { data: balance } = useLeaveBalance();
   const createMutation = useCreateLeave();
   const approveMutation = useApproveLeave();
   const rejectMutation = useRejectLeave();
 
-  /* ── Filter leaves ── */
+  /* ── Extract paginated data ── */
+  const leaves = leavesResult?.data || [];
+  const totalPages = leavesResult?.pages || 1;
+  const totalItems = leavesResult?.total || 0;
+
+  /* ── Client-side filtering (search + tab) ── */
   const filteredLeaves = leaves.filter((l) => {
     // Role-based filtering
     const isCurrentUserLeave = 
@@ -129,7 +141,6 @@ export default function LeavePage() {
       if (!isCurrentUserLeave) return false;
     }
 
-    if (statusFilter !== 'all' && l.status !== statusFilter) return false;
     if (search) {
       const q = search.toLowerCase();
       return l.employeeName.toLowerCase().includes(q) || l.type.toLowerCase().includes(q);
@@ -394,6 +405,68 @@ export default function LeavePage() {
           </div>
         )}
       </div>
+
+      {/* Pagination Controls */}
+      {!loading && totalPages > 0 && (
+        <div className="flex items-center justify-between mt-4 px-1">
+          <p className="text-body-sm text-text-muted">
+            Showing {filteredLeaves.length > 0 ? (page - 1) * ITEMS_PER_PAGE + 1 : 0}–{Math.min(page * ITEMS_PER_PAGE, totalItems)} of {totalItems} requests
+          </p>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={page <= 1}
+              className={cn(
+                'p-2 rounded-[8px] border border-border transition-all cursor-pointer',
+                page <= 1
+                  ? 'text-text-muted/40 bg-surface-alt cursor-not-allowed'
+                  : 'text-text hover:bg-surface-alt hover:border-primary/30'
+              )}
+              aria-label="Previous page"
+            >
+              <ChevronLeft size={16} />
+            </button>
+            {Array.from({ length: totalPages }, (_, i) => i + 1)
+              .filter((p) => p === 1 || p === totalPages || Math.abs(p - page) <= 1)
+              .reduce((acc, p, idx, arr) => {
+                if (idx > 0 && p - arr[idx - 1] > 1) acc.push('...');
+                acc.push(p);
+                return acc;
+              }, [])
+              .map((p, idx) =>
+                p === '...' ? (
+                  <span key={`ellipsis-${idx}`} className="px-1 text-text-muted select-none">…</span>
+                ) : (
+                  <button
+                    key={p}
+                    onClick={() => setPage(p)}
+                    className={cn(
+                      'min-w-[36px] h-9 rounded-[8px] text-body-sm font-medium transition-all cursor-pointer',
+                      p === page
+                        ? 'bg-primary text-white shadow-sm'
+                        : 'text-text hover:bg-surface-alt border border-border'
+                    )}
+                  >
+                    {p}
+                  </button>
+                )
+              )}
+            <button
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              disabled={page >= totalPages}
+              className={cn(
+                'p-2 rounded-[8px] border border-border transition-all cursor-pointer',
+                page >= totalPages
+                  ? 'text-text-muted/40 bg-surface-alt cursor-not-allowed'
+                  : 'text-text hover:bg-surface-alt hover:border-primary/30'
+              )}
+              aria-label="Next page"
+            >
+              <ChevronRight size={16} />
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Leave Request Modal */}
       <Modal

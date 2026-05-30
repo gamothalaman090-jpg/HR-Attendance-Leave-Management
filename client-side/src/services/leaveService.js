@@ -1,12 +1,4 @@
-/**
- * Leave Service — Connects to Node.js/Express/MongoDB backend.
- *
- * User endpoints:  POST /user/leave-request, GET /user/leave-history, GET /user/leave-balance
- * Admin endpoints: GET  /admin/leaves, PUT /admin/leaves/:id/review
- */
 import api from './api';
-
-/* ── Mappers ── */
 
 const mapLeave = (l) => {
   if (!l) return null;
@@ -29,22 +21,38 @@ const mapLeave = (l) => {
 };
 
 export const leaveService = {
-  /** Get all leave requests (admin) */
-  async getAll() {
-    const { data: res } = await api.get('/admin/leaves');
-    return (res.data || []).map(mapLeave);
+  /**
+   * Get all leave requests (admin) — supports server-side pagination + filters.
+   * @param {{ page?, limit?, status?, employeeId? }} options
+   */
+  async getAll({ page = 1, limit = 20, status, employeeId } = {}) {
+    const params = new URLSearchParams({ page, limit });
+    if (status) params.set('status', status);
+    if (employeeId) params.set('employeeId', employeeId);
+
+    const { data: res } = await api.get(`/admin/leaves?${params.toString()}`);
+    return {
+      data: (res.data || []).map(mapLeave),
+      total: res.total || 0,
+      page: res.page || 1,
+      pages: res.pages || 1,
+    };
   },
 
-  /** Get leaves for a specific employee (admin, filtered client-side) */
-  async getByEmployee(employeeId) {
-    const all = await this.getAll();
-    return all.filter((l) => l.employeeId === employeeId);
+  /**
+   * FIX: No longer fetches ALL leaves to filter client-side.
+   * Passes employeeId to the server so only that employee's records come back.
+   */
+  async getByEmployee(employeeId, { page = 1, limit = 20 } = {}) {
+    return this.getAll({ employeeId, page, limit });
   },
 
-  /** Get pending leave requests (admin) */
-  async getPending() {
-    const all = await this.getAll();
-    return all.filter((l) => l.status === 'pending');
+  /**
+   * FIX: No longer fetches ALL leaves and filters for pending in JS.
+   * Server now returns only pending records.
+   */
+  async getPending({ page = 1, limit = 20 } = {}) {
+    return this.getAll({ status: 'pending', page, limit });
   },
 
   /** Get leave history for current logged-in user */
@@ -61,7 +69,6 @@ export const leaveService = {
       endDate: leaveData.endDate,
       reason: leaveData.reason,
     };
-
     const { data: res } = await api.post('/user/leave-request', payload);
     return mapLeave(res.data);
   },
@@ -78,7 +85,6 @@ export const leaveService = {
     return mapLeave(res.data);
   },
 
-  /** Cancel a leave request — not supported server-side, reject instead */
   async cancel(leaveId) {
     return this.reject(leaveId);
   },
@@ -87,12 +93,10 @@ export const leaveService = {
   async getBalance() {
     const { data: res } = await api.get('/user/leave-balance');
     const balances = res.data || {};
-
-    // Normalize to frontend expected shape
     return {
-      annual: { total: balances.annual?.total ?? 20, used: balances.annual?.used ?? 0, left: balances.annual?.left ?? 20 },
-      sick: { total: balances.sick?.total ?? 10, used: balances.sick?.used ?? 0, left: balances.sick?.left ?? 10 },
-      personal: { total: balances.personal?.total ?? 5, used: balances.personal?.used ?? 0, left: balances.personal?.left ?? 5 },
+      annual: { total: balances.annual?.allotted ?? 20, used: (balances.annual?.allotted ?? 20) - (balances.annual?.left ?? 20), left: balances.annual?.left ?? 20 },
+      sick: { total: balances.sick?.allotted ?? 12, used: (balances.sick?.allotted ?? 12) - (balances.sick?.left ?? 12), left: balances.sick?.left ?? 12 },
+      personal: { total: balances.personal?.allotted ?? 7, used: (balances.personal?.allotted ?? 7) - (balances.personal?.left ?? 7), left: balances.personal?.left ?? 7 },
     };
   },
 };

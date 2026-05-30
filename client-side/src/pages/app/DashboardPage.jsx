@@ -72,7 +72,7 @@ export default function DashboardPage() {
         const [emps, st, recs, bal, weekly] = await Promise.all([
           employeeService.getAll().catch(() => []),
           employeeService.getStats().catch(() => ({ total: 0, active: 0, onLeave: 0 })),
-          (isHR ? leaveService.getAll() : leaveService.getMyLeaves()).catch(() => []),
+          (isHR ? leaveService.getAll() : leaveService.getMyLeaves()).then(r => r.data).catch(() => []),
           leaveService.getBalance().catch(() => null),
           attendanceService.getWeekly().catch(() => []),
         ]);

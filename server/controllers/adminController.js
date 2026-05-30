@@ -181,6 +181,9 @@ exports.deleteAnnouncement = async (req, res) => {
 exports.getAllLeaveRequests = async (req, res, next) => {
     try {
         const today = new Date();
+        const page = Math.max(1, parseInt(req.query.page) || 1);
+        const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 20));
+        const skip = (page - 1) * limit;
 
         const users = await User.find({ company: req.user.company }).select('_id');
         const userIds = users.map(u => u._id);
@@ -200,14 +203,26 @@ exports.getAllLeaveRequests = async (req, res, next) => {
             console.error('💥 Expired leaves auto-decline failed:', err.message);
         }
 
-        const requests = await Leave.find({ user: { $in: userIds } })
-            .populate('user', 'fullname email role department position')
-            .sort({ createdAt: -1 });
+        // Build query filter
+        const filter = { user: { $in: userIds } };
+        if (req.query.status) filter.status = req.query.status;
+        if (req.query.employeeId) filter.user = req.query.employeeId;
+
+        const [requests, total] = await Promise.all([
+            Leave.find(filter)
+                .populate('user', 'fullname email role department position')
+                .sort({ createdAt: -1 })
+                .skip(skip)
+                .limit(limit),
+            Leave.countDocuments(filter),
+        ]);
 
         return res.status(200).json({
             success: true,
-            count: requests.length,
-            data: requests
+            data: requests,
+            total,
+            page,
+            pages: Math.ceil(total / limit),
         });
     } catch (error) {
         next(error);

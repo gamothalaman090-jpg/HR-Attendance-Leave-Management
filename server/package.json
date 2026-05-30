@@ -23,6 +23,7 @@
     "morgan": "^1.10.1",
     "multer": "^2.1.1",
     "multer-storage-cloudinary": "^2.2.1",
+    "node-cron": "^4.2.1",
     "nodemailer": "^8.0.7",
     "resend": "^6.12.3"
   },

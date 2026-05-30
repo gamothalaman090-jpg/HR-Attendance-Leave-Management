@@ -58,7 +58,7 @@ export default function CommandPalette() {
         try {
           const promises = [
             employeeService.getAll(),
-            leaveService.getAll(),
+            leaveService.getAll().then(r => r.data),
             announcementService.getAll(),
             departmentService.getAll(),
           ];
@@ -92,19 +92,19 @@ export default function CommandPalette() {
 
   // 1. Pages — complete list matching the router
   const ALL_PAGES = [
-    { id: 'p-dashboard',      label: 'Dashboard',       icon: BarChart3,    path: '/app' },
-    { id: 'p-leave',          label: 'Leave Requests',  icon: Calendar,     path: '/app/leave' },
-    { id: 'p-attendance',     label: 'Attendance',       icon: CalendarDays, path: '/app/attendance' },
-    { id: 'p-calendar',       label: 'Team Calendar',   icon: Calendar,     path: '/app/calendar' },
-    { id: 'p-announcements',  label: 'Announcements',   icon: Megaphone,    path: '/app/announcements' },
-    { id: 'p-payslips',       label: 'My Payslips',     icon: Receipt,      path: '/app/payslips' },
-    { id: 'p-employees',      label: 'Employees',       icon: Users,        path: '/app/employees',    roles: ['admin', 'manager', 'hr'] },
-    { id: 'p-departments',    label: 'Departments',     icon: Building2,    path: '/app/departments',  roles: ['admin', 'manager', 'hr'] },
-    { id: 'p-payroll',        label: 'Payroll',         icon: Wallet,       path: '/app/payroll',      roles: ['admin', 'manager', 'hr'] },
-    { id: 'p-reports',        label: 'Reports',         icon: FileText,     path: '/app/reports',      roles: ['admin', 'manager', 'hr'] },
-    { id: 'p-settings',       label: 'Settings',        icon: Settings,     path: '/app/settings' },
-    { id: 'p-profile',        label: 'My Profile',      icon: User,         path: '/app/profile' },
-    { id: 'p-superadmin',     label: 'Superadmin Console', icon: ShieldAlert, path: '/app/superadmin', roles: ['superadmin'] },
+    { id: 'p-dashboard', label: 'Dashboard', icon: BarChart3, path: '/app' },
+    { id: 'p-leave', label: 'Leave Requests', icon: Calendar, path: '/app/leave' },
+    { id: 'p-attendance', label: 'Attendance', icon: CalendarDays, path: '/app/attendance' },
+    { id: 'p-calendar', label: 'Team Calendar', icon: Calendar, path: '/app/calendar' },
+    { id: 'p-announcements', label: 'Announcements', icon: Megaphone, path: '/app/announcements' },
+    { id: 'p-payslips', label: 'My Payslips', icon: Receipt, path: '/app/payslips' },
+    { id: 'p-employees', label: 'Employees', icon: Users, path: '/app/employees', roles: ['admin', 'manager', 'hr'] },
+    { id: 'p-departments', label: 'Departments', icon: Building2, path: '/app/departments', roles: ['admin', 'manager', 'hr'] },
+    { id: 'p-payroll', label: 'Payroll', icon: Wallet, path: '/app/payroll', roles: ['admin', 'manager', 'hr'] },
+    { id: 'p-reports', label: 'Reports', icon: FileText, path: '/app/reports', roles: ['admin', 'manager', 'hr'] },
+    { id: 'p-settings', label: 'Settings', icon: Settings, path: '/app/settings' },
+    { id: 'p-profile', label: 'My Profile', icon: User, path: '/app/profile' },
+    { id: 'p-superadmin', label: 'Superadmin Console', icon: ShieldAlert, path: '/app/superadmin', roles: ['superadmin'] },
   ];
   const PAGES = ALL_PAGES.filter(p => !p.roles || isSuperadmin || p.roles.some(r => user?.role?.toLowerCase().includes(r)));
   const matchedPages = PAGES.filter(p => p.label.toLowerCase().includes(lowerQuery));
@@ -115,11 +115,11 @@ export default function CommandPalette() {
 
   // 2. Quick Actions
   const ACTIONS = [
-    { id: 'a-clock',    label: 'Clock In / Out',      icon: Clock,      path: '/app/attendance' },
-    { id: 'a-leave',    label: 'Request Leave',        icon: PlusCircle, path: '/app/leave?new=true' },
-    { id: 'a-profile',  label: 'View Profile',         icon: User,       path: '/app/profile' },
-    { id: 'a-announce', label: 'View Announcements',   icon: Megaphone,  path: '/app/announcements' },
-    { id: 'a-payslip',  label: 'View My Payslips',     icon: Receipt,    path: '/app/payslips' },
+    { id: 'a-clock', label: 'Clock In / Out', icon: Clock, path: '/app/attendance' },
+    { id: 'a-leave', label: 'Request Leave', icon: PlusCircle, path: '/app/leave?new=true' },
+    { id: 'a-profile', label: 'View Profile', icon: User, path: '/app/profile' },
+    { id: 'a-announce', label: 'View Announcements', icon: Megaphone, path: '/app/announcements' },
+    { id: 'a-payslip', label: 'View My Payslips', icon: Receipt, path: '/app/payslips' },
   ];
   const matchedActions = ACTIONS.filter(a => a.label.toLowerCase().includes(lowerQuery));
   if (matchedActions.length > 0) {

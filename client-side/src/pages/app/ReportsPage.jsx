@@ -108,13 +108,13 @@ export default function ReportsPage() {
     async function loadData() {
       try {
         setLoading(true);
-        const [attData, leaveData] = await Promise.all([
+        const [attData, leaveRes] = await Promise.all([
           attendanceService.getMonthly(),
-          leaveService.getAll()
+          leaveService.getAll({ limit: 1000 })
         ]);
         if (active) {
           setAttendanceRecords(attData);
-          setLeaveRequests(leaveData);
+          setLeaveRequests(leaveRes.data || []);
         }
       } catch (err) {
         console.error('Failed to load reports data:', err);
