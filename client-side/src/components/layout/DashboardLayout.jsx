@@ -63,31 +63,31 @@ export default function DashboardLayout() {
     setMobileMenuOpen(false);
   }, [location.pathname]);
 
-const getAvatarUrl = (profilePicture) => {
-  if (!profilePicture) return null;
-  const base = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-  return profilePicture.startsWith('http') ? profilePicture : `${base}/${profilePicture}`;
-};
+  const getAvatarUrl = (profilePicture) => {
+    if (!profilePicture) return null;
+    const base = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+    return profilePicture.startsWith('http') ? profilePicture : `${base}/${profilePicture}`;
+  };
   return (
     <div className="min-h-screen flex bg-bg transition-colors duration-base">
       <Schema />
       {/* ── Desktop Sidebar ── */}
       <aside
         className={cn(
-          'hidden lg:flex flex-col border-r border-border bg-surface transition-all duration-base ease-smooth',
+          'hidden lg:flex flex-col border-r border-border bg-surface transition-all duration-base ease-smooth fixed left-0 top-0 h-screen overflow-y-auto shrink-0 z-30',
           sidebarOpen ? 'w-64' : 'w-20'
         )}
       >
         {/* Logo */}
         <div className="flex items-center justify-between h-16 px-4 border-b border-border">
           <div className="flex items-center">
-            <img 
-              src={BRAND.logo} 
-              alt={BRAND.name} 
+            <img
+              src={BRAND.logo}
+              alt={BRAND.name}
               className={cn(
                 "object-contain transition-all duration-base",
                 sidebarOpen ? "h-10 w-auto" : "h-8 w-auto"
-              )} 
+              )}
             />
           </div>
           <button
@@ -174,7 +174,12 @@ const getAvatarUrl = (profilePicture) => {
       )}
 
       {/* ── Main Content Area ── */}
-      <div className="flex-1 flex flex-col min-w-0">
+      <div
+        className={cn(
+          'flex-1 flex flex-col min-w-0 transition-all duration-base ease-smooth',
+          sidebarOpen ? 'lg:ml-64' : 'lg:ml-20'
+        )}
+      >
         {/* Topbar */}
         <header className="sticky top-0 z-sticky h-16 flex items-center justify-between px-4 sm:px-6 border-b border-border bg-surface/80 backdrop-blur-md">
           {/* Mobile menu button */}
@@ -213,11 +218,11 @@ const getAvatarUrl = (profilePicture) => {
             >
               {isDark ? (
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+                  <circle cx="12" cy="12" r="5" /><line x1="12" y1="1" x2="12" y2="3" /><line x1="12" y1="21" x2="12" y2="23" /><line x1="4.22" y1="4.22" x2="5.64" y2="5.64" /><line x1="18.36" y1="18.36" x2="19.78" y2="19.78" /><line x1="1" y1="12" x2="3" y2="12" /><line x1="21" y1="12" x2="23" y2="12" /><line x1="4.22" y1="19.78" x2="5.64" y2="18.36" /><line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
                 </svg>
               ) : (
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+                  <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
                 </svg>
               )}
             </button>
@@ -226,22 +231,22 @@ const getAvatarUrl = (profilePicture) => {
             <NotificationCenter />
 
             {/* User avatar */}
-            <Link 
+            <Link
               to="/app/profile"
-              className="flex items-center gap-2 p-1.5 rounded-[10px] hover:bg-surface-alt transition-colors cursor-pointer" 
+              className="flex items-center gap-2 p-1.5 rounded-[10px] hover:bg-surface-alt transition-colors cursor-pointer"
               aria-label="Profile"
             >
-<div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-white text-body-sm font-bold overflow-hidden">
-  {user?.profilePicture ? (
-    <img
-      src={getAvatarUrl(user.profilePicture)}
-      alt={user.name}
-      className="w-full h-full object-cover"
-    />
-  ) : (
-    user?.name?.charAt(0) || <User size={16} />
-  )}
-</div>
+              <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-white text-body-sm font-bold overflow-hidden">
+                {user?.profilePicture ? (
+                  <img
+                    src={getAvatarUrl(user.profilePicture)}
+                    alt={user.name}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  user?.name?.charAt(0) || <User size={16} />
+                )}
+              </div>
               <span className="hidden sm:block text-body-sm font-medium text-text">
                 {user?.name || 'User'}
               </span>

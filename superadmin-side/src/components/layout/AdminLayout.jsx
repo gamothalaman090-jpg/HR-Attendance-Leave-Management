@@ -52,7 +52,7 @@ const getAvatarUrl = (profilePicture) => {
       {/* ── Desktop Sidebar ── */}
       <aside
         className={cn(
-          'hidden lg:flex flex-col border-r border-border bg-surface transition-all duration-base ease-smooth',
+          'hidden lg:flex flex-col border-r border-border bg-surface transition-all duration-base ease-smooth fixed left-0 top-0 h-screen overflow-y-auto shrink-0 z-30',
           sidebarOpen ? 'w-64' : 'w-20'
         )}
       >
@@ -174,7 +174,12 @@ const getAvatarUrl = (profilePicture) => {
       )}
 
       {/* ── Main Content Area ── */}
-      <div className="flex-1 flex flex-col min-w-0">
+      <div
+        className={cn(
+          'flex-1 flex flex-col min-w-0 transition-all duration-base ease-smooth',
+          sidebarOpen ? 'lg:ml-64' : 'lg:ml-20'
+        )}
+      >
         {/* Topbar */}
         <header className="sticky top-0 z-sticky h-16 flex items-center justify-between px-4 sm:px-6 border-b border-border bg-surface/80 backdrop-blur-md">
           {/* Mobile menu button */}
