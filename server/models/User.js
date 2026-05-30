@@ -1,11 +1,3 @@
-/**
- * Name: User.js
- * PHASE 1 FIXES:
- *   - Bcrypt salt rounds bumped from 10 → 12 (production recommendation)
- *   - Added resetPasswordToken + resetPasswordExpire fields (forgotPassword was broken without these)
- *   - Added authProvider field (was referenced in authController but missing from schema)
- *   - Added compound index on email for faster lookups
- */
 
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
@@ -88,9 +80,9 @@ const userSchema = new mongoose.Schema({
     default: false,
   },
   leaveBalances: {
-    annual:   { allotted: { type: Number, default: 20 }, left: { type: Number, default: 20 } },
-    sick:     { allotted: { type: Number, default: 12 }, left: { type: Number, default: 12 } },
-    personal: { allotted: { type: Number, default: 7  }, left: { type: Number, default: 7  } },
+    annual: { allotted: { type: Number, default: 20 }, left: { type: Number, default: 20 } },
+    sick: { allotted: { type: Number, default: 12 }, left: { type: Number, default: 12 } },
+    personal: { allotted: { type: Number, default: 7 }, left: { type: Number, default: 7 } },
   },
 
   // ─────────────────────────────────────────────
@@ -112,7 +104,6 @@ const userSchema = new mongoose.Schema({
 
 // ─── Indexes ─────────────────────────────────
 userSchema.index({ company: 1, role: 1, employmentStatus: 1 });
-userSchema.index({ email: 1 });   // FIX: Explicit email index for login queries
 
 // ─────────────────────────────────────────────
 // FIX: Bcrypt salt rounds 10 → 12
