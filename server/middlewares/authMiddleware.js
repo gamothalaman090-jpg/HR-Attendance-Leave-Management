@@ -54,6 +54,7 @@ const protect = async (req, res, next) => {
       });
     }
 
+    user.id = user._id.toString();
     req.user = user;
     return next();
   } catch (error) {
