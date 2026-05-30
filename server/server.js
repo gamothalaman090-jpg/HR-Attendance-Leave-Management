@@ -1,113 +1,134 @@
 /**
  * Name: server.js
  * Purpose: Initializes the Express app and sets up middleware and routes.
- * Dependencies: express, dotenv, cors, morgan, connectDB, routes, express-rate-limit
- * Author: Ian
- * Location: server/server.js
- * Created: 2026-05-15
- * Last Updated: 2026-05-22
+ * PHASE 1 FIXES:
+ *   - Added helmet for HTTP security headers
+ *   - Replaced open cors() with strict origin whitelist
+ *   - Morgan now runs in all envs (structured in prod, dev-pretty in dev)
  */
 
 const express = require('express');
 const dotenv = require('dotenv');
 dotenv.config();
+
 const cors = require('cors');
+const helmet = require('helmet');       // FIX: Added — sets 14 security headers automatically
 const morgan = require('morgan');
+const mongoose = require('mongoose');
 const connectDB = require('./config/db');
 const routes = require('./routes/index');
 const { cloudinary } = require('./config/cloudinary');
-
-// Import rate limiting middlewares
 const { globalLimiter, authLimiter } = require('./middlewares/rateLimiter');
 
 // Connect to Database
 connectDB();
 
-// --- CLOUDINARY CONNECTION CHECK ---
+// Cloudinary connection check
 cloudinary.api.ping()
-  .then((result) => {
-    console.log(`Cloudinary Connected: Environment active (${result.status})`);
-  })
-  .catch((err) => {
-    console.error('Cloudinary Connection Error! Check your keys in .env:');
-    console.error(`-> ${err.message}`);
-  });
+  .then((result) => console.log(`Cloudinary Connected: ${result.status}`))
+  .catch((err) => console.error('Cloudinary Connection Error:', err.message));
 
 const app = express();
 
-// --- REVERSE PROXY CONFIGURATION ---
-// Tells Express to trust forwarding headers (like X-Forwarded-For) from proxies like Nginx/Render/Heroku.
-// Crucial so the rate limiter tracks the REAL user's IP instead of the proxy server's internal loopback IP.
+// --- REVERSE PROXY ---
 app.set('trust proxy', 1);
 
-const mongoose = require('mongoose');
+// ─────────────────────────────────────────────
+// FIX 1: HELMET — Security headers
+// Sets X-Frame-Options, X-XSS-Protection, Strict-Transport-Security,
+// Content-Security-Policy, and 10+ others in one call.
+// ─────────────────────────────────────────────
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: 'cross-origin' }, // Allow Cloudinary image URLs
+}));
 
-// --- GLOBAL MIDDLEWARES ---
-app.use(cors()); 
-app.use(express.json()); 
-app.use(express.urlencoded({ extended: true })); 
+// ─────────────────────────────────────────────
+// FIX 2: CORS — Strict origin whitelist
+// BEFORE: app.use(cors())  ← allowed ALL origins (any site could call your API)
+// AFTER:  Only your known frontends are allowed
+// ─────────────────────────────────────────────
+const allowedOrigins = (process.env.CLIENT_ORIGIN || 'http://localhost:5173')
+  .split(',')
+  .map(o => o.trim())
+  .concat(
+    (process.env.SUPERADMIN_ORIGIN || 'http://localhost:5174')
+      .split(',')
+      .map(o => o.trim())
+  );
 
-// Ensure database connection is ready on serverless environments before processing API calls
-app.use('/api', async (req, res, next) => {
-  try {
-    if (mongoose.connection.readyState !== 1) {
-      await connectDB();
+app.use(cors({
+  origin: (origin, callback) => {
+    // Allow server-to-server calls (no origin) and listed origins
+    if (!origin || allowedOrigins.includes(origin)) {
+      return callback(null, true);
     }
-    next();
-  } catch (err) {
-    console.error('Database connection middleware error:', err);
-    res.status(503).json({ success: false, message: 'Database connection unavailable. Please try again.' });
-  }
-}); 
+    return callback(new Error(`CORS blocked: origin ${origin} is not allowed`));
+  },
+  credentials: true,           // Required for httpOnly cookie auth (future refresh token)
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+}));
 
-if (process.env.NODE_ENV === 'development') {
+// Body parsers
+app.use(express.json({ limit: '1mb' }));      // Limit payload size
+app.use(express.urlencoded({ extended: true, limit: '1mb' }));
+
+// ─────────────────────────────────────────────
+// FIX 3: MORGAN — Log in all environments
+// BEFORE: Only logged in development (blind in production)
+// AFTER:  'combined' format (Apache-style) in prod for log aggregators,
+//         'dev' format locally
+// ─────────────────────────────────────────────
+if (process.env.NODE_ENV === 'production') {
+  app.use(morgan('combined'));
+} else {
   app.use(morgan('dev'));
 }
 
-// --- RATE LIMITING INTERCEPTORS ---
-// 1. Protect all endpoints globally (Max 100 requests every 15 minutes)
-app.use('/api', globalLimiter);
+// DB ready-check for serverless
+app.use('/api', async (req, res, next) => {
+  try {
+    if (mongoose.connection.readyState !== 1) await connectDB();
+    next();
+  } catch (err) {
+    res.status(503).json({ success: false, message: 'Database unavailable. Please retry.' });
+  }
+});
 
-// 2. Add extra protection layer to authentication routes to stop brute-force attacks
+// Rate limiting
+app.use('/api', globalLimiter);
 app.use('/api/auth', authLimiter);
 
-// --- HEALTH CHECK & ROOT ---
-app.get('/', (req, res) => {
-  res.status(200).json({
-    status: 'active',
-    message: 'Welcome to the HR Attendance & Leave Management API Service.',
-    version: '1.0.0',
-    endpoints: {
-      health: '/health',
-      api: '/api'
-    }
-  });
-});
+// ─── Health & Root ───────────────────────────
+app.get('/', (_req, res) => res.status(200).json({
+  status: 'active',
+  message: 'HR Attendance & Leave Management API',
+  version: '1.0.0',
+}));
 
-app.get('/health', (req, res) => {
-  res.status(200).json({
-    status: 'active',
-    service: 'HR-Attendance-Leave-Management-API',
-    time: new Date().toLocaleString(),
-    uptime: `${Math.floor(process.uptime())}s`
-  });
-});
+app.get('/health', (_req, res) => res.status(200).json({
+  status: 'active',
+  db: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected',
+  uptime: `${Math.floor(process.uptime())}s`,
+  time: new Date().toISOString(),
+}));
 
-// --- API ROUTES ---
+// API Routes
 app.use('/api', routes);
 
-// --- ERROR HANDLING ---
-app.use((req, res, next) => {
-  res.status(404).json({ message: `Route not found - ${req.originalUrl}` });
+// 404 handler
+app.use((req, res) => {
+  res.status(404).json({ success: false, message: `Route not found: ${req.originalUrl}` });
 });
 
-// Global Error Handler
-app.use((err, req, res, next) => {
+// Global error handler
+app.use((err, req, res, _next) => {
   const statusCode = err.statusCode || 500;
+  // Never leak stack traces to clients in production
   res.status(statusCode).json({
     success: false,
-    message: err.message || 'Server Error',
-    stack: process.env.NODE_ENV === 'production' ? null : err.stack,
+    message: err.message || 'Internal Server Error',
+    ...(process.env.NODE_ENV !== 'production' && { stack: err.stack }),
   });
 });
 
@@ -116,8 +137,8 @@ const server = app.listen(PORT, () => {
   console.log(`Server running in ${process.env.NODE_ENV || 'development'} mode on port ${PORT}`);
 });
 
-process.on('unhandledRejection', (err, promise) => {
-  console.log(`Error: ${err.message}`);
+process.on('unhandledRejection', (err) => {
+  console.error(`Unhandled Rejection: ${err.message}`);
   server.close(() => process.exit(1));
 });
 

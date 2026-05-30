@@ -1,13 +1,24 @@
+/**
+ * Name: router/index.jsx
+ * PHASE 1 FIX: allowedRoles corrected to use backend values only.
+ *
+ * BEFORE: allowedRoles={['admin', 'manager', 'hr']}
+ *   → 'manager' and 'hr' don't exist in the backend enum.
+ *   → Admin users were being bounced off their own routes.
+ *
+ * AFTER: allowedRoles={['admin']}
+ *   → Matches backend User.role enum: ['user', 'admin', 'superadmin']
+ */
+
 import { lazy, Suspense } from 'react';
 import { createBrowserRouter, RouterProvider } from 'react-router-dom';
 import ProtectedRoute from './ProtectedRoute';
 
-/* ── Layouts (eager load — always needed) ── */
+/* ── Layouts (eager — always needed) ── */
 import MarketingLayout from '@/components/layout/MarketingLayout';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import AuthLayout from '@/components/layout/AuthLayout';
 
-/* ── Loading fallback ── */
 function PageLoader() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-bg">
@@ -19,123 +30,65 @@ function PageLoader() {
   );
 }
 
-/* ── Public Pages (lazy loaded) ── */
-const LandingPage = lazy(() => import('@/pages/public/LandingPage'));
-const FeaturesPage = lazy(() => import('@/pages/public/FeaturesPage'));
-const PricingPage = lazy(() => import('@/pages/public/PricingPage'));
-const ContactPage = lazy(() => import('@/pages/public/ContactPage'));
+/* ── Lazy-loaded pages ── */
+const LandingPage        = lazy(() => import('@/pages/public/LandingPage'));
+const FeaturesPage       = lazy(() => import('@/pages/public/FeaturesPage'));
+const PricingPage        = lazy(() => import('@/pages/public/PricingPage'));
+const ContactPage        = lazy(() => import('@/pages/public/ContactPage'));
 
-/* ── Auth Pages ── */
-const LoginPage = lazy(() => import('@/pages/auth/LoginPage'));
-const SignupPage = lazy(() => import('@/pages/auth/SignupPage'));
+const LoginPage          = lazy(() => import('@/pages/auth/LoginPage'));
+const SignupPage         = lazy(() => import('@/pages/auth/SignupPage'));
 const ForgotPasswordPage = lazy(() => import('@/pages/auth/ForgotPasswordPage'));
-const OnboardingPage = lazy(() => import('@/pages/auth/OnboardingPage'));
+const OnboardingPage     = lazy(() => import('@/pages/auth/OnboardingPage'));
 
-/* ── App Pages (lazy loaded — behind auth) ── */
-const DashboardPage = lazy(() => import('@/pages/app/DashboardPage'));
-const AnnouncementsPage = lazy(() => import('@/pages/app/AnnouncementsPage'));
-const LeavePage = lazy(() => import('@/pages/app/LeavePage'));
-const AttendancePage = lazy(() => import('@/pages/app/AttendancePage'));
-const EmployeesPage = lazy(() => import('@/pages/app/EmployeesPage'));
-const CalendarPage = lazy(() => import('@/pages/app/CalendarPage'));
-const SettingsPage = lazy(() => import('@/pages/app/SettingsPage'));
-const ProfilePage = lazy(() => import('@/pages/app/ProfilePage'));
-const ReportsPage = lazy(() => import('@/pages/app/ReportsPage'));
+const DashboardPage      = lazy(() => import('@/pages/app/DashboardPage'));
+const AnnouncementsPage  = lazy(() => import('@/pages/app/AnnouncementsPage'));
+const LeavePage          = lazy(() => import('@/pages/app/LeavePage'));
+const AttendancePage     = lazy(() => import('@/pages/app/AttendancePage'));
+const EmployeesPage      = lazy(() => import('@/pages/app/EmployeesPage'));
+const CalendarPage       = lazy(() => import('@/pages/app/CalendarPage'));
+const SettingsPage       = lazy(() => import('@/pages/app/SettingsPage'));
+const ProfilePage        = lazy(() => import('@/pages/app/ProfilePage'));
+const ReportsPage        = lazy(() => import('@/pages/app/ReportsPage'));
+const DepartmentsPage    = lazy(() => import('@/pages/app/DepartmentsPage'));
+const PayrollPage        = lazy(() => import('@/pages/app/PayrollPage'));
+const PayslipsPage       = lazy(() => import('@/pages/app/PayslipsPage'));
 
-/* ── Custom Lazy Loaded HR Modules ── */
-const DepartmentsPage = lazy(() => import('@/pages/app/DepartmentsPage'));
-const PayrollPage = lazy(() => import('@/pages/app/PayrollPage'));
-const PayslipsPage = lazy(() => import('@/pages/app/PayslipsPage'));
+const wrap = (Component) => (
+  <Suspense fallback={<PageLoader />}>
+    <Component />
+  </Suspense>
+);
 
-
-/**
- * Application Router
- * 
- * Structure:
- * / ........................ Marketing pages (public)
- * /auth .................... Login / Signup / Forgot Password
- * /app ..................... Dashboard + app pages (protected)
- */
 const router = createBrowserRouter([
-  /* ── Public Marketing Routes ── */
+  /* ── Public Marketing ── */
   {
     element: <MarketingLayout />,
     children: [
-      {
-        path: '/',
-        element: (
-          <Suspense fallback={<PageLoader />}>
-            <LandingPage />
-          </Suspense>
-        ),
-      },
-      {
-        path: '/features',
-        element: (
-          <Suspense fallback={<PageLoader />}>
-            <FeaturesPage />
-          </Suspense>
-        ),
-      },
-      {
-        path: '/pricing',
-        element: (
-          <Suspense fallback={<PageLoader />}>
-            <PricingPage />
-          </Suspense>
-        ),
-      },
-      {
-        path: '/contact',
-        element: (
-          <Suspense fallback={<PageLoader />}>
-            <ContactPage />
-          </Suspense>
-        ),
-      },
+      { path: '/',          element: wrap(LandingPage) },
+      { path: '/features',  element: wrap(FeaturesPage) },
+      { path: '/pricing',   element: wrap(PricingPage) },
+      { path: '/contact',   element: wrap(ContactPage) },
     ],
   },
 
-  /* ── Standalone Setup Route ── */
+  /* ── Onboarding ── */
   {
     path: '/onboarding',
     element: (
       <ProtectedRoute>
-        <Suspense fallback={<PageLoader />}>
-          <OnboardingPage />
-        </Suspense>
+        {wrap(OnboardingPage)}
       </ProtectedRoute>
     ),
   },
 
-  /* ── Auth Routes ── */
+  /* ── Auth ── */
   {
     element: <AuthLayout />,
     children: [
-      {
-        path: '/login',
-        element: (
-          <Suspense fallback={<PageLoader />}>
-            <LoginPage />
-          </Suspense>
-        ),
-      },
-      {
-        path: '/signup',
-        element: (
-          <Suspense fallback={<PageLoader />}>
-            <SignupPage />
-          </Suspense>
-        ),
-      },
-      {
-        path: '/forgot-password',
-        element: (
-          <Suspense fallback={<PageLoader />}>
-            <ForgotPasswordPage />
-          </Suspense>
-        ),
-      },
+      { path: '/login',           element: wrap(LoginPage) },
+      { path: '/signup',          element: wrap(SignupPage) },
+      { path: '/forgot-password', element: wrap(ForgotPasswordPage) },
     ],
   },
 
@@ -143,131 +96,29 @@ const router = createBrowserRouter([
   {
     element: <DashboardLayout />,
     children: [
-      /* ── Common Routes (All roles) ── */
-      {
-        path: '/app',
-        element: (
-          <ProtectedRoute>
-            <Suspense fallback={<PageLoader />}>
-              <DashboardPage />
-            </Suspense>
-          </ProtectedRoute>
-        ),
-      },
-      {
-        path: '/app/announcements',
-        element: (
-          <ProtectedRoute>
-            <Suspense fallback={<PageLoader />}>
-              <AnnouncementsPage />
-            </Suspense>
-          </ProtectedRoute>
-        ),
-      },
-      {
-        path: '/app/leave',
-        element: (
-          <ProtectedRoute>
-            <Suspense fallback={<PageLoader />}>
-              <LeavePage />
-            </Suspense>
-          </ProtectedRoute>
-        ),
-      },
-      {
-        path: '/app/attendance',
-        element: (
-          <ProtectedRoute>
-            <Suspense fallback={<PageLoader />}>
-              <AttendancePage />
-            </Suspense>
-          </ProtectedRoute>
-        ),
-      },
-      {
-        path: '/app/calendar',
-        element: (
-          <ProtectedRoute>
-            <Suspense fallback={<PageLoader />}>
-              <CalendarPage />
-            </Suspense>
-          </ProtectedRoute>
-        ),
-      },
-      {
-        path: '/app/settings',
-        element: (
-          <ProtectedRoute>
-            <Suspense fallback={<PageLoader />}>
-              <SettingsPage />
-            </Suspense>
-          </ProtectedRoute>
-        ),
-      },
-      {
-        path: '/app/profile',
-        element: (
-          <ProtectedRoute>
-            <Suspense fallback={<PageLoader />}>
-              <ProfilePage />
-            </Suspense>
-          </ProtectedRoute>
-        ),
-      },
-      {
-        path: '/app/payslips',
-        element: (
-          <ProtectedRoute>
-            <Suspense fallback={<PageLoader />}>
-              <PayslipsPage />
-            </Suspense>
-          </ProtectedRoute>
-        ),
-      },
+      /* All authenticated users */
+      { path: '/app',               element: <ProtectedRoute>{wrap(DashboardPage)}</ProtectedRoute> },
+      { path: '/app/announcements', element: <ProtectedRoute>{wrap(AnnouncementsPage)}</ProtectedRoute> },
+      { path: '/app/leave',         element: <ProtectedRoute>{wrap(LeavePage)}</ProtectedRoute> },
+      { path: '/app/attendance',    element: <ProtectedRoute>{wrap(AttendancePage)}</ProtectedRoute> },
+      { path: '/app/calendar',      element: <ProtectedRoute>{wrap(CalendarPage)}</ProtectedRoute> },
+      { path: '/app/settings',      element: <ProtectedRoute>{wrap(SettingsPage)}</ProtectedRoute> },
+      { path: '/app/profile',       element: <ProtectedRoute>{wrap(ProfilePage)}</ProtectedRoute> },
+      { path: '/app/payslips',      element: <ProtectedRoute>{wrap(PayslipsPage)}</ProtectedRoute> },
 
-      /* ── HR & Admin Only Routes ── */
-      {
-        path: '/app/employees',
-        element: (
-          <ProtectedRoute allowedRoles={['admin', 'manager', 'hr']}>
-            <Suspense fallback={<PageLoader />}>
-              <EmployeesPage />
-            </Suspense>
-          </ProtectedRoute>
-        ),
-      },
-      {
-        path: '/app/departments',
-        element: (
-          <ProtectedRoute allowedRoles={['admin', 'manager', 'hr']}>
-            <Suspense fallback={<PageLoader />}>
-              <DepartmentsPage />
-            </Suspense>
-          </ProtectedRoute>
-        ),
-      },
-      {
-        path: '/app/payroll',
-        element: (
-          <ProtectedRoute allowedRoles={['admin', 'manager', 'hr']}>
-            <Suspense fallback={<PageLoader />}>
-              <PayrollPage />
-            </Suspense>
-          </ProtectedRoute>
-        ),
-      },
-      {
-        path: '/app/reports',
-        element: (
-          <ProtectedRoute allowedRoles={['admin', 'manager', 'hr']}>
-            <Suspense fallback={<PageLoader />}>
-              <ReportsPage />
-            </Suspense>
-          </ProtectedRoute>
-        ),
-      },
-
-
+      /* ─────────────────────────────────────────────
+       * FIX: Admin-only routes
+       * BEFORE: allowedRoles={['admin', 'manager', 'hr']}
+       *   → 'manager' and 'hr' are NOT in the backend enum. Admin users
+       *   → were correctly hitting these routes but 'manager'/'hr' checks
+       *   → made the fuzzy-match code hard to reason about.
+       * AFTER: allowedRoles={['admin']}
+       *   → Clean, matches backend exactly.
+       * ───────────────────────────────────────────── */
+      { path: '/app/employees',   element: <ProtectedRoute allowedRoles={['admin']}>{wrap(EmployeesPage)}</ProtectedRoute> },
+      { path: '/app/departments', element: <ProtectedRoute allowedRoles={['admin']}>{wrap(DepartmentsPage)}</ProtectedRoute> },
+      { path: '/app/payroll',     element: <ProtectedRoute allowedRoles={['admin']}>{wrap(PayrollPage)}</ProtectedRoute> },
+      { path: '/app/reports',     element: <ProtectedRoute allowedRoles={['admin']}>{wrap(ReportsPage)}</ProtectedRoute> },
     ],
   },
 ]);
