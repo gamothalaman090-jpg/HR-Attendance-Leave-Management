@@ -49,20 +49,36 @@ app.use(helmet({
 // ─────────────────────────────────────────────
 const allowedOrigins = (process.env.CLIENT_ORIGIN || 'http://localhost:5173')
   .split(',')
-  .map(o => o.trim())
+  .map(o => o.trim().replace(/\/$/, ''))
   .concat(
     (process.env.SUPERADMIN_ORIGIN || 'http://localhost:5174')
       .split(',')
-      .map(o => o.trim())
+      .map(o => o.trim().replace(/\/$/, ''))
   );
 
 app.use(cors({
   origin: (origin, callback) => {
-    // Allow server-to-server calls (no origin) and listed origins
-    if (!origin || allowedOrigins.includes(origin)) {
+    // 1. Allow server-to-server calls (no origin)
+    if (!origin) {
       return callback(null, true);
     }
-    return callback(new Error(`CORS blocked: origin ${origin} is not allowed`));
+
+    // 2. Normalize origin by stripping any trailing slash
+    const normalizedOrigin = origin.trim().replace(/\/$/, '');
+
+    // 3. Match explicit list
+    if (allowedOrigins.includes(normalizedOrigin)) {
+      return callback(null, true);
+    }
+
+    // 4. Match Vercel domains for this project (e.g. production and preview branch URLs)
+    const isVercelOrigin = /^https:\/\/hr-attendance-leave-management.*\.vercel\.app$/.test(normalizedOrigin);
+    if (isVercelOrigin) {
+      return callback(null, true);
+    }
+
+    // 5. Block other origins (by returning false instead of throwing a server-side Error)
+    return callback(null, false);
   },
   credentials: true,           // Required for httpOnly cookie auth (future refresh token)
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
