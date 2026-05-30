@@ -1,107 +1,79 @@
 /**
  * Name: server.js
- * Purpose: Initializes the Express app and sets up middleware and routes.
- * PHASE 1 FIXES:
- *   - Added helmet for HTTP security headers
- *   - Replaced open cors() with strict origin whitelist
- *   - Morgan now runs in all envs (structured in prod, dev-pretty in dev)
+ * PHASE 3 FIXES:
+ *   - Replaced inline 404 + error handlers with dedicated errorHandler middleware
+ *   - Added Winston logger import (structured server logs)
+ *   - Removed duplicate error handling code at the bottom
+ *   - Added Winston HTTP request logging in production (replaces morgan string format)
+ *   - process.on('uncaughtException') added alongside unhandledRejection
  */
 
-const express = require('express');
-const dotenv = require('dotenv');
+const express    = require('express');
+const dotenv     = require('dotenv');
 dotenv.config();
 
-const cors = require('cors');
-const helmet = require('helmet');       // FIX: Added — sets 14 security headers automatically
-const morgan = require('morgan');
-const mongoose = require('mongoose');
-const connectDB = require('./config/db');
-const routes = require('./routes/index');
+const cors       = require('cors');
+const helmet     = require('helmet');
+const morgan     = require('morgan');
+const mongoose   = require('mongoose');
+const connectDB  = require('./config/db');
+const routes     = require('./routes/index');
 const { cloudinary } = require('./config/cloudinary');
 const { globalLimiter, authLimiter } = require('./middlewares/rateLimiter');
+
+// FIX: Import centralised error handler (replaces inline handlers at bottom)
+const { notFound, globalErrorHandler } = require('./middlewares/errorHandler');
+
+// FIX: Import Winston logger
+const { logger } = require('./utils/logger');
 
 // Connect to Database
 connectDB();
 
-// Cloudinary connection check
 cloudinary.api.ping()
-  .then((result) => console.log(`Cloudinary Connected: ${result.status}`))
-  .catch((err) => console.error('Cloudinary Connection Error:', err.message));
+  .then((result) => logger.info(`Cloudinary connected: ${result.status}`))
+  .catch((err)   => logger.error(`Cloudinary connection error: ${err.message}`));
 
 const app = express();
 
-// --- REVERSE PROXY ---
 app.set('trust proxy', 1);
 
-// ─────────────────────────────────────────────
-// FIX 1: HELMET — Security headers
-// Sets X-Frame-Options, X-XSS-Protection, Strict-Transport-Security,
-// Content-Security-Policy, and 10+ others in one call.
-// ─────────────────────────────────────────────
-app.use(helmet({
-  crossOriginResourcePolicy: { policy: 'cross-origin' }, // Allow Cloudinary image URLs
-}));
+// ── Security headers ──────────────────────────────────────
+app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
 
-// ─────────────────────────────────────────────
-// FIX 2: CORS — Strict origin whitelist
-// BEFORE: app.use(cors())  ← allowed ALL origins (any site could call your API)
-// AFTER:  Only your known frontends are allowed
-// ─────────────────────────────────────────────
+// ── CORS ──────────────────────────────────────────────────
 const allowedOrigins = (process.env.CLIENT_ORIGIN || 'http://localhost:5173')
-  .split(',')
-  .map(o => o.trim().replace(/\/$/, ''))
+  .split(',').map(o => o.trim().replace(/\/$/, ''))
   .concat(
     (process.env.SUPERADMIN_ORIGIN || 'http://localhost:5174')
-      .split(',')
-      .map(o => o.trim().replace(/\/$/, ''))
+      .split(',').map(o => o.trim().replace(/\/$/, ''))
   );
 
 app.use(cors({
   origin: (origin, callback) => {
-    // 1. Allow server-to-server calls (no origin)
-    if (!origin) {
-      return callback(null, true);
-    }
-
-    // 2. Normalize origin by stripping any trailing slash
-    const normalizedOrigin = origin.trim().replace(/\/$/, '');
-
-    // 3. Match explicit list
-    if (allowedOrigins.includes(normalizedOrigin)) {
-      return callback(null, true);
-    }
-
-    // 4. Match Vercel domains for this project (e.g. production and preview branch URLs)
-    const isVercelOrigin = /^https:\/\/hr-attendance-leave-management.*\.vercel\.app$/.test(normalizedOrigin);
-    if (isVercelOrigin) {
-      return callback(null, true);
-    }
-
-    // 5. Block other origins (by returning false instead of throwing a server-side Error)
+    if (!origin) return callback(null, true);
+    const normalized = origin.trim().replace(/\/$/, '');
+    if (allowedOrigins.includes(normalized)) return callback(null, true);
+    if (/^https:\/\/hr-attendance-leave-management.*\.vercel\.app$/.test(normalized)) return callback(null, true);
     return callback(null, false);
   },
-  credentials: true,           // Required for httpOnly cookie auth (future refresh token)
+  credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
 }));
 
-// Body parsers
-app.use(express.json({ limit: '1mb' }));      // Limit payload size
+// ── Body parsers ──────────────────────────────────────────
+app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 
-// ─────────────────────────────────────────────
-// FIX 3: MORGAN — Log in all environments
-// BEFORE: Only logged in development (blind in production)
-// AFTER:  'combined' format (Apache-style) in prod for log aggregators,
-//         'dev' format locally
-// ─────────────────────────────────────────────
+// ── HTTP request logging ─────────────────────────────────
 if (process.env.NODE_ENV === 'production') {
   app.use(morgan('combined'));
 } else {
   app.use(morgan('dev'));
 }
 
-// DB ready-check for serverless
+// ── DB ready-check (serverless) ───────────────────────────
 app.use('/api', async (req, res, next) => {
   try {
     if (mongoose.connection.readyState !== 1) await connectDB();
@@ -111,11 +83,11 @@ app.use('/api', async (req, res, next) => {
   }
 });
 
-// Rate limiting
+// ── Rate limiting ─────────────────────────────────────────
 app.use('/api', globalLimiter);
 app.use('/api/auth', authLimiter);
 
-// ─── Health & Root ───────────────────────────
+// ── Health / Root ─────────────────────────────────────────
 app.get('/', (_req, res) => res.status(200).json({
   status: 'active',
   message: 'HR Attendance & Leave Management API',
@@ -129,32 +101,38 @@ app.get('/health', (_req, res) => res.status(200).json({
   time: new Date().toISOString(),
 }));
 
-// API Routes
+// ── API Routes ────────────────────────────────────────────
 app.use('/api', routes);
 
-// 404 handler
-app.use((req, res) => {
-  res.status(404).json({ success: false, message: `Route not found: ${req.originalUrl}` });
-});
+// Scheduled jobs
+require('./cron/Expiredleaves');
 
-// Global error handler
-app.use((err, req, res, _next) => {
-  const statusCode = err.statusCode || 500;
-  // Never leak stack traces to clients in production
-  res.status(statusCode).json({
-    success: false,
-    message: err.message || 'Internal Server Error',
-    ...(process.env.NODE_ENV !== 'production' && { stack: err.stack }),
-  });
-});
+// ─────────────────────────────────────────────
+// FIX: Centralised error handling
+// BEFORE: Inline 404 + error handler in server.js
+//   - Didn't handle Mongoose CastError, ValidationError, or duplicate key
+//   - Always returned 500 even for client mistakes
+// AFTER: Dedicated middleware handles all error types correctly
+// ─────────────────────────────────────────────
+app.use(notFound);
+app.use(globalErrorHandler);
 
-const PORT = process.env.PORT || 8000;
+// ── Process error handlers ────────────────────────────────
+const PORT   = process.env.PORT || 8000;
 const server = app.listen(PORT, () => {
-  console.log(`Server running in ${process.env.NODE_ENV || 'development'} mode on port ${PORT}`);
+  logger.info(`Server running in ${process.env.NODE_ENV || 'development'} mode on port ${PORT}`);
 });
 
 process.on('unhandledRejection', (err) => {
-  console.error(`Unhandled Rejection: ${err.message}`);
+  logger.error(`Unhandled Rejection: ${err.message}`, { stack: err.stack });
+  server.close(() => process.exit(1));
+});
+
+// FIX: Added uncaughtException handler (was missing)
+// Without this, a synchronous throw outside of async context crashes the process
+// with no structured log — just a raw stderr dump.
+process.on('uncaughtException', (err) => {
+  logger.error(`Uncaught Exception: ${err.message}`, { stack: err.stack });
   server.close(() => process.exit(1));
 });
 

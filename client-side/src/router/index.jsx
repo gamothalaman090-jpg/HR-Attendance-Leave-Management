@@ -18,6 +18,7 @@ import ProtectedRoute from './ProtectedRoute';
 import MarketingLayout from '@/components/layout/MarketingLayout';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import AuthLayout from '@/components/layout/AuthLayout';
+import ErrorPage from '@/pages/public/ErrorPage';
 
 function PageLoader() {
   return (
@@ -64,6 +65,7 @@ const router = createBrowserRouter([
   /* ── Public Marketing ── */
   {
     element: <MarketingLayout />,
+    errorElement: <ErrorPage />,
     children: [
       { path: '/',          element: wrap(LandingPage) },
       { path: '/features',  element: wrap(FeaturesPage) },
@@ -75,6 +77,7 @@ const router = createBrowserRouter([
   /* ── Onboarding ── */
   {
     path: '/onboarding',
+    errorElement: <ErrorPage />,
     element: (
       <ProtectedRoute>
         {wrap(OnboardingPage)}
@@ -85,6 +88,7 @@ const router = createBrowserRouter([
   /* ── Auth ── */
   {
     element: <AuthLayout />,
+    errorElement: <ErrorPage />,
     children: [
       { path: '/login',           element: wrap(LoginPage) },
       { path: '/signup',          element: wrap(SignupPage) },
@@ -95,6 +99,7 @@ const router = createBrowserRouter([
   /* ── Protected App Routes ── */
   {
     element: <DashboardLayout />,
+    errorElement: <ErrorPage />,
     children: [
       /* All authenticated users */
       { path: '/app',               element: <ProtectedRoute>{wrap(DashboardPage)}</ProtectedRoute> },
@@ -120,6 +125,12 @@ const router = createBrowserRouter([
       { path: '/app/payroll',     element: <ProtectedRoute allowedRoles={['admin']}>{wrap(PayrollPage)}</ProtectedRoute> },
       { path: '/app/reports',     element: <ProtectedRoute allowedRoles={['admin']}>{wrap(ReportsPage)}</ProtectedRoute> },
     ],
+  },
+
+  /* ── Fallcard Wildcard 404 Route ── */
+  {
+    path: '*',
+    element: <ErrorPage type="404" />,
   },
 ]);
 

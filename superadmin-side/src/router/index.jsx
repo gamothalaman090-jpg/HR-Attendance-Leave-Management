@@ -3,6 +3,7 @@ import { createBrowserRouter, RouterProvider, Navigate } from 'react-router-dom'
 import ProtectedRoute from './ProtectedRoute';
 import AdminLayout from '@/components/layout/AdminLayout';
 import AuthLayout from '@/components/layout/AuthLayout';
+import ErrorPage from '@/pages/ErrorPage';
 
 function PageLoader() {
   return (
@@ -27,6 +28,7 @@ const router = createBrowserRouter([
   /* ── Auth Routes ── */
   {
     path: '/login',
+    errorElement: <ErrorPage />,
     element: (
       <AuthLayout>
         <Suspense fallback={<PageLoader />}>
@@ -38,6 +40,7 @@ const router = createBrowserRouter([
 
   /* ── Protected Console Routes ── */
   {
+    errorElement: <ErrorPage />,
     element: (
       <ProtectedRoute>
         <AdminLayout />
@@ -69,6 +72,12 @@ const router = createBrowserRouter([
         ),
       },
     ],
+  },
+
+  /* ── Fallback 404 Route ── */
+  {
+    path: '*',
+    element: <ErrorPage type="404" />,
   },
 ]);
 
