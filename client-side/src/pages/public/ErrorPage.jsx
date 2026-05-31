@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, useRouteError } from 'react-router-dom';
 import { 
   ArrowLeft, 
@@ -23,6 +23,25 @@ export default function ErrorPage({ type, error: errorProp, resetErrorBoundary }
   // Combine potential error sources
   const error = errorProp || routeError;
   const is404 = type === '404' || (routeError && routeError.status === 404);
+
+  const isChunkError = error && (
+    /Failed to fetch dynamically imported module|loading chunk/i.test(error.message || error.toString() || "")
+  );
+
+  useEffect(() => {
+    if (isChunkError) {
+      const hasReloaded = sessionStorage.getItem('chunk-error-reload');
+      if (!hasReloaded) {
+        sessionStorage.setItem('chunk-error-reload', 'true');
+        console.warn("Chunk load failure detected. Reloading page to fetch latest version...");
+        window.location.reload();
+      } else {
+        console.error("Chunk load failure repeated after reload. Stopping reload loop.");
+      }
+    } else {
+      sessionStorage.removeItem('chunk-error-reload');
+    }
+  }, [isChunkError]);
 
   const [showDiagnostics, setShowDiagnostics] = useState(false);
   const [copied, setCopied] = useState(false);
