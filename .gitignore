@@ -58,6 +58,9 @@ ehthumbs.db
 tmp/
 temp/
 
+# --- Debug / utility scripts (may contain credentials) ---
+dump-users.js
+
 # --- AI agent skills (local only) ---
 .agents/
 skills-lock.json
