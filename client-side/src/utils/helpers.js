@@ -103,3 +103,22 @@ export function downloadCSV(data, filename = 'export.csv') {
   link.click();
   URL.revokeObjectURL(url);
 }
+
+/**
+ * Format a time value (supports ISO strings or pre-formatted strings).
+ * Displays time in the local timezone of the client.
+ * @param {string|Date} timeStr
+ * @returns {string}
+ */
+export function formatTime(timeStr) {
+  if (!timeStr) return '—';
+  const str = String(timeStr);
+  if (str.includes('T') || /^\d{4}-\d{2}-\d{2}/.test(str)) {
+    try {
+      return new Date(timeStr).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+    } catch {
+      return str;
+    }
+  }
+  return str;
+}

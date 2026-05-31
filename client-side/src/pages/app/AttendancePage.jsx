@@ -9,8 +9,7 @@ import { attendanceService } from '@/services/attendanceService';
 import { employeeService } from '@/services/employeeService';
 import { Modal, Button, Badge } from '@/components/ui';
 import { useAuth } from '@/context/AuthContext';
-import { cn } from '@/utils/helpers';
-import { downloadCSV } from '@/utils/helpers';
+import { cn, downloadCSV, formatTime } from '@/utils/helpers';
 
 const STATUS_STYLES = {
   present: { bg: 'bg-success/15', text: 'text-success', label: 'Present' },
@@ -24,7 +23,7 @@ const STATUS_STYLES = {
 };
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
 export default function AttendancePage() {
   const { user } = useAuth();
@@ -94,7 +93,7 @@ export default function AttendancePage() {
       const employees = await employeeService.getAll();
       const actives = employees.filter(e => e.status === 'active');
       setStaffList(actives);
-      
+
       if (actives.length > 0 && !selectedStaffId) {
         setSelectedStaffId(actives[0].id);
       }
@@ -207,7 +206,7 @@ export default function AttendancePage() {
     if (records && records.length > 0) {
       return records;
     }
-    
+
     // Generate static array matching current month dimensions if API data is missing
     const totalDays = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
     const fallbackList = [];
@@ -215,7 +214,7 @@ export default function AttendancePage() {
       const loopDate = new Date(today.getFullYear(), today.getMonth(), d);
       const dayOfWeek = loopDate.getDay();
       const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
-      
+
       fallbackList.push({
         day: d,
         date: `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`,
@@ -442,7 +441,7 @@ export default function AttendancePage() {
                 className="w-full pl-9 pr-3 py-2 bg-background border border-border rounded-[8px] text-body-sm text-text placeholder:text-text-muted focus:ring-2 focus:ring-primary/30 focus:border-primary outline-none transition-all"
               />
             </div>
-            
+
             <div className="overflow-y-auto space-y-2 flex-1 pr-1">
               {filteredStaff.length === 0 ? (
                 <p className="text-caption text-text-muted text-center py-4">No employees match.</p>

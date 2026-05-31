@@ -154,11 +154,27 @@ export const attendanceService = {
     const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
     const todayRecord = (records || []).find(r => r.date === todayStr);
 
+    const formatTimeLocal = (timeStr) => {
+      if (!timeStr) return null;
+      const str = String(timeStr);
+      if (str.includes('T') || /^\d{4}-\d{2}-\d{2}/.test(str)) {
+        try {
+          return new Date(timeStr).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+        } catch {
+          return str;
+        }
+      }
+      return str;
+    };
+
     if (todayRecord) {
-      if (todayRecord.clockIn && !todayRecord.clockOut) {
-        clockStatus = { isClockedIn: true, clockInTime: todayRecord.clockIn, clockOutTime: null };
-      } else if (todayRecord.clockIn && todayRecord.clockOut) {
-        clockStatus = { isClockedIn: false, clockInTime: todayRecord.clockIn, clockOutTime: todayRecord.clockOut };
+      const clockInTime = formatTimeLocal(todayRecord.clockIn);
+      const clockOutTime = formatTimeLocal(todayRecord.clockOut);
+
+      if (clockInTime && !clockOutTime) {
+        clockStatus = { isClockedIn: true, clockInTime, clockOutTime: null };
+      } else if (clockInTime && clockOutTime) {
+        clockStatus = { isClockedIn: false, clockInTime, clockOutTime };
       } else {
         clockStatus = { isClockedIn: false, clockInTime: null, clockOutTime: null };
       }

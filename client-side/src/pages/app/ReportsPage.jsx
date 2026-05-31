@@ -280,7 +280,7 @@ export default function ReportsPage() {
           {/* Contextual Filters */}
           <div className="flex items-center gap-3 w-full md:w-auto">
             <Filter size={16} className="text-text-muted shrink-0 hidden sm:inline" />
-            
+
             {activeTab === 'attendance' ? (
               <div className="w-full sm:w-48">
                 <Select
@@ -390,9 +390,9 @@ export default function ReportsPage() {
                       <TableCell>
                         <Badge variant={
                           r.status === 'present' ? 'success' :
-                          r.status === 'absent' ? 'danger' :
-                          r.status === 'late' ? 'warning' :
-                          r.status === 'half-day' ? 'accent' : 'default'
+                            r.status === 'absent' ? 'danger' :
+                              r.status === 'late' ? 'warning' :
+                                r.status === 'half-day' ? 'accent' : 'default'
                         }>
                           {capitalize(r.status)}
                         </Badge>
@@ -515,8 +515,8 @@ export default function ReportsPage() {
                       <TableCell>
                         <Badge variant={
                           l.status === 'approved' ? 'success' :
-                          l.status === 'rejected' ? 'danger' :
-                          l.status === 'pending' ? 'warning' : 'default'
+                            l.status === 'rejected' ? 'danger' :
+                              l.status === 'pending' ? 'warning' : 'default'
                         }>
                           {capitalize(l.status)}
                         </Badge>

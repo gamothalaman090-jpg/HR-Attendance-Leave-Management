@@ -237,10 +237,10 @@ exports.getAttendanceHistory = async (req, res, next) => {
                 const checkInTime = new Date(inLog.timestamp);
                 const lateThreshold = new Date(checkInTime); lateThreshold.setHours(9, 0, 0, 0);
                 status = checkInTime > lateThreshold ? 'late' : 'present';
-                clockIn = checkInTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                clockIn = inLog.timestamp;
 
                 if (outLog) {
-                    clockOut = new Date(outLog.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                    clockOut = outLog.timestamp;
                     hours = outLog.workDuration ? parseFloat((outLog.workDuration / 60).toFixed(1)) : 0;
                 }
             } else if (isWeekend) {
@@ -415,6 +415,28 @@ exports.getMyPayroll = async (req, res, next) => {
             .lean(); // FIX: .lean()
 
         return res.status(200).json({ success: true, data: payrolls });
+    } catch (error) {
+        next(error);
+    }
+};
+
+exports.getCalendarLeaves = async (req, res, next) => {
+    try {
+        const users = await User.find({ company: req.user.company }).select('_id');
+        const userIds = users.map(u => u._id);
+
+        const leaves = await Leave.find({
+            user: { $in: userIds },
+            status: { $in: ['approved', 'pending'] }
+        })
+        .populate('user', 'fullname email role department position')
+        .sort({ createdAt: -1 })
+        .lean();
+
+        return res.status(200).json({
+            success: true,
+            data: leaves
+        });
     } catch (error) {
         next(error);
     }

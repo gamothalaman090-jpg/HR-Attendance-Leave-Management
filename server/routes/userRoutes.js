@@ -19,7 +19,8 @@ const {
     getLeaveBalances,
     requestLeave,
     getMyLeaves,
-    getMyPayroll
+    getMyPayroll,
+    getCalendarLeaves
 } = require('../controllers/userController');
 const { getNotifications, clearNotifications, deleteNotification } = require('../controllers/adminController');
 
@@ -49,6 +50,7 @@ router.get('/announcements', getAnnouncements);
 router.get('/leave-balance', getLeaveBalances);
 router.post('/leave-request', requestLeave);
 router.get('/leave-history', getMyLeaves);
+router.get('/calendar-leaves', getCalendarLeaves);
 
 // Payroll routes
 router.get('/payroll', getMyPayroll);

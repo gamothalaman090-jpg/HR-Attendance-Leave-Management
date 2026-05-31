@@ -31,13 +31,11 @@ export default function CalendarPage() {
   const [leaveRequests, setLeaveRequests] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  const isHR = ['hr', 'admin'].some(r => user?.role?.toLowerCase().includes(r)) || user?.role?.toLowerCase() === 'superadmin';
-
   useEffect(() => {
     let active = true;
     const fetchLeaves = async () => {
       try {
-        const res = await (isHR ? leaveService.getAll({ limit: 1000 }) : leaveService.getMyLeaves({ limit: 1000 }));
+        const res = await leaveService.getCalendarLeaves();
         if (active) {
           setLeaveRequests(res.data || []);
           setLoading(false);
@@ -49,7 +47,7 @@ export default function CalendarPage() {
     };
     fetchLeaves();
     return () => { active = false; };
-  }, [isHR]);
+  }, []);
 
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();

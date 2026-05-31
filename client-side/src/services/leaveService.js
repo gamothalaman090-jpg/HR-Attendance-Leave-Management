@@ -69,6 +69,14 @@ export const leaveService = {
     };
   },
 
+  /** Get all pending/approved leaves for the entire company (used by everyone on the Team Calendar) */
+  async getCalendarLeaves() {
+    const { data: res } = await api.get('/user/calendar-leaves');
+    return {
+      data: (res.data || []).map(mapLeave),
+    };
+  },
+
   /** Create a new leave request (user) */
   async create(leaveData) {
     const payload = {
