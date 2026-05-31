@@ -12,18 +12,18 @@ const express = require('express');
 const router = express.Router();
 
 
-const { 
-    getAdminAnnouncements, 
-    createAnnouncement, 
+const {
+    getAdminAnnouncements,
+    createAnnouncement,
     deleteAnnouncement,
     getAllEmployees,
     getAllLeaveRequests,
     overrideAttendance,
     reviewLeaveRequest,
     getEmployeeAnalytics,
-    getPayrollDashboard,  
-    generatePayrollRun,  
-    releaseSalary,        
+    getPayrollDashboard,
+    generatePayrollRun,
+    releaseSalary,
     deletePayrollEntry,
     getNotifications,
     clearNotifications,
@@ -40,7 +40,7 @@ const {
     teamCreate // Incorporated new endpoint
 } = require('../controllers/adminController');
 
-const { protect, authorize } = require('../middlewares/authMiddleware'); 
+const { protect, authorize } = require('../middlewares/authMiddleware');
 
 // --- ROUTE PROTECTION MIDDLEWARES ---
 router.use(protect);
@@ -65,14 +65,14 @@ router.route('/attendance/override')
 // --- LEAVE MANAGEMENT ENDPOINTS ---
 router.route('/leaves')
     .get(getAllLeaveRequests);
-    
+
 router.route('/leaves/:id/review')
     .put(reviewLeaveRequest);
 
 // --- USER/EMPLOYEE DIRECTORY ENDPOINTS ---
 router.route('/users')
     .get(getAllEmployees)
-    .post(createEmployee); 
+    .post(createEmployee);
 
 router.route('/users/:id')
     .put(updateEmployee)
@@ -82,7 +82,7 @@ router.route('/users/:id/approve')
     .put(approveEmployee);
 
 router.route('/users/:id/reject')
-    .put(rejectEmployee); 
+    .put(rejectEmployee);
 
 // --- EMPLOYEE ANALYTICS ENDPOINTS ---
 router.route('/users/:employeeId/analytics')
@@ -90,19 +90,19 @@ router.route('/users/:employeeId/analytics')
 
 // --- PAYROLL MANAGEMENT ENDPOINTS ---
 router.route('/payroll')
-    .get(getPayrollDashboard)  
-    .post(generatePayrollRun);    
+    .get(getPayrollDashboard)
+    .post(generatePayrollRun);
 
 router.route('/payroll/:id')
-    .delete(deletePayrollEntry);  
+    .delete(deletePayrollEntry);
 
 router.route('/payroll/:id/release')
-    .put(releaseSalary);      
-    
+    .put(releaseSalary);
+
 // --- NOTIFICATIONS ENDPOINTS ---    
 router.route('/notifications')
     .get(getNotifications)
-    .delete(clearNotifications); 
+    .delete(clearNotifications);
 
 router.route('/notifications/:id')
     .delete(deleteNotification);

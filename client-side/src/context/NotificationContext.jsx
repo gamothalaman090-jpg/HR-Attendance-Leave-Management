@@ -7,13 +7,13 @@ const NotificationContext = createContext();
 
 const POLL_INTERVAL = 30000; // 30 seconds
 
-const mapNotification = (n) => ({
+const mapNotification = (n, readIds = []) => ({
   id: n._id,
   type: n.type || 'info',
   title: n.title || 'Notification',
   message: n.message || '',
   time: n.createdAt || n.time || new Date().toISOString(),
-  read: n.read || false,
+  read: n.read || readIds.includes(n._id) || false,
 });
 
 export function NotificationProvider({ children }) {
@@ -21,6 +21,27 @@ export function NotificationProvider({ children }) {
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const intervalRef = useRef(null);
+
+  const storageKey = user?.id || user?.email ? `read_notifications_${user.id || user.email}` : null;
+
+  const getReadNotificationIds = useCallback(() => {
+    if (!storageKey) return [];
+    try {
+      const stored = localStorage.getItem(storageKey);
+      return stored ? JSON.parse(stored) : [];
+    } catch {
+      return [];
+    }
+  }, [storageKey]);
+
+  const saveReadNotificationIds = useCallback((ids) => {
+    if (!storageKey) return;
+    try {
+      localStorage.setItem(storageKey, JSON.stringify(ids));
+    } catch (e) {
+      console.error('Failed to save read notifications to localStorage:', e);
+    }
+  }, [storageKey]);
 
   const fetchNotifications = useCallback(async () => {
     if (!user?.token) return;
@@ -32,13 +53,14 @@ export function NotificationProvider({ children }) {
       const endpoint = isAdmin ? '/admin/notifications' : '/user/notifications';
 
       const { data: res } = await api.get(endpoint);
-      const items = (res.data || []).map(mapNotification);
+      const readIds = getReadNotificationIds();
+      const items = (res.data || []).map((n) => mapNotification(n, readIds));
       setNotifications(items);
       setUnreadCount(items.filter((n) => !n.read).length);
     } catch {
       // Silently fail — notifications are non-critical
     }
-  }, [user]);
+  }, [user, getReadNotificationIds]);
 
   // Initial fetch + polling
   useEffect(() => {
@@ -59,12 +81,21 @@ export function NotificationProvider({ children }) {
 
   /** Mark a specific notification as read (client-side only) */
   const markAsRead = (id) => {
+    const readIds = getReadNotificationIds();
+    if (!readIds.includes(id)) {
+      const updated = [...readIds, id];
+      saveReadNotificationIds(updated);
+    }
     setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)));
     setUnreadCount((prev) => Math.max(0, prev - 1));
   };
 
   /** Mark all as read (client-side only) */
   const markAllAsRead = () => {
+    const allIds = notifications.map((n) => n.id);
+    const readIds = getReadNotificationIds();
+    const merged = Array.from(new Set([...readIds, ...allIds]));
+    saveReadNotificationIds(merged);
     setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
     setUnreadCount(0);
   };
@@ -78,6 +109,7 @@ export function NotificationProvider({ children }) {
       const endpoint = isAdmin ? '/admin/notifications' : '/user/notifications';
 
       await api.delete(endpoint);
+      saveReadNotificationIds([]);
       setNotifications([]);
       setUnreadCount(0);
     } catch (error) {
@@ -94,6 +126,10 @@ export function NotificationProvider({ children }) {
       const endpoint = isAdmin ? `/admin/notifications/${id}` : `/user/notifications/${id}`;
 
       await api.delete(endpoint);
+
+      const readIds = getReadNotificationIds();
+      saveReadNotificationIds(readIds.filter((x) => x !== id));
+
       setNotifications((prev) => {
         const target = prev.find((n) => n.id === id);
         if (target && !target.read) {

@@ -1,13 +1,3 @@
-/**
- * Name: authValidators.js
- * Purpose: Joi schemas for validating auth route request bodies.
- * PHASE 1 — NEW FILE
- *
- * Why server-side validation?
- * Client-side validation is UX only — it can be bypassed with curl/Postman.
- * Server-side validation is the security layer.
- */
-
 const Joi = require('joi');
 
 const passwordRule = Joi.string()

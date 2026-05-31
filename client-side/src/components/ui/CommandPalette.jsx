@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import {
   Search, FileText, Users, Calendar, BarChart3, Settings, User, Clock,
   PlusCircle, Megaphone, Building2, Wallet, Receipt, ShieldAlert,
-  CalendarDays, ArrowUpDown, Loader2, Command,
+  CalendarDays, Loader2, Command,
 } from 'lucide-react';
 import { employeeService } from '@/services/employeeService';
 import { leaveService } from '@/services/leaveService';
@@ -18,10 +18,29 @@ import { useAuth } from '@/context/AuthContext';
  * Indexes: Pages, Quick Actions, Employees, Leave Requests,
  *          Announcements, Departments
  */
-export default function CommandPalette() {
-  const [isOpen, setIsOpen] = useState(false);
+export default function CommandPalette({ isOpen: controlledIsOpen, onClose }) {
+  const [internalIsOpen, setInternalIsOpen] = useState(false);
+  const isControlled = typeof controlledIsOpen !== 'undefined';
+  const isOpen = isControlled ? controlledIsOpen : internalIsOpen;
+
   const [query, setQuery] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
+
+  const setIsOpen = useCallback((value) => {
+    const nextVal = typeof value === 'function' ? value(isOpen) : value;
+    if (!nextVal) {
+      setQuery('');
+      setSelectedIndex(0);
+    }
+    if (isControlled) {
+      if (!nextVal && onClose) {
+        onClose();
+      }
+    } else {
+      setInternalIsOpen(nextVal);
+    }
+  }, [isControlled, isOpen, onClose]);
+
   const [employees, setEmployees] = useState([]);
   const [leaves, setLeaves] = useState([]);
   const [announcements, setAnnouncements] = useState([]);
@@ -35,8 +54,9 @@ export default function CommandPalette() {
   const isSuperadmin = user?.role?.toLowerCase() === 'superadmin';
   const isHR = ['hr', 'admin', 'manager'].some(r => user?.role?.toLowerCase().includes(r)) || isSuperadmin;
 
-  // Keyboard shortcut listener (Ctrl+K or Cmd+K)
+  // Keyboard shortcut listener (Ctrl+K or Cmd+K) - only if not controlled
   useEffect(() => {
+    if (isControlled) return;
     const handleKeyDown = (e) => {
       if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
         e.preventDefault();
@@ -45,14 +65,11 @@ export default function CommandPalette() {
     };
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  }, [isControlled, setIsOpen]);
 
   // Reset state and fetch data when opened
   useEffect(() => {
     if (isOpen) {
-      setQuery('');
-      setSelectedIndex(0);
-
       const fetchSearchData = async () => {
         setLoadingData(true);
         try {
@@ -216,18 +233,14 @@ export default function CommandPalette() {
 
   // Keep selectedIndex within bounds
   const selectableResults = results.filter(r => r.type !== 'header');
-  useEffect(() => {
-    if (selectedIndex >= selectableResults.length) {
-      setSelectedIndex(Math.max(0, selectableResults.length - 1));
-    }
-  }, [query, selectableResults.length, selectedIndex]);
+  const activeIndex = Math.min(selectedIndex, Math.max(0, selectableResults.length - 1));
 
   // Auto-scroll selected item into view
   useEffect(() => {
     if (!listRef.current) return;
     const items = listRef.current.querySelectorAll('[data-selectable]');
-    items[selectedIndex]?.scrollIntoView({ block: 'nearest' });
-  }, [selectedIndex]);
+    items[activeIndex]?.scrollIntoView({ block: 'nearest' });
+  }, [activeIndex]);
 
   /* ── Keyboard Navigation ── */
   const handleKeyDown = (e) => {
@@ -241,8 +254,8 @@ export default function CommandPalette() {
       setSelectedIndex(prev => (prev > 0 ? prev - 1 : prev));
     } else if (e.key === 'Enter') {
       e.preventDefault();
-      if (selectableResults[selectedIndex]) {
-        navigate(selectableResults[selectedIndex].path);
+      if (selectableResults[activeIndex]) {
+        navigate(selectableResults[activeIndex].path);
         setIsOpen(false);
       }
     }
@@ -276,7 +289,10 @@ export default function CommandPalette() {
             className="flex-1 bg-transparent border-none text-body outline-none text-text placeholder:text-text-muted/60"
             placeholder="Search pages, employees, requests..."
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            onChange={(e) => {
+              setQuery(e.target.value);
+              setSelectedIndex(0);
+            }}
           />
           <kbd className="hidden sm:inline-flex items-center gap-1 px-2 py-1 bg-surface-alt rounded-[6px] text-[10px] font-medium text-text-muted uppercase font-mono border border-border/50">
             ESC
@@ -313,7 +329,7 @@ export default function CommandPalette() {
 
                 const SelectableIcon = item.icon;
                 const selectIndex = selectableResults.findIndex(r => r.id === item.id);
-                const isSelected = selectIndex === selectedIndex;
+                const isSelected = selectIndex === activeIndex;
 
                 return (
                   <button

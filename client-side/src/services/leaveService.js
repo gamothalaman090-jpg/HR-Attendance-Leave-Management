@@ -55,10 +55,18 @@ export const leaveService = {
     return this.getAll({ status: 'pending', page, limit });
   },
 
-  /** Get leave history for current logged-in user */
-  async getMyLeaves() {
-    const { data: res } = await api.get('/user/leave-history');
-    return (res.data || []).map(mapLeave);
+  /** Get leave history for current logged-in user with pagination */
+  async getMyLeaves({ page = 1, limit = 20, status } = {}) {
+    const params = new URLSearchParams({ page, limit });
+    if (status) params.set('status', status);
+
+    const { data: res } = await api.get(`/user/leave-history?${params.toString()}`);
+    return {
+      data: (res.data || []).map(mapLeave),
+      total: res.total || 0,
+      page: res.page || 1,
+      pages: res.pages || 1,
+    };
   },
 
   /** Create a new leave request (user) */

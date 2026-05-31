@@ -9,12 +9,12 @@
  */
 const express = require('express');
 const router = express.Router();
-const { protect , authorize} = require('../middlewares/authMiddleware');
-const { 
-    clockIn, 
-    clockOut, 
-    getAttendanceHistory, 
-    getAnnouncements, 
+const { protect, authorize } = require('../middlewares/authMiddleware');
+const {
+    clockIn,
+    clockOut,
+    getAttendanceHistory,
+    getAnnouncements,
     getUserProfile,
     getLeaveBalances,
     requestLeave,

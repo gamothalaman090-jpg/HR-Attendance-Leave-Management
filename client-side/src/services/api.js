@@ -1,30 +1,3 @@
-/**
- * Name: api.js (client-side)
- * PHASE 3 FIXES:
- *
- *   FIX 1: Response interceptor now extracts a human-readable error message
- *          from the server's consistent JSON shape { success, message, errors }.
- *          BEFORE: Services had to repeat `err.response?.data?.message || err.message`
- *                  everywhere — any service that forgot this showed "Request failed with status 422".
- *          AFTER:  The interceptor extracts the best available message once, centrally.
- *
- *   FIX 2: 422 Validation errors now surface the field-level `errors` array.
- *          BEFORE: Joi validation failures returned { message: 'Validation failed', errors: [...] }
- *                  but the client only saw "Validation failed" — field context was lost.
- *          AFTER:  err.validationErrors is populated from the errors array, ready for form display.
- *
- *   FIX 3: 429 Rate limiting now shows a user-friendly message.
- *          BEFORE: Rate-limited requests threw a generic network error.
- *          AFTER:  "Too many requests. Please wait a moment and try again."
- *
- *   FIX 4: 503 Service Unavailable (DB down) handled gracefully.
- *          BEFORE: DB-down responses showed a raw Axios error.
- *          AFTER:  "Service temporarily unavailable. Please try again shortly."
- *
- *   FIX 5: 401 redirect now uses React Router history instead of window.location.href.
- *          BEFORE: Hard redirect lost the current page context and caused a full reload.
- *          AFTER:  Dispatches a custom event that AuthContext listens for — cleaner SPA behaviour.
- */
 
 import axios from 'axios';
 
@@ -50,8 +23,8 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    const status   = error.response?.status;
-    const data     = error.response?.data;
+    const status = error.response?.status;
+    const data = error.response?.data;
 
     // ─────────────────────────────────────────────
     // FIX: Extract the best available human-readable message from the server response.

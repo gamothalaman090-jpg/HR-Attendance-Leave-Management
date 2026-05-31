@@ -1,25 +1,12 @@
-/**
- * Name: vite.config.js
- * PHASE 2 FIXES:
- *
- *   BUILD FIX: esbuild minification explicitly enabled for prod
- *   BUILD FIX: sourcemap disabled in production (was leaking source code + slowing CI)
- *   BUILD FIX: chunk size warning threshold raised to 600kb (recharts triggers 500kb default)
- *   BUILD FIX: manualChunks expanded — tailwind utilities, date-fns, framer-motion
- *              now get their own chunks so each route only loads what it needs
- *   BUILD FIX: assetsInlineLimit raised to 8kb — small SVG icons won't create
- *              extra HTTP round trips
- *   DEV FIX:   hmr.overlay: false — suppresses the full-screen error overlay in dev
- *              (errors still visible in console, overlay is just disruptive)
- *   PWA FIX:   workbox caching strategies added so the service worker actually
- *              caches API responses and static assets (was registered but not caching)
- */
-
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import { VitePWA } from 'vite-plugin-pwa';
-import { resolve } from 'path';
+import { resolve, dirname } from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 export default defineConfig(({ mode }) => ({
   plugins: [
@@ -90,10 +77,7 @@ export default defineConfig(({ mode }) => ({
   },
 
   build: {
-    // ─────────────────────────────────────────────
-    // FIX: sourcemap was undefined (defaults to false in prod) — made explicit.
-    // Never ship sourcemaps to production: they expose your entire source code.
-    // ─────────────────────────────────────────────
+
     sourcemap: mode === 'development',
 
     // FIX: Raise chunk size warning — recharts alone is ~500kb gzipped.
@@ -107,15 +91,7 @@ export default defineConfig(({ mode }) => ({
 
     rollupOptions: {
       output: {
-        // ─────────────────────────────────────────────
-        // FIX: Expanded chunk splitting
-        // BEFORE: Only react-dom, react-router, recharts, d3, gsap were split.
-        //   → All other node_modules bundled into main chunk → slow first load.
-        //
-        // AFTER: Each heavy library gets its own chunk so pages only load
-        //   what they actually need. React Router handles code-splitting;
-        //   manualChunks ensures shared heavy deps stay separate.
-        // ─────────────────────────────────────────────
+
         manualChunks(id) {
           // Core React — loaded on every route
           if (id.includes('node_modules/react-dom')
