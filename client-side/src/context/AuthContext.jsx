@@ -72,14 +72,25 @@ export function AuthProvider({ children }) {
         setUser(parsed);
 
         // Then refresh from server (catches role changes, deactivation, etc.)
-        const freshUser = await authService.getProfile();
-        if (freshUser) {
-          setUser(freshUser);
-          setAuthSession(freshUser);
-        } else {
-          // Profile fetch returned null → token valid but user deleted/deactivated
-          clearAuthSession();
-          setUser(null);
+        try {
+          const freshUser = await authService.getProfile();
+          if (freshUser) {
+            setUser(freshUser);
+            setAuthSession(freshUser);
+          } else {
+            // Profile fetch returned null → token valid but user deleted/deactivated
+            clearAuthSession();
+            setUser(null);
+          }
+        } catch (err) {
+          const status = err.response?.status;
+          if (status === 401 || status === 403) {
+            if (import.meta.env.DEV) console.warn('Auth session invalid, clearing', err);
+            clearAuthSession();
+            setUser(null);
+          } else {
+            if (import.meta.env.DEV) console.warn('Network or server error restoring profile, retaining session', err);
+          }
         }
       } catch (err) {
         if (import.meta.env.DEV) console.error('Failed to restore auth session', err);

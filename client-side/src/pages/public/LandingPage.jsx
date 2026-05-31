@@ -1,5 +1,6 @@
-import { useRef } from 'react';
-import { Link } from 'react-router-dom';
+import { useRef, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { useAuth } from '@/context/AuthContext';
 import Meta from '@/components/common/Meta';
 import {
   ArrowRight,
@@ -497,6 +498,19 @@ function CTASection() {
    LANDING PAGE
    ═══════════════════════════════════════════════════════ */
 export default function LandingPage() {
+  const { isAuthenticated, isLoading } = useAuth();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!isLoading && isAuthenticated) {
+      navigate('/app', { replace: true });
+    }
+  }, [isAuthenticated, isLoading, navigate]);
+
+  if (isLoading || isAuthenticated) {
+    return null;
+  }
+
   return (
     <>
       <Meta 

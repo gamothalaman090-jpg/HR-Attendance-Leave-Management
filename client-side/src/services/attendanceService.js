@@ -41,37 +41,37 @@ const buildMonthlyCalendar = (logs, joinDate) => {
     const isFuture = date > today;
     const isBeforeCreation = joinDateMidnight ? date < joinDateMidnight : false;
 
-    if (dayOfWeek === 0 || dayOfWeek === 6) {
-      records.push({ date: dateStr, day, dayOfWeek, status: 'weekend', clockIn: null, clockOut: null, hours: 0 });
-      continue;
-    }
-
     if (isFuture || isBeforeCreation) {
       records.push({ date: dateStr, day, dayOfWeek, status: 'upcoming', clockIn: null, clockOut: null, hours: 0 });
       continue;
     }
 
     const dayLogs = logsByDate[dateStr] || [];
-    if (dayLogs.length === 0) {
-      records.push({ date: dateStr, day, dayOfWeek, status: 'absent', clockIn: null, clockOut: null, hours: 0 });
+    if (dayLogs.length > 0) {
+      const inLog = dayLogs.find((l) => l.type === 'in');
+      const outLog = dayLogs.find((l) => l.type === 'out');
+
+      const clockIn = inLog ? new Date(inLog.timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : null;
+      const clockOut = outLog ? new Date(outLog.timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : null;
+      const hours = outLog?.workDuration ? Number((outLog.workDuration / 60).toFixed(1)) : 0;
+
+      // Determine status based on clock-in time
+      let status = 'present';
+      if (inLog) {
+        const inHour = new Date(inLog.timestamp).getHours();
+        if (inHour >= 9) status = 'late';
+      }
+
+      records.push({ date: dateStr, day, dayOfWeek, status, clockIn, clockOut, hours });
       continue;
     }
 
-    const inLog = dayLogs.find((l) => l.type === 'in');
-    const outLog = dayLogs.find((l) => l.type === 'out');
-
-    const clockIn = inLog ? new Date(inLog.timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : null;
-    const clockOut = outLog ? new Date(outLog.timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : null;
-    const hours = outLog?.workDuration ? Number((outLog.workDuration / 60).toFixed(1)) : 0;
-
-    // Determine status based on clock-in time
-    let status = 'present';
-    if (inLog) {
-      const inHour = new Date(inLog.timestamp).getHours();
-      if (inHour >= 9) status = 'late';
+    if (dayOfWeek === 0 || dayOfWeek === 6) {
+      records.push({ date: dateStr, day, dayOfWeek, status: 'weekend', clockIn: null, clockOut: null, hours: 0 });
+      continue;
     }
 
-    records.push({ date: dateStr, day, dayOfWeek, status, clockIn, clockOut, hours });
+    records.push({ date: dateStr, day, dayOfWeek, status: 'absent', clockIn: null, clockOut: null, hours: 0 });
   }
 
   return records;
@@ -148,37 +148,53 @@ export const attendanceService = {
     return { ...clockStatus };
   },
 
-  /** Get current clock status by checking last log */
+  /** Derive clock status from an already-fetched calendar records array (avoids extra API call) */
+  deriveClockStatusFromRecords(records) {
+    const now = new Date();
+    const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    const todayRecord = (records || []).find(r => r.date === todayStr);
+
+    if (todayRecord) {
+      if (todayRecord.clockIn && !todayRecord.clockOut) {
+        clockStatus = { isClockedIn: true, clockInTime: todayRecord.clockIn, clockOutTime: null };
+      } else if (todayRecord.clockIn && todayRecord.clockOut) {
+        clockStatus = { isClockedIn: false, clockInTime: todayRecord.clockIn, clockOutTime: todayRecord.clockOut };
+      } else {
+        clockStatus = { isClockedIn: false, clockInTime: null, clockOutTime: null };
+      }
+    } else {
+      clockStatus = { isClockedIn: false, clockInTime: null, clockOutTime: null };
+    }
+    return { ...clockStatus };
+  },
+
+  /** Get current clock status by checking today's attendance record */
   async getClockStatus() {
     try {
       const { data: res } = await api.get('/user/history');
       const logs = res.data || [];
       if (logs.length > 0) {
         if (logs[0].status !== undefined) {
-          const today = new Date().toISOString().split('T')[0];
-          const todayRecord = logs.find(r => r.date === today);
-          if (todayRecord) {
-            if (todayRecord.clockIn && !todayRecord.clockOut) {
-              clockStatus = { isClockedIn: true, clockInTime: todayRecord.clockIn, clockOutTime: null };
-            } else if (todayRecord.clockIn && todayRecord.clockOut) {
-              clockStatus = { isClockedIn: false, clockInTime: todayRecord.clockIn, clockOutTime: todayRecord.clockOut };
-            } else {
-              clockStatus = { isClockedIn: false, clockInTime: null, clockOutTime: null };
-            }
-            return { ...clockStatus };
-          }
+          // Backend returns calendar records — use local date for comparison
+          return this.deriveClockStatusFromRecords(logs);
         } else {
+          // Legacy raw-log format fallback
+          const now = new Date();
+          const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
           const lastLog = logs[0]; // sorted by timestamp desc
-          const today = new Date().toISOString().split('T')[0];
-          const logDate = new Date(lastLog.timestamp).toISOString().split('T')[0];
+          const logDate = new Date(lastLog.timestamp);
+          const logDateStr = `${logDate.getFullYear()}-${String(logDate.getMonth() + 1).padStart(2, '0')}-${String(logDate.getDate()).padStart(2, '0')}`;
 
-          if (logDate === today) {
-            const time = new Date(lastLog.timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+          if (logDateStr === today) {
+            const time = logDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
             if (lastLog.type === 'in') {
               clockStatus = { isClockedIn: true, clockInTime: time, clockOutTime: null };
             } else {
-              // Find today's clock-in
-              const todayIn = logs.find((l) => l.type === 'in' && new Date(l.timestamp).toISOString().split('T')[0] === today);
+              const todayIn = logs.find((l) => {
+                const d = new Date(l.timestamp);
+                const ds = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+                return l.type === 'in' && ds === today;
+              });
               clockStatus = {
                 isClockedIn: false,
                 clockInTime: todayIn ? new Date(todayIn.timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : null,

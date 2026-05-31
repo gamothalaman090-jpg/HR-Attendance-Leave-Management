@@ -230,8 +230,6 @@ exports.getAttendanceHistory = async (req, res, next) => {
 
             if (isFuture || isBeforeCreation) {
                 status = 'upcoming';
-            } else if (isWeekend) {
-                status = 'weekend';
             } else if (hasInLog) {
                 const inLog = dayLogs.find(l => l.type === 'in');
                 const outLog = dayLogs.find(l => l.type === 'out');
@@ -245,6 +243,8 @@ exports.getAttendanceHistory = async (req, res, next) => {
                     clockOut = new Date(outLog.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
                     hours = outLog.workDuration ? parseFloat((outLog.workDuration / 60).toFixed(1)) : 0;
                 }
+            } else if (isWeekend) {
+                status = 'weekend';
             }
 
             calendarRecords.push({ day, date: dateStr, status, clockIn, clockOut, hours });

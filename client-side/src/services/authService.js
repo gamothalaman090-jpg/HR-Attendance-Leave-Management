@@ -98,32 +98,27 @@ export const authService = {
    * Get current user profile (token based)
    */
   getProfile: async () => {
-    try {
-      const res = await api.get('/user/profile');
-      const { data } = res.data;
-      if (!data) return null;
-      
-      // Get the stored user token
-      const stored = localStorage.getItem('nini-user');
-      const token = stored ? JSON.parse(stored).token : localStorage.getItem('nini-token');
-      
-      return {
-        id: data.id || data._id,
-        name: data.fullname,
-        email: data.email,
-        role: data.role,
-        company: data.company,
-        department: data.department || 'Unassigned',
-        position: data.position || 'Staff Employee',
-        phone: data.phone || '',
-        onboarded: data.onboarded,
-        profilePicture: data.profilePicture || '',
-        token,
-      };
-    } catch (err) {
-      // If unauthorized, return null so client redirects to login
-      return null;
-    }
+    const res = await api.get('/user/profile');
+    const { data } = res.data;
+    if (!data) return null;
+    
+    // Get the stored user token
+    const stored = localStorage.getItem('nini-user');
+    const token = stored ? JSON.parse(stored).token : localStorage.getItem('nini-token');
+    
+    return {
+      id: data.id || data._id,
+      name: data.fullname,
+      email: data.email,
+      role: data.role,
+      company: data.company,
+      department: data.department || 'Unassigned',
+      position: data.position || 'Staff Employee',
+      phone: data.phone || '',
+      onboarded: data.onboarded,
+      profilePicture: data.profilePicture || '',
+      token,
+    };
   },
 
   /**

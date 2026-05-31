@@ -49,15 +49,31 @@ export function AuthProvider({ children }) {
           return;
         }
 
-        const savedUser = await authService.getProfile();
-        if (savedUser?.role?.toLowerCase() === 'superadmin') {
-          setUser(savedUser);
-        } else {
-          clearAuthSession();
+        // Optimistic restore — show console immediately
+        setUser(parsed);
+
+        try {
+          const savedUser = await authService.getProfile();
+          if (savedUser?.role?.toLowerCase() === 'superadmin') {
+            setUser(savedUser);
+          } else {
+            clearAuthSession();
+            setUser(null);
+          }
+        } catch (err) {
+          const status = err.response?.status;
+          if (status === 401 || status === 403) {
+            if (import.meta.env.DEV) console.warn('Superadmin auth session invalid, clearing', err);
+            clearAuthSession();
+            setUser(null);
+          } else {
+            if (import.meta.env.DEV) console.warn('Network or server error restoring superadmin profile, retaining session', err);
+          }
         }
       } catch (err) {
         if (import.meta.env.DEV) console.error('Failed to restore superadmin session', err);
         clearAuthSession();
+        setUser(null);
       } finally {
         setIsLoading(false);
       }

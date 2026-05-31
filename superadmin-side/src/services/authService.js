@@ -40,29 +40,24 @@ export const authService = {
     }
   },
 
-  /** Get current user profile */
   getProfile: async () => {
-    try {
-      const res = await api.get('/user/profile');
-      const { data } = res.data;
-      if (!data || data.role !== 'superadmin') return null;
+    const res = await api.get('/user/profile');
+    const { data } = res.data;
+    if (!data || data.role !== 'superadmin') return null;
 
-      const token = localStorage.getItem('nini-admin-token');
+    const token = localStorage.getItem('nini-admin-token');
 
-      return {
-        id: data._id || data.id,
-        name: data.fullname,
-        email: data.email,
-        role: data.role,
-        department: data.department || 'Operations',
-        avatar: null,
-        joinDate: data.createdAt ? data.createdAt.split('T')[0] : '2024-01-01',
-        token,
-        onboarded: true,
-      };
-    } catch {
-      return null;
-    }
+    return {
+      id: data._id || data.id,
+      name: data.fullname,
+      email: data.email,
+      role: data.role,
+      department: data.department || 'Operations',
+      avatar: null,
+      joinDate: data.createdAt ? data.createdAt.split('T')[0] : '2024-01-01',
+      token,
+      onboarded: true,
+    };
   },
 
   /** Logout superadmin */

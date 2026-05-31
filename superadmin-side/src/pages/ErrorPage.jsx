@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate, useRouteError } from 'react-router-dom';
+import { useNavigate, useRouteError, useInRouterContext } from 'react-router-dom';
 import { 
   ArrowLeft, 
   Home, 
@@ -15,8 +15,28 @@ import {
 /**
  * Superadmin Console Premium ErrorPage Component
  * Handles 404 Not Found, routing unhandled errors, and general application crashes.
+ * Works safely both inside and outside of React Router context.
  */
 export default function ErrorPage({ type, error: errorProp, resetErrorBoundary }) {
+  const inRouter = useInRouterContext();
+  if (inRouter) {
+    return (
+      <ErrorPageWithRouter 
+        type={type} 
+        errorProp={errorProp} 
+        resetErrorBoundary={resetErrorBoundary} 
+      />
+    );
+  }
+  return (
+    <ErrorPageWithoutRouter 
+      errorProp={errorProp} 
+      resetErrorBoundary={resetErrorBoundary} 
+    />
+  );
+}
+
+function ErrorPageWithRouter({ type, errorProp, resetErrorBoundary }) {
   const navigate = useNavigate();
   const routeError = useRouteError();
   
@@ -24,6 +44,35 @@ export default function ErrorPage({ type, error: errorProp, resetErrorBoundary }
   const error = errorProp || routeError;
   const is404 = type === '404' || (routeError && routeError.status === 404);
 
+  return (
+    <ErrorPageUI
+      error={error}
+      is404={is404}
+      resetErrorBoundary={resetErrorBoundary}
+      onGoBack={() => navigate(-1)}
+      onGoHome={() => navigate('/console')}
+      homeLabel="Console HQ"
+    />
+  );
+}
+
+function ErrorPageWithoutRouter({ errorProp, resetErrorBoundary }) {
+  const error = errorProp;
+  const is404 = false;
+
+  return (
+    <ErrorPageUI
+      error={error}
+      is404={is404}
+      resetErrorBoundary={resetErrorBoundary}
+      onGoBack={() => window.history.back()}
+      onGoHome={() => { window.location.href = '/console'; }}
+      homeLabel="Console HQ"
+    />
+  );
+}
+
+function ErrorPageUI({ error, is404, resetErrorBoundary, onGoBack, onGoHome, homeLabel }) {
   const [showDiagnostics, setShowDiagnostics] = useState(false);
   const [copied, setCopied] = useState(false);
 
@@ -181,7 +230,7 @@ export default function ErrorPage({ type, error: errorProp, resetErrorBoundary }
           {/* ── Navigation / Action Deck ── */}
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <button
-              onClick={() => navigate(-1)}
+              onClick={onGoBack}
               className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 font-semibold text-body-sm text-text bg-surface-alt hover:bg-border border border-border rounded-btn transition-all duration-300 transform active:scale-95 hover:-translate-y-0.5 cursor-pointer shadow-sm focus-visible:ring-2 focus-visible:ring-primary"
               aria-label="Navigate to previous page"
             >
@@ -208,11 +257,11 @@ export default function ErrorPage({ type, error: errorProp, resetErrorBoundary }
             )}
 
             <button
-              onClick={() => navigate('/console')}
+              onClick={onGoHome}
               className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 font-semibold text-body-sm text-white bg-primary hover:bg-primary-light rounded-btn transition-all duration-300 transform active:scale-95 hover:-translate-y-0.5 cursor-pointer shadow-glow-primary focus-visible:ring-2 focus-visible:ring-primary-light"
             >
               <Home className="w-4 h-4" />
-              Console HQ
+              {homeLabel}
             </button>
           </div>
         </div>

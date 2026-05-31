@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import Meta from '@/components/common/Meta';
 import { Terminal, Shield, RefreshCw, Trash2, Cpu, HardDrive, Database, Activity, AlertTriangle } from 'lucide-react';
 import { logService } from '@/services/logService';
@@ -16,7 +16,7 @@ export default function ConsolePage() {
   const [showFullResetModal, setShowFullResetModal] = useState(false);
   const [clearingLogs, setClearingLogs] = useState(false);
   const [resettingDb, setResettingDb] = useState(false);
-  const terminalEndRef = useRef(null);
+
 
   // ── GSAP entrance animation for the whole page ──
   const pageRef = useGsap((gsap, container) => {
@@ -92,9 +92,7 @@ export default function ConsolePage() {
     return () => clearInterval(interval);
   }, []);
 
-  useEffect(() => {
-    terminalEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [logs]);
+
 
   const handleClearLogsConfirm = async () => {
     setClearingLogs(true);
@@ -184,7 +182,7 @@ export default function ConsolePage() {
               <p className="text-[#a7f3d0] min-w-0 flex-1 break-all">{log.message}</p>
             </div>
           ))}
-          <div ref={terminalEndRef} />
+
         </div>
       </div>
 
