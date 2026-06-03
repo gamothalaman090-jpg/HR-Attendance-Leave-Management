@@ -11,6 +11,8 @@ const { protect } = require('../middlewares/authMiddleware');
 const router = express.Router();
 
 const {
+  register,
+  login,
   googleOAuth,
   googleCompleteSignup,
   forgotPassword,
@@ -21,7 +23,9 @@ const {
   onboardUser,
 } = require('../controllers/authController');
 
-// Public routes (Google OAuth)
+// Public routes
+router.post('/register', register);
+router.post('/login', login);
 router.post('/google', googleOAuth);
 router.post('/google/complete-signup', googleCompleteSignup);
 router.post('/forgotpassword', forgotPassword);

@@ -117,6 +117,22 @@ export function AuthProvider({ children }) {
   }, []);
 
   // ── Auth actions ──────────────────────────────────────
+  // Local login
+  const login = useCallback(async (payload) => {
+    const userData = await authService.login(payload);
+    setUser(userData);
+    setAuthSession(userData);
+    return userData;
+  }, []);
+
+  // Local register
+  const register = useCallback(async (payload) => {
+    const userData = await authService.register(payload);
+    setUser(userData);
+    setAuthSession(userData);
+    return userData;
+  }, []);
+
   // Google sign-in: returns { isNewUser, googleProfile } for new users
   // or sets session for existing users
   const googleLogin = useCallback(async (payload) => {
@@ -165,6 +181,8 @@ export function AuthProvider({ children }) {
       user,
       isAuthenticated: !!user,
       isLoading,
+      login,
+      register,
       googleLogin,
       googleCompleteSignup,
       logout,

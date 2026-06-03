@@ -33,6 +33,151 @@ const generateToken = (id) => {
 };
 
 // ─────────────────────────────────────────────────────────
+// LOCAL REGISTER & LOGIN
+// ─────────────────────────────────────────────────────────
+exports.register = async (req, res, next) => {
+  try {
+    const { fullname, email, password, company } = req.body;
+
+    if (!fullname || !email || !password || !company) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide all required fields (fullname, email, password, company)',
+      });
+    }
+
+    if (password.length < 8) {
+      return res.status(400).json({
+        success: false,
+        message: 'Password must be at least 8 characters',
+      });
+    }
+
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return res.status(400).json({
+        success: false,
+        message: 'An account with this email already exists. Please sign in instead.',
+      });
+    }
+
+    const user = await User.create({
+      fullname,
+      email,
+      password,
+      company,
+      authProvider: 'local',
+      role: 'admin',
+      department: 'Unassigned',
+      position: 'Staff Employee',
+      employmentStatus: 'active',
+      onboarded: false,
+    });
+
+    const token = generateToken(user._id);
+
+    req.user = { company: user.company };
+    await createAuditLog(
+      user._id,
+      'profile_update',
+      `New admin registered via Email: ${user.fullname} (${user.email}) — company: ${user.company}`,
+      req,
+      'INFO',
+      'AUTH'
+    );
+
+    return res.status(201).json({
+      success: true,
+      message: 'Account created successfully',
+      token,
+      data: {
+        id: user._id,
+        fullname: user.fullname,
+        email: user.email,
+        role: user.role,
+        company: user.company,
+        department: user.department,
+        position: user.position,
+        profilePicture: user.profilePicture || '',
+        onboarded: user.onboarded,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.login = async (req, res, next) => {
+  try {
+    const { email, password } = req.body;
+
+    if (!email || !password) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide email and password',
+      });
+    }
+
+    // Find user and select password
+    const user = await User.findOne({ email }).select('+password');
+    if (!user) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid email or password',
+      });
+    }
+
+    // Match password
+    const isMatch = await user.matchPassword(password);
+    if (!isMatch) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid email or password',
+      });
+    }
+
+    if (user.employmentStatus === 'pending') {
+      return res.status(403).json({ success: false, message: 'Your account is pending admin approval' });
+    }
+
+    if (['suspended', 'terminated'].includes(user.employmentStatus)) {
+      return res.status(403).json({ success: false, message: 'Your account has been deactivated' });
+    }
+
+    const token = generateToken(user._id);
+
+    req.user = { company: user.company };
+    await createAuditLog(
+      user._id,
+      'auth_login',
+      `User authenticated via Email: ${user._id}`,
+      req,
+      'INFO',
+      'AUTH'
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: 'Login successful',
+      token,
+      data: {
+        id: user._id,
+        fullname: user.fullname,
+        email: user.email,
+        role: user.role,
+        company: user.company,
+        department: user.department,
+        position: user.position,
+        profilePicture: user.profilePicture || '',
+        onboarded: user.onboarded,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// ─────────────────────────────────────────────────────────
 // GOOGLE OAUTH  (Google-only auth — no email/password login)
 // Returns isNewUser flag if email not found in DB.
 // Existing users get logged in directly.

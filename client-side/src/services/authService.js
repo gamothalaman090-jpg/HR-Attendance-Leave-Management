@@ -6,6 +6,60 @@ import api from './api';
  */
 export const authService = {
   /**
+   * Local email/password registration
+   */
+  register: async ({ fullname, email, password, company }) => {
+    try {
+      const res = await api.post('/auth/register', { fullname, email, password, company });
+      const { token, data } = res.data;
+
+      return {
+        id: data.id || data._id,
+        name: data.fullname,
+        email: data.email,
+        role: data.role,
+        company: data.company,
+        department: data.department || 'Unassigned',
+        position: data.position || 'Staff Employee',
+        phone: data.phone || '',
+        onboarded: data.onboarded,
+        profilePicture: data.profilePicture || '',
+        token,
+      };
+    } catch (err) {
+      const errorMsg = err.response?.data?.message || 'Registration failed';
+      throw new Error(errorMsg);
+    }
+  },
+
+  /**
+   * Local email/password login
+   */
+  login: async ({ email, password }) => {
+    try {
+      const res = await api.post('/auth/login', { email, password });
+      const { token, data } = res.data;
+
+      return {
+        id: data.id || data._id,
+        name: data.fullname,
+        email: data.email,
+        role: data.role,
+        company: data.company,
+        department: data.department || 'Unassigned',
+        position: data.position || 'Staff Employee',
+        phone: data.phone || '',
+        onboarded: data.onboarded,
+        profilePicture: data.profilePicture || '',
+        token,
+      };
+    } catch (err) {
+      const errorMsg = err.response?.data?.message || 'Login failed';
+      throw new Error(errorMsg);
+    }
+  },
+
+  /**
    * Google OAuth login/check
    * Returns { isNewUser: true, googleProfile } for new users
    * Returns normalized user object with token for existing users
