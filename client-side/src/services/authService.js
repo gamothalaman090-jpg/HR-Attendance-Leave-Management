@@ -1,81 +1,28 @@
 import api from './api';
 
 /**
- * authService — Active authentication service communicating with Express/MongoDB backend.
+ * authService — Google-only authentication service.
+ * No email/password login or register. All auth goes through Google OAuth.
  */
 export const authService = {
   /**
-   * Log in user
-   */
-  login: async (email, password) => {
-    try {
-      const res = await api.post('/auth/login', { email, password });
-      const { token, data } = res.data;
-      
-      // Normalize user object: map 'fullname' to 'name'
-      return {
-        id: data.id || data._id,
-        name: data.fullname,
-        email: data.email || email,
-        role: data.role,
-        company: data.company,
-        department: data.department || 'Unassigned',
-        position: data.position || 'Staff Employee',
-        phone: data.phone || '',
-        onboarded: data.onboarded,
-        profilePicture: data.profilePicture || '',
-        token,
-      };
-    } catch (err) {
-      const errorMsg = err.response?.data?.message || err.message || 'Invalid credentials or connection error';
-      throw new Error(errorMsg);
-    }
-  },
-
-  /**
-   * Register a new user
-   */
-  signup: async (userData) => {
-    try {
-      const { name, email, password, company, role } = userData;
-      const res = await api.post('/auth/register', {
-        fullname: name,
-        email,
-        password,
-        company: company || 'Default Company',
-        role: role || 'admin',
-      });
-      
-      const { token, data } = res.data;
-      
-      return {
-        id: data.id || data._id,
-        name: data.fullname,
-        email: data.email,
-        role: data.role,
-        company: data.company,
-        department: data.department || 'Unassigned',
-        position: data.position || 'Staff Employee',
-        phone: data.phone || '',
-        onboarded: data.onboarded,
-        profilePicture: data.profilePicture || '',
-        token,
-      };
-    } catch (err) {
-      const errorMsg = err.response?.data?.message || 'Registration failed';
-      throw new Error(errorMsg);
-    }
-  },
-
-  /**
-   * Google OAuth login
+   * Google OAuth login/check
+   * Returns { isNewUser: true, googleProfile } for new users
+   * Returns normalized user object with token for existing users
    */
   googleLogin: async (payload) => {
     try {
       const res = await api.post('/auth/google', payload);
-      const { token, data } = res.data;
-      
+      const { isNewUser, googleProfile, token, data } = res.data;
+
+      // New user — not in DB yet, redirect to signup
+      if (isNewUser) {
+        return { isNewUser: true, googleProfile };
+      }
+
+      // Existing user — return normalized user object
       return {
+        isNewUser: false,
         id: data.id || data._id,
         name: data.fullname,
         email: data.email,
@@ -90,6 +37,38 @@ export const authService = {
       };
     } catch (err) {
       const errorMsg = err.response?.data?.message || 'Google authentication failed';
+      throw new Error(errorMsg);
+    }
+  },
+
+  /**
+   * Complete signup for new Google users
+   * Called after googleLogin returns isNewUser: true
+   */
+  googleCompleteSignup: async ({ credential, company, password }) => {
+    try {
+      const res = await api.post('/auth/google/complete-signup', {
+        credential,
+        company,
+        password: password || undefined,
+      });
+      const { token, data } = res.data;
+
+      return {
+        id: data.id || data._id,
+        name: data.fullname,
+        email: data.email,
+        role: data.role,
+        company: data.company,
+        department: data.department || 'Unassigned',
+        position: data.position || 'Staff Employee',
+        phone: data.phone || '',
+        onboarded: data.onboarded,
+        profilePicture: data.profilePicture || '',
+        token,
+      };
+    } catch (err) {
+      const errorMsg = err.response?.data?.message || 'Signup failed';
       throw new Error(errorMsg);
     }
   },

@@ -2,11 +2,7 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import { VitePWA } from 'vite-plugin-pwa';
-import { resolve, dirname } from 'path';
-import { fileURLToPath } from 'url';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
+import { resolve } from 'path';
 
 export default defineConfig(({ mode }) => ({
   plugins: [
@@ -16,10 +12,6 @@ export default defineConfig(({ mode }) => ({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'masked-icon.svg'],
 
-      // ─────────────────────────────────────────────
-      // FIX: workbox was missing — the service worker was registered
-      // but had no caching rules, so offline mode did nothing.
-      // ─────────────────────────────────────────────
       workbox: {
         // Cache static assets (JS, CSS, images) for 30 days
         runtimeCaching: [

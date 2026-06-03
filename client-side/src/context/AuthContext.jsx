@@ -117,22 +117,25 @@ export function AuthProvider({ children }) {
   }, []);
 
   // ── Auth actions ──────────────────────────────────────
-  const login = useCallback(async (email, password) => {
-    const userData = await authService.login(email, password);
-    setUser(userData);
-    setAuthSession(userData);
-    return { success: true };
-  }, []);
+  // Google sign-in: returns { isNewUser, googleProfile } for new users
+  // or sets session for existing users
+  const googleLogin = useCallback(async (payload) => {
+    const result = await authService.googleLogin(payload);
 
-  const signup = useCallback(async (userData) => {
-    const result = await authService.signup(userData);
+    // New user — don't set session yet, caller redirects to signup
+    if (result.isNewUser) {
+      return { isNewUser: true, googleProfile: result.googleProfile };
+    }
+
+    // Existing user — set session
     setUser(result);
     setAuthSession(result);
-    return { success: true };
+    return { isNewUser: false, user: result };
   }, []);
 
-  const googleLogin = useCallback(async (payload) => {
-    const userData = await authService.googleLogin(payload);
+  // Complete signup after Google auth — sets session
+  const googleCompleteSignup = useCallback(async (signupData) => {
+    const userData = await authService.googleCompleteSignup(signupData);
     setUser(userData);
     setAuthSession(userData);
     return { success: true };
@@ -162,9 +165,8 @@ export function AuthProvider({ children }) {
       user,
       isAuthenticated: !!user,
       isLoading,
-      login,
-      signup,
       googleLogin,
+      googleCompleteSignup,
       logout,
       updateUser,
     }}>

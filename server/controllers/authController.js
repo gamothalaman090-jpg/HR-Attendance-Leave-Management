@@ -1,13 +1,11 @@
 /**
  * Name: authController.js
- * PHASE 1 FIXES:
- *   - CRITICAL: Role escalation prevented — public register() can no longer set superadmin
- *   - CRITICAL: forgotPassword() now stores hashed token + expiry (was permanently broken)
- *   - NEW:      resetPassword() endpoint added (was missing entirely)
- *   - FIX:      Login audit log now uses 'auth_login' actionType (was 'profile_update')
- *   - FIX:      Failed logins are now logged with 'auth_failure' + WARN level
- *   - FIX:      JWT_EXPIRE respected from env (document token should be short, e.g. 15m)
- *   - FIX:      Nodemailer transporter is reused (not recreated per request)
+ * GOOGLE-ONLY AUTH:
+ *   - Removed register() and login() — authentication is Google OAuth only
+ *   - googleOAuth() returns isNewUser flag for unknown emails (no auto-create)
+ *   - NEW: googleCompleteSignup() — profile completion with optional custom password
+ *   - Default password: WelcomeNini123! (when no custom password provided)
+ *   - Kept: forgotPassword, resetPassword, changePassword, logout, updateProfile, onboardUser
  */
 
 const User = require('../models/User');
@@ -35,210 +33,73 @@ const generateToken = (id) => {
 };
 
 // ─────────────────────────────────────────────────────────
-// REGISTER
+// GOOGLE OAUTH  (Google-only auth — no email/password login)
+// Returns isNewUser flag if email not found in DB.
+// Existing users get logged in directly.
 // ─────────────────────────────────────────────────────────
-exports.register = async (req, res, next) => {
-  try {
-    const { fullname, email, password, department, position, company } = req.body;
+const { OAuth2Client } = require('google-auth-library');
+const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
-    if (!password) {
-      return res.status(400).json({ success: false, message: 'Please add a password' });
-    }
+const DEFAULT_PASSWORD = 'WelcomeNini123!';
 
-    // ─────────────────────────────────────────────
-    // FIX: ROLE ESCALATION PREVENTION
-    // BEFORE: role = req.body.role || 'admin'
-    //   → Any user could POST { role: 'superadmin' } and get superadmin access.
-    // AFTER: Public registration can only create 'admin' accounts.
-    //   Superadmin accounts must be provisioned manually/via seeder.
-    //   Employee ('user') accounts are created by admins via /api/admin/users.
-    // ─────────────────────────────────────────────
-    const targetRole = 'admin'; // HARDCODED — never trust client-supplied role
-
-    const userExists = await User.findOne({ email });
-    if (userExists) {
-      return res.status(400).json({ success: false, message: 'Email already registered' });
-    }
-
-    let targetCompany = company?.trim();
-    if (!targetCompany || targetCompany === 'Default Company') {
-      targetCompany = fullname ? `${fullname.trim()}'s Org` : 'Default Company';
-    }
-
-    const user = await User.create({
-      fullname,
-      email,
-      password,
-      role: targetRole,
-      company: targetCompany,
-      department: department || 'Unassigned',
-      position: position || 'Staff Employee',
-      employmentStatus: 'active',
-      onboarded: false,
-    });
-
-    const token = generateToken(user._id);
-
-    req.user = { company: user.company };
-    await createAuditLog(
-      user._id,
-      'profile_update',
-      `New admin registered: ${user.fullname} (${user.email}) — company: ${user.company}`,
-      req,
-      'INFO',
-      'AUTH'
-    );
-
-    res.status(201).json({
-      success: true,
-      message: 'Registration successful',
-      token,
-      data: {
-        id: user._id,
-        fullname: user.fullname,
-        email: user.email,
-        role: user.role,
-        company: user.company,
-        department: user.department,
-        position: user.position,
-        profilePicture: user.profilePicture || '',
-        onboarded: user.onboarded,
-      },
-    });
-  } catch (error) {
-    next(error);
-  }
-};
-
-// ─────────────────────────────────────────────────────────
-// LOGIN
-// ─────────────────────────────────────────────────────────
-exports.login = async (req, res, next) => {
-  try {
-    const { email, password } = req.body;
-
-    if (!email || !password) {
-      return res.status(400).json({ success: false, message: 'Please provide email and password' });
-    }
-
-    const user = await User.findOne({ email }).select('+password');
-
-    if (!user || !(await user.matchPassword(password))) {
-      // ─────────────────────────────────────────────
-      // FIX: Log failed login attempts (was not being tracked at all)
-      // Using 'auth_failure' actionType which exists in the Log schema
-      // ─────────────────────────────────────────────
-      if (user) {
-        await createAuditLog(
-          user._id,
-          'auth_failure',
-          `Failed login attempt for: ${email}`,
-          req,
-          'WARN',
-          'SECURITY'
-        );
-      }
-      return res.status(401).json({ success: false, message: 'Invalid credentials' });
-    }
-
-    if (user.employmentStatus === 'pending') {
-      return res.status(403).json({ success: false, message: 'Your account is pending admin approval' });
-    }
-
-    if (['suspended', 'terminated'].includes(user.employmentStatus)) {
-      return res.status(403).json({ success: false, message: 'Your account has been deactivated' });
-    }
-
-    const token = generateToken(user._id);
-
-    req.user = { company: user.company };
-    // ─────────────────────────────────────────────
-    // FIX: Was using actionType 'profile_update' for login events.
-    // Now correctly uses 'auth_login' which is defined in the Log schema enum.
-    // ─────────────────────────────────────────────
-    await createAuditLog(
-      user._id,
-      'auth_login',          // WAS: 'profile_update'
-      `User logged in successfully. Role: ${user.role.toUpperCase()}`,
-      req,
-      'INFO',
-      'AUTH'
-    );
-
-    res.status(200).json({
-      success: true,
-      token,
-      data: {
-        id: user._id,
-        fullname: user.fullname,
-        email: user.email,
-        role: user.role,
-        company: user.company,
-        department: user.department,
-        position: user.position,
-        profilePicture: user.profilePicture || '',
-        onboarded: user.onboarded,
-      },
-      message: 'Login successful',
-    });
-  } catch (error) {
-    next(error);
-  }
-};
-
-// ─────────────────────────────────────────────────────────
-// GOOGLE OAUTH
-// ─────────────────────────────────────────────────────────
 exports.googleOAuth = async (req, res, next) => {
   try {
-    const { email, fullname, providerId, profilePicture } = req.body;
+    const { credential } = req.body;
 
-    if (!email || !providerId || !fullname) {
+    if (!credential) {
       return res.status(400).json({
         success: false,
-        message: 'Incomplete OAuth data profile payload',
+        message: 'Missing Google credential token',
+      });
+    }
+
+    // Verify the Google ID token server-side
+    let ticket;
+    try {
+      ticket = await googleClient.verifyIdToken({
+        idToken: credential,
+        audience: process.env.GOOGLE_CLIENT_ID,
+      });
+    } catch (verifyError) {
+      console.error('Google token verification failed:', verifyError.message);
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid Google credential',
+      });
+    }
+
+    const payload = ticket.getPayload();
+    const { email, name, sub: providerId, picture: profilePicture, email_verified } = payload;
+
+    // Only allow verified Google emails
+    if (!email_verified) {
+      return res.status(403).json({
+        success: false,
+        message: 'Google email is not verified. Please verify your email with Google first.',
       });
     }
 
     let user = await User.findOne({ email });
-    let isNewRegistration = false;
 
-    if (user) {
-      if (user.authProvider === 'local') {
-        user.authProvider = 'google';
-        user.providerId = providerId;
-        if (!user.profilePicture && profilePicture) user.profilePicture = profilePicture;
-        await user.save();
-      }
-    } else {
-      const targetCompany = req.body.company || 'Default Company';
-      const employeeCount = await User.countDocuments({
-        role: 'user',
-        employmentStatus: { $ne: 'terminated' },
-        company: targetCompany,
+    // ── New user — return profile info, don't create account yet ──
+    if (!user) {
+      return res.status(200).json({
+        success: true,
+        isNewUser: true,
+        googleProfile: {
+          email,
+          name,
+          picture: profilePicture || '',
+        },
       });
+    }
 
-      if (employeeCount >= 10) {
-        return res.status(400).json({
-          success: false,
-          message: 'Tier Limit Reached: This company has reached the maximum of 10 employees.',
-        });
-      }
-
-      isNewRegistration = true;
-      user = await User.create({
-        fullname,
-        email,
-        authProvider: 'google',
-        providerId,
-        profilePicture: profilePicture || '',
-        role: 'user',
-        company: targetCompany,
-        department: 'Unassigned',
-        position: 'Staff Employee',
-        employmentStatus: 'pending',
-        onboarded: true,
-      });
+    // ── Existing user — link authProvider if was local ──
+    if (user.authProvider === 'local') {
+      user.authProvider = 'google';
+      user.providerId = providerId;
+      if (!user.profilePicture && profilePicture) user.profilePicture = profilePicture;
+      await user.save();
     }
 
     if (user.employmentStatus === 'pending') {
@@ -255,17 +116,133 @@ exports.googleOAuth = async (req, res, next) => {
     await createAuditLog(
       user._id,
       'auth_login',
-      isNewRegistration
-        ? `New user provisioned via Google OAuth: ${user.fullname} (${user.email})`
-        : `User authenticated via Google OAuth: ${user._id}`,
+      `User authenticated via Google OAuth: ${user._id}`,
       req,
       'INFO',
       'AUTH'
     );
 
-    return res.status(isNewRegistration ? 201 : 200).json({
+    return res.status(200).json({
       success: true,
-      message: isNewRegistration ? 'OAuth profile provisioned' : 'OAuth login successful',
+      isNewUser: false,
+      message: 'OAuth login successful',
+      token,
+      data: {
+        id: user._id,
+        fullname: user.fullname,
+        email: user.email,
+        role: user.role,
+        company: user.company,
+        department: user.department,
+        position: user.position,
+        profilePicture: user.profilePicture || '',
+        onboarded: user.onboarded,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// ─────────────────────────────────────────────────────────
+// GOOGLE COMPLETE SIGNUP
+// Called after googleOAuth returns isNewUser: true.
+// Creates the admin account with optional custom password.
+// ─────────────────────────────────────────────────────────
+exports.googleCompleteSignup = async (req, res, next) => {
+  try {
+    const { credential, company, password } = req.body;
+
+    if (!credential) {
+      return res.status(400).json({
+        success: false,
+        message: 'Missing Google credential token',
+      });
+    }
+
+    // Re-verify Google token (never trust client-cached profile)
+    let ticket;
+    try {
+      ticket = await googleClient.verifyIdToken({
+        idToken: credential,
+        audience: process.env.GOOGLE_CLIENT_ID,
+      });
+    } catch (verifyError) {
+      console.error('Google token verification failed:', verifyError.message);
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid or expired Google credential. Please sign in with Google again.',
+      });
+    }
+
+    const payload = ticket.getPayload();
+    const { email, name, sub: providerId, picture: profilePicture, email_verified } = payload;
+
+    if (!email_verified) {
+      return res.status(403).json({
+        success: false,
+        message: 'Google email is not verified.',
+      });
+    }
+
+    // Prevent duplicate registration
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return res.status(400).json({
+        success: false,
+        message: 'An account with this email already exists. Please sign in instead.',
+      });
+    }
+
+    // Company name
+    let targetCompany = company?.trim();
+    if (!targetCompany || targetCompany === 'Default Company') {
+      targetCompany = name ? `${name.trim()}'s Org` : 'Default Company';
+    }
+
+    // Password: use custom if provided (min 8 chars), otherwise default
+    let userPassword = DEFAULT_PASSWORD;
+    if (password && password.trim().length > 0) {
+      if (password.length < 8) {
+        return res.status(400).json({
+          success: false,
+          message: 'Password must be at least 8 characters',
+        });
+      }
+      userPassword = password;
+    }
+
+    const user = await User.create({
+      fullname: name,
+      email,
+      password: userPassword,
+      authProvider: 'google',
+      providerId,
+      profilePicture: profilePicture || '',
+      role: 'admin',
+      company: targetCompany,
+      department: 'Unassigned',
+      position: 'Staff Employee',
+      employmentStatus: 'active',
+      onboarded: false,
+    });
+
+    const token = generateToken(user._id);
+
+    req.user = { company: user.company };
+    await createAuditLog(
+      user._id,
+      'profile_update',
+      `New admin registered via Google OAuth: ${user.fullname} (${user.email}) — company: ${user.company}`,
+      req,
+      'INFO',
+      'AUTH'
+    );
+
+    return res.status(201).json({
+      success: true,
+      isNewUser: false,
+      message: 'Account created successfully',
       token,
       data: {
         id: user._id,

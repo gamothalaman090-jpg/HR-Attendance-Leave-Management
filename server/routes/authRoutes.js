@@ -1,7 +1,8 @@
 /**
  * Name: authRoutes.js
- * PHASE 1 FIXES:
- *   - Added PUT /reset-password route (was missing — forgotPassword had no matching reset endpoint)
+ * GOOGLE-ONLY AUTH:
+ *   - Removed POST /register and POST /login (Google OAuth only)
+ *   - Added POST /google/complete-signup for new user profile completion
  */
 
 const express = require('express');
@@ -10,23 +11,21 @@ const { protect } = require('../middlewares/authMiddleware');
 const router = express.Router();
 
 const {
-  register,
-  login,
+  googleOAuth,
+  googleCompleteSignup,
   forgotPassword,
-  resetPassword,   // FIX: Added — was missing
+  resetPassword,
   logout,
   changePassword,
   updateProfile,
-  googleOAuth,
   onboardUser,
 } = require('../controllers/authController');
 
-// Public routes
-router.post('/register', register);
-router.post('/login', login);
+// Public routes (Google OAuth)
 router.post('/google', googleOAuth);
+router.post('/google/complete-signup', googleCompleteSignup);
 router.post('/forgotpassword', forgotPassword);
-router.put('/reset-password', resetPassword);   // FIX: New endpoint added
+router.put('/reset-password', resetPassword);
 
 // Protected routes (require valid JWT)
 router.post('/logout', protect, logout);

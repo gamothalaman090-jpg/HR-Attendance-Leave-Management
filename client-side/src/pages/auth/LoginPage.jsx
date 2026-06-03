@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Meta from '@/components/common/Meta';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -15,8 +15,10 @@ const loginSchema = z.object({
 
 export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
+  const [googleError, setGoogleError] = useState('');
   const { login, googleLogin } = useAuth();
   const navigate = useNavigate();
+  const googleBtnRef = useRef(null);
 
   const containerRef = useGsap((gsap, el) => {
     const targets = el.querySelectorAll('[data-anim]');
@@ -46,35 +48,50 @@ export default function LoginPage() {
     }
   };
 
-  const handleGoogleLogin = async () => {
-    try {
-      // Google Identity Services integration
-      if (!window.google?.accounts?.id) {
-        setError('root', { message: 'Google Sign-In is not available. Please try again later.' });
-        return;
-      }
+  // Initialize Google Sign-In button
+  useEffect(() => {
+    const initGoogleSignIn = () => {
+      if (!window.google?.accounts?.id || !googleBtnRef.current) return;
+
       window.google.accounts.id.initialize({
         client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID,
         callback: async (response) => {
           try {
-            const decoded = JSON.parse(atob(response.credential.split('.')[1]));
-            await googleLogin({
-              email: decoded.email,
-              fullname: decoded.name,
-              providerId: decoded.sub,
-              profilePicture: decoded.picture,
-            });
+            setGoogleError('');
+            await googleLogin({ credential: response.credential });
             navigate('/app');
           } catch (err) {
-            setError('root', { message: err.message || 'Google sign-in failed' });
+            setGoogleError(err.message || 'Google sign-in failed');
           }
         },
+        ux_mode: 'popup',
       });
-      window.google.accounts.id.prompt();
-    } catch (err) {
-      setError('root', { message: 'Google sign-in unavailable' });
+
+      window.google.accounts.id.renderButton(googleBtnRef.current, {
+        type: 'standard',
+        theme: 'outline',
+        size: 'large',
+        text: 'signin_with',
+        shape: 'pill',
+        width: googleBtnRef.current.offsetWidth || 400,
+      });
+    };
+
+    // GIS script may still be loading (async defer)
+    if (window.google?.accounts?.id) {
+      initGoogleSignIn();
+    } else {
+      const interval = setInterval(() => {
+        if (window.google?.accounts?.id) {
+          clearInterval(interval);
+          initGoogleSignIn();
+        }
+      }, 100);
+      // Stop checking after 5 seconds
+      setTimeout(() => clearInterval(interval), 5000);
+      return () => clearInterval(interval);
     }
-  };
+  }, [googleLogin, navigate]);
 
   return (
     <div ref={containerRef}>
@@ -163,21 +180,17 @@ export default function LoginPage() {
         <div className="flex-1 h-px bg-border" />
       </div>
 
-      {/* Google Sign-In Button */}
-      <button
-        data-anim
-        type="button"
-        onClick={handleGoogleLogin}
-        className="w-full flex items-center justify-center gap-3 bg-surface border border-border py-3 rounded-[10px] font-medium text-body text-text hover:bg-surface-alt hover:border-border-hover transition-all cursor-pointer"
-      >
-        <svg width="20" height="20" viewBox="0 0 24 24">
-          <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/>
-          <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
-          <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
-          <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
-        </svg>
-        Sign in with Google
-      </button>
+      {/* Google Sign-In Error */}
+      {googleError && (
+        <div data-anim className="mb-3 p-3 rounded-[8px] bg-danger/5 border border-danger/20 text-body-sm text-danger">
+          {googleError}
+        </div>
+      )}
+
+      {/* Google Sign-In Button (rendered by Google Identity Services) */}
+      <div data-anim className="flex justify-center">
+        <div ref={googleBtnRef} className="w-full" />
+      </div>
 
       <p data-anim className="mt-8 text-center text-body-sm text-text-muted">
         Don't have an account?{' '}
