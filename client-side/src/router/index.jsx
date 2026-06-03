@@ -36,6 +36,8 @@ const LandingPage        = lazy(() => import('@/pages/public/LandingPage'));
 const FeaturesPage       = lazy(() => import('@/pages/public/FeaturesPage'));
 const PricingPage        = lazy(() => import('@/pages/public/PricingPage'));
 const ContactPage        = lazy(() => import('@/pages/public/ContactPage'));
+const TermsOfServicePage = lazy(() => import('@/pages/public/TermsOfServicePage'));
+const PrivacyPolicyPage  = lazy(() => import('@/pages/public/PrivacyPolicyPage'));
 
 const LoginPage          = lazy(() => import('@/pages/auth/LoginPage'));
 const SignupPage         = lazy(() => import('@/pages/auth/SignupPage'));
@@ -67,10 +69,12 @@ const router = createBrowserRouter([
     element: <MarketingLayout />,
     errorElement: <ErrorPage />,
     children: [
-      { path: '/',          element: wrap(LandingPage) },
-      { path: '/features',  element: wrap(FeaturesPage) },
-      { path: '/pricing',   element: wrap(PricingPage) },
-      { path: '/contact',   element: wrap(ContactPage) },
+      { path: '/',                  element: wrap(LandingPage) },
+      { path: '/features',          element: wrap(FeaturesPage) },
+      { path: '/pricing',           element: wrap(PricingPage) },
+      { path: '/contact',           element: wrap(ContactPage) },
+      { path: '/terms-of-service',  element: wrap(TermsOfServicePage) },
+      { path: '/privacy-policy',    element: wrap(PrivacyPolicyPage) },
     ],
   },
 
