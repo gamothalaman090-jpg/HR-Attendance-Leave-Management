@@ -8,16 +8,7 @@ Nini HR is architected as a **fully integrated multi-tenant client-server applic
 
 ## 🚀 Key Features & Architecture
 
-```mermaid
-graph TD
-    Client[React SPA Portal] -->|HTTP / REST API| Gateway[API Gateway & Rate Limiters]
-    Super[Superadmin Console] -->|HTTP / REST API| Gateway
-    Gateway --> Auth{JWT Authenticated?}
-    Auth -->|Yes| Controllers[Controllers & Scoped Tenants]
-    Auth -->|No| Reject[401 Unauthorized]
-    Controllers --> Log[Audit Logging Engine]
-    Controllers --> DB[(MongoDB Database Cluster)]
-```
+
 
 ### 🔐 Authentication & Dynamic RBAC (Multi-Tenant)
 Nini HR features an active role-based routing engine (`ProtectedRoute`) and strict company-based data isolation:
