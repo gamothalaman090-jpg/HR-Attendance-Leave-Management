@@ -252,4 +252,4 @@ cd ../superadmin-side
 npm run build
 ```
 
-These scripts compile the client code into a lightweight `/dist` folder with cached asset mappings, fully optimized for static web hosts (Vercel, Netlify, AWS S3).
+
